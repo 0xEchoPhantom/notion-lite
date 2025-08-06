@@ -55,6 +55,33 @@ export const Editor: React.FC<EditorProps> = () => {
     }, 50);
   }, [blocks, createNewBlock, indentBlock]);
 
+  // Duplicate current block (Notion behavior)
+  const handleDuplicateBlock = useCallback(async (blockId: string) => {
+    const currentBlock = blocks.find(b => b.id === blockId);
+    if (!currentBlock) return;
+
+    // Create new block with same content, type, and indent level
+    const newBlockId = await createNewBlock(currentBlock.type, currentBlock.content, blockId);
+    
+    // Set the same indent level
+    if (currentBlock.indentLevel > 0) {
+      setTimeout(async () => {
+        for (let i = 0; i < currentBlock.indentLevel; i++) {
+          await indentBlock(newBlockId);
+        }
+      }, 10);
+    }
+    
+    // Focus the new block
+    setTimeout(() => {
+      setSelectedBlockId(newBlockId);
+      const newBlockElement = document.querySelector(`[data-block-id="${newBlockId}"] input`);
+      if (newBlockElement) {
+        (newBlockElement as HTMLInputElement).focus();
+      }
+    }, 50);
+  }, [blocks, createNewBlock, indentBlock]);
+
   // Merge current block content up to previous block
   const handleMergeUp = useCallback(async (blockId: string) => {
     const currentBlockIndex = blocks.findIndex(b => b.id === blockId);
@@ -173,6 +200,7 @@ export const Editor: React.FC<EditorProps> = () => {
               onIndent={() => handleIndent(block.id)}
               onOutdent={() => handleOutdent(block.id)}
               onDeleteBlock={() => handleDeleteBlock(block.id)}
+              onDuplicateBlock={() => handleDuplicateBlock(block.id)}
             />
           </div>
         ))}

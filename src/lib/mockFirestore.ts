@@ -1,8 +1,8 @@
 import { Block, Page, BlockType } from '@/types';
 
 // In-memory storage for local development
-let mockPages: Map<string, Page> = new Map();
-let mockBlocks: Map<string, Block> = new Map();
+const mockPages: Map<string, Page> = new Map();
+const mockBlocks: Map<string, Block> = new Map();
 let idCounter = 1;
 
 const generateId = () => `mock-${idCounter++}`;
@@ -22,11 +22,11 @@ export const createPage = async (userId: string, title: string): Promise<string>
   return id;
 };
 
-export const getPages = async (userId: string): Promise<Page[]> => {
+export const getPages = async (_userId: string): Promise<Page[]> => {
   return Array.from(mockPages.values());
 };
 
-export const updatePage = async (userId: string, pageId: string, updates: Partial<Page>): Promise<void> => {
+export const updatePage = async (_userId: string, pageId: string, updates: Partial<Page>): Promise<void> => {
   const page = mockPages.get(pageId);
   if (page) {
     mockPages.set(pageId, {
@@ -157,7 +157,7 @@ export const initializeMockData = () => {
   }
 };
 
-export default {
+const mockFirestore = {
   createPage,
   getPages,
   updatePage,
@@ -169,3 +169,5 @@ export default {
   reorderBlocks,
   initializeMockData,
 };
+
+export default mockFirestore;

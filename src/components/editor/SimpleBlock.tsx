@@ -17,6 +17,7 @@ interface SimpleBlockProps {
   onIndent: () => void;
   onOutdent: () => void;
   onDeleteBlock: () => void;
+  onDuplicateBlock: () => void;
 }
 
 export const SimpleBlock: React.FC<SimpleBlockProps> = ({
@@ -30,6 +31,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
   onIndent,
   onOutdent,
   onDeleteBlock,
+  onDuplicateBlock,
 }) => {
   const { updateBlockContent, convertBlockType, toggleTodoCheck } = useBlocksWithKeyboard();
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
@@ -86,11 +88,30 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
       updateBlockContent(block.id, { content: '' });
       setLocalContent('');
     } else if (content.match(/^\d+\. $/)) {
-      // Handle numbered lists (though we don't have numbered-list type yet)
-      // For now, convert to bulleted list
+      // Handle numbered lists - convert to bulleted list for now since we only have 3 types
       convertBlockType(block.id, 'bulleted-list');
       updateBlockContent(block.id, { content: '' });
       setLocalContent('');
+    } else if (content === '# ') {
+      // H1 heading - convert to paragraph with prefix for now
+      updateBlockContent(block.id, { content: '# ' });
+      setLocalContent('# ');
+    } else if (content === '## ') {
+      // H2 heading - convert to paragraph with prefix for now
+      updateBlockContent(block.id, { content: '## ' });
+      setLocalContent('## ');
+    } else if (content === '### ') {
+      // H3 heading - convert to paragraph with prefix for now
+      updateBlockContent(block.id, { content: '### ' });
+      setLocalContent('### ');
+    } else if (content === '> ') {
+      // Quote block - convert to paragraph with prefix for now
+      updateBlockContent(block.id, { content: '> ' });
+      setLocalContent('> ');
+    } else if (content === '--- ') {
+      // Divider - convert to paragraph with prefix for now
+      updateBlockContent(block.id, { content: '--- ' });
+      setLocalContent('--- ');
     }
 
     // Handle slash command
@@ -117,6 +138,28 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
     // Skip keyboard shortcuts during Vietnamese composition
     if (isComposing) {
       return;
+    }
+
+    // ESC: Select current block (Notion behavior)
+    if (key === 'Escape') {
+      e.preventDefault();
+      onSelect();
+      input?.blur(); // Remove focus to show block selection
+      return;
+    }
+
+    // Cmd/Ctrl + A: Select current block when at start/end or all text selected
+    if (cmdKey && key === 'a') {
+      if (input && (
+        (input.selectionStart === 0 && input.selectionEnd === 0) ||
+        (input.selectionStart === 0 && input.selectionEnd === input.value.length) ||
+        input.value.length === 0
+      )) {
+        e.preventDefault();
+        onSelect();
+        input.blur(); // Remove focus to show block selection
+        return;
+      }
     }
 
     // Cmd/Ctrl + Enter: Toggle todo
@@ -235,7 +278,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
       }
     }
 
-    // Cmd/Ctrl + /: Show slash menu
+    // Cmd/Ctrl + /: Show block menu (Notion behavior)
     if (cmdKey && key === '/') {
       e.preventDefault();
       const rect = inputRef.current?.getBoundingClientRect();
@@ -252,10 +295,86 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
     // Cmd/Ctrl + D: Duplicate block (Notion behavior)
     if (cmdKey && key === 'd') {
       e.preventDefault();
-      // This would need to be implemented in the Editor component
-      // For now, we'll create a new block with the same content
-      onNewBlock();
+      onDuplicateBlock();
       return;
+    }
+
+    // Text formatting shortcuts (Notion behavior)
+    if (cmdKey && input && input.selectionStart !== input.selectionEnd) {
+      const start = input.selectionStart || 0;
+      const end = input.selectionEnd || 0;
+      const selectedText = localContent.substring(start, end);
+      
+      if (key === 'b') {
+        e.preventDefault();
+        const newContent = 
+          localContent.substring(0, start) + 
+          `**${selectedText}**` + 
+          localContent.substring(end);
+        setLocalContent(newContent);
+        updateBlockContent(block.id, { content: newContent });
+        // Set cursor after the formatting
+        setTimeout(() => {
+          input.setSelectionRange(end + 4, end + 4);
+        }, 0);
+        return;
+      }
+      
+      if (key === 'i') {
+        e.preventDefault();
+        const newContent = 
+          localContent.substring(0, start) + 
+          `*${selectedText}*` + 
+          localContent.substring(end);
+        setLocalContent(newContent);
+        updateBlockContent(block.id, { content: newContent });
+        setTimeout(() => {
+          input.setSelectionRange(end + 2, end + 2);
+        }, 0);
+        return;
+      }
+      
+      if (key === 'u') {
+        e.preventDefault();
+        const newContent = 
+          localContent.substring(0, start) + 
+          `__${selectedText}__` + 
+          localContent.substring(end);
+        setLocalContent(newContent);
+        updateBlockContent(block.id, { content: newContent });
+        setTimeout(() => {
+          input.setSelectionRange(end + 4, end + 4);
+        }, 0);
+        return;
+      }
+      
+      if (key === 'e') {
+        e.preventDefault();
+        const newContent = 
+          localContent.substring(0, start) + 
+          `\`${selectedText}\`` + 
+          localContent.substring(end);
+        setLocalContent(newContent);
+        updateBlockContent(block.id, { content: newContent });
+        setTimeout(() => {
+          input.setSelectionRange(end + 2, end + 2);
+        }, 0);
+        return;
+      }
+      
+      if (shiftKey && key === 'S') {
+        e.preventDefault();
+        const newContent = 
+          localContent.substring(0, start) + 
+          `~~${selectedText}~~` + 
+          localContent.substring(end);
+        setLocalContent(newContent);
+        updateBlockContent(block.id, { content: newContent });
+        setTimeout(() => {
+          input.setSelectionRange(end + 4, end + 4);
+        }, 0);
+        return;
+      }
     }
 
     // Notion-style block creation shortcuts (Cmd/Ctrl + Shift + number)
@@ -264,6 +383,24 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
         case '0':
           e.preventDefault();
           convertBlockType(block.id, 'paragraph');
+          return;
+        case '1':
+          e.preventDefault();
+          // H1 heading - convert to paragraph with heading prefix for now
+          updateBlockContent(block.id, { content: '# ' + localContent });
+          setLocalContent('# ' + localContent);
+          return;
+        case '2':
+          e.preventDefault();
+          // H2 heading - convert to paragraph with heading prefix for now
+          updateBlockContent(block.id, { content: '## ' + localContent });
+          setLocalContent('## ' + localContent);
+          return;
+        case '3':
+          e.preventDefault();
+          // H3 heading - convert to paragraph with heading prefix for now
+          updateBlockContent(block.id, { content: '### ' + localContent });
+          setLocalContent('### ' + localContent);
           return;
         case '4':
           e.preventDefault();
@@ -287,7 +424,11 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
     onNewBlock,
     onDeleteBlock,
     onMergeUp,
+    onDuplicateBlock,
+    onSelect,
     isComposing,
+    convertBlockType,
+    updateBlockContent,
   ]);
 
   // Handle Vietnamese input composition with better timing
@@ -314,10 +455,30 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
       updateBlockContent(block.id, { content: '' });
       setLocalContent('');
     } else if (content.match(/^\d+\. $/)) {
-      // Handle numbered lists (convert to bulleted for now)
+      // Handle numbered lists - convert to bulleted list for now since we only have 3 types
       convertBlockType(block.id, 'bulleted-list');
       updateBlockContent(block.id, { content: '' });
       setLocalContent('');
+    } else if (content === '# ') {
+      // H1 heading - convert to paragraph with prefix for now
+      updateBlockContent(block.id, { content: '# ' });
+      setLocalContent('# ');
+    } else if (content === '## ') {
+      // H2 heading - convert to paragraph with prefix for now
+      updateBlockContent(block.id, { content: '## ' });
+      setLocalContent('## ');
+    } else if (content === '### ') {
+      // H3 heading - convert to paragraph with prefix for now
+      updateBlockContent(block.id, { content: '### ' });
+      setLocalContent('### ');
+    } else if (content === '> ') {
+      // Quote block - convert to paragraph with prefix for now
+      updateBlockContent(block.id, { content: '> ' });
+      setLocalContent('> ');
+    } else if (content === '--- ') {
+      // Divider - convert to paragraph with prefix for now
+      updateBlockContent(block.id, { content: '--- ' });
+      setLocalContent('--- ');
     }
     
     // Handle slash command after composition ends
@@ -402,12 +563,18 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
       className={clsx(
         'opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing',
         'flex items-center justify-center w-4 h-6 text-gray-400 hover:text-gray-600',
-        'absolute left-0 top-1'
+        'absolute -left-6 top-1 hover:bg-gray-100 rounded',
+        isSelected && 'opacity-100'
       )}
+      title="Drag to move"
     >
-      <svg width="10" height="4" viewBox="0 0 10 4" fill="currentColor">
-        <circle cx="2" cy="2" r="1" />
-        <circle cx="8" cy="2" r="1" />
+      <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
+        <circle cx="2" cy="3" r="1" />
+        <circle cx="8" cy="3" r="1" />
+        <circle cx="2" cy="8" r="1" />
+        <circle cx="8" cy="8" r="1" />
+        <circle cx="2" cy="13" r="1" />
+        <circle cx="8" cy="13" r="1" />
       </svg>
     </div>
   );
@@ -415,13 +582,13 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
   const getPlaceholder = () => {
     switch (block.type) {
       case 'paragraph':
-        return "Type '/' for commands";
+        return localContent === '' ? "Type '/' for commands or start writing..." : '';
       case 'bulleted-list':
-        return 'List item';
+        return localContent === '' ? 'List item' : '';
       case 'todo-list':
-        return 'To-do';
+        return localContent === '' ? 'To-do' : '';
       default:
-        return 'Start typing...';
+        return localContent === '' ? 'Start typing...' : '';
     }
   };
 
@@ -429,9 +596,9 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
     <>
       <div
         className={clsx(
-          'group relative flex items-start gap-2 py-1 px-2 rounded hover:bg-gray-50',
-          'transition-colors duration-150',
-          isSelected && 'bg-gray-50',
+          'group relative flex items-start gap-2 py-1 px-2 mx-2 rounded hover:bg-gray-50',
+          'transition-colors duration-150 border-l-2 border-transparent',
+          isSelected && 'bg-blue-50 border-l-blue-500',
           block.isChecked && 'opacity-60'
         )}
       >
