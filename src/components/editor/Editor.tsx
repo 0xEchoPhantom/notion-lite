@@ -32,17 +32,7 @@ export const Editor: React.FC<EditorProps> = () => {
 
     // Create new block with same type and indent level as current block
     const newBlockType = currentBlock.type;
-    const newBlockId = await createNewBlock(newBlockType, '', blockId);
-    
-    // Set the same indent level
-    if (currentBlock.indentLevel > 0) {
-      // Use setTimeout to ensure the block is created before indenting
-      setTimeout(async () => {
-        for (let i = 0; i < currentBlock.indentLevel; i++) {
-          await indentBlock(newBlockId);
-        }
-      }, 10);
-    }
+    const newBlockId = await createNewBlock(newBlockType, '', blockId, currentBlock.indentLevel);
     
     // Focus the new block
     setTimeout(() => {
@@ -53,7 +43,7 @@ export const Editor: React.FC<EditorProps> = () => {
         (newBlockElement as HTMLInputElement).focus();
       }
     }, 50);
-  }, [blocks, createNewBlock, indentBlock]);
+  }, [blocks, createNewBlock]);
 
   // Duplicate current block (Notion behavior)
   const handleDuplicateBlock = useCallback(async (blockId: string) => {
@@ -61,16 +51,7 @@ export const Editor: React.FC<EditorProps> = () => {
     if (!currentBlock) return;
 
     // Create new block with same content, type, and indent level
-    const newBlockId = await createNewBlock(currentBlock.type, currentBlock.content, blockId);
-    
-    // Set the same indent level
-    if (currentBlock.indentLevel > 0) {
-      setTimeout(async () => {
-        for (let i = 0; i < currentBlock.indentLevel; i++) {
-          await indentBlock(newBlockId);
-        }
-      }, 10);
-    }
+    const newBlockId = await createNewBlock(currentBlock.type, currentBlock.content, blockId, currentBlock.indentLevel);
     
     // Focus the new block
     setTimeout(() => {
@@ -80,7 +61,7 @@ export const Editor: React.FC<EditorProps> = () => {
         (newBlockElement as HTMLInputElement).focus();
       }
     }, 50);
-  }, [blocks, createNewBlock, indentBlock]);
+  }, [blocks, createNewBlock]);
 
   // Merge current block content up to previous block
   const handleMergeUp = useCallback(async (blockId: string) => {

@@ -10,7 +10,8 @@ export const useBlocksWithKeyboard = () => {
   const createNewBlock = useCallback(async (
     type: BlockType = 'paragraph',
     content: string = '',
-    insertAfter?: string
+    insertAfter?: string,
+    indentLevel: number = 0
   ) => {
     let order: number;
     
@@ -38,7 +39,7 @@ export const useBlocksWithKeyboard = () => {
     const baseBlock: Omit<Block, 'id' | 'createdAt' | 'updatedAt'> = {
       type,
       content,
-      indentLevel: 0,
+      indentLevel,
       order
     };
 
