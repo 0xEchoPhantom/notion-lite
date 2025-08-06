@@ -45,11 +45,17 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
     }
   }, [isSelected]);
 
-  // Handle content changes
+  // Handle content changes with better Vietnamese input support
+  const handleInput = useCallback((e: React.FormEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const content = (e.target as HTMLInputElement).value;
+    
+    // Always update content immediately for proper Vietnamese typing
+    updateBlockContent(block.id, { content });
+  }, [block.id, updateBlockContent]);
+
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const content = e.target.value;
-    updateBlockContent(block.id, { content });
-
+    
     // Skip markdown shortcuts and slash commands during Vietnamese composition
     if (isComposing) {
       return;
@@ -226,14 +232,39 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
     isComposing,
   ]);
 
-  // Handle Vietnamese input composition
+  // Handle Vietnamese input composition with better timing
   const handleCompositionStart = useCallback(() => {
     setIsComposing(true);
+    setShowSlashMenu(false); // Hide slash menu during composition
   }, []);
 
-  const handleCompositionEnd = useCallback(() => {
+  const handleCompositionEnd = useCallback((e: React.CompositionEvent<HTMLInputElement>) => {
     setIsComposing(false);
-  }, []);
+    
+    // Process the final composed text for shortcuts
+    const content = (e.target as HTMLInputElement).value;
+    
+    // Handle markdown shortcuts after composition ends
+    if (content === '- ') {
+      convertBlockType(block.id, 'bulleted-list');
+      updateBlockContent(block.id, { content: '' });
+    } else if (content === '[] ') {
+      convertBlockType(block.id, 'todo-list');
+      updateBlockContent(block.id, { content: '' });
+    }
+    
+    // Handle slash command after composition ends
+    if (content.endsWith('/')) {
+      const rect = inputRef.current?.getBoundingClientRect();
+      if (rect) {
+        setSlashMenuPosition({
+          x: rect.left,
+          y: rect.bottom + 4,
+        });
+        setShowSlashMenu(true);
+      }
+    }
+  }, [block.id, convertBlockType, updateBlockContent]);
 
   const handleSlashMenuSelect = (type: BType) => {
     convertBlockType(block.id, type);
@@ -344,6 +375,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
             ref={inputRef as React.RefObject<HTMLInputElement>}
             type="text"
             value={block.content}
+            onInput={handleInput}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
             onFocus={handleFocus}
