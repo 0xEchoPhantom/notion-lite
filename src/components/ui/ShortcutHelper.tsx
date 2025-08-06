@@ -11,9 +11,9 @@ export const ShortcutHelper: React.FC<ShortcutHelperProps> = ({ className }) => 
   const [isOpen, setIsOpen] = useState(false);
 
   const shortcuts = [
-    { key: 'Enter', desc: 'Create new block (same type)' },
-    { key: 'Tab', desc: 'Indent (for lists)' },
-    { key: 'Shift + Tab', desc: 'Outdent' },
+    { key: 'Enter', desc: 'Create new block (same type & indent)' },
+    { key: 'Tab', desc: 'Indent block (all types)' },
+    { key: 'Shift + Tab', desc: 'Outdent block (all types)' },
     { key: 'Escape', desc: 'Select current block' },
     { key: 'Cmd/Ctrl + A', desc: 'Select current block (when at start/end)' },
     { key: 'Cmd/Ctrl + D', desc: 'Duplicate current block' },

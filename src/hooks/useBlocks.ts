@@ -73,16 +73,26 @@ export const useBlocksWithKeyboard = () => {
     await updateBlockContent(blockId, { isChecked: !block.isChecked });
   }, [blocks, updateBlockContent]);
 
+  /**
+   * Indents a block (increases nesting level)
+   * Supports all block types with a maximum depth of 5 levels
+   * @param blockId - The ID of the block to indent
+   */
   const indentBlock = useCallback(async (blockId: string) => {
     const block = blocks.find(b => b.id === blockId);
     if (!block) return;
 
-    // Only indent if we're a list type and current level < 5
-    if ((block.type === 'bulleted-list' || block.type === 'todo-list') && block.indentLevel < 5) {
+    // Allow indentation for all block types with max level of 5
+    if (block.indentLevel < 5) {
       await updateBlockContent(blockId, { indentLevel: block.indentLevel + 1 });
     }
   }, [blocks, updateBlockContent]);
 
+  /**
+   * Outdents a block (decreases nesting level)
+   * Works for all block types
+   * @param blockId - The ID of the block to outdent
+   */
   const outdentBlock = useCallback(async (blockId: string) => {
     const block = blocks.find(b => b.id === blockId);
     if (!block) return;

@@ -4,6 +4,14 @@ import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { Block as BlockType, BlockType as BType } from '@/types';
 import { useBlocksWithKeyboard } from '@/hooks/useBlocks';
 import { SlashMenu } from './SlashMenu';
+import { 
+  getIndentStyle, 
+  getMarkdownShortcut, 
+  getBlockPlaceholder,
+  applyTextFormatting,
+  getBlockFeatures 
+} from '@/utils/editor';
+import { KEYBOARD_SHORTCUTS } from '@/constants/editor';
 import clsx from 'clsx';
 
 interface SimpleBlockProps {
@@ -78,40 +86,14 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
     // Update the block content
     updateBlockContent(block.id, { content });
 
-    // Handle markdown shortcuts
-    if (content === '- ' || content === '* ' || content === '+ ') {
-      convertBlockType(block.id, 'bulleted-list');
-      updateBlockContent(block.id, { content: '' });
-      setLocalContent('');
-    } else if (content === '[] ' || content === '[ ] ') {
-      convertBlockType(block.id, 'todo-list');
-      updateBlockContent(block.id, { content: '' });
-      setLocalContent('');
-    } else if (content.match(/^\d+\. $/)) {
-      // Handle numbered lists - convert to bulleted list for now since we only have 3 types
-      convertBlockType(block.id, 'bulleted-list');
-      updateBlockContent(block.id, { content: '' });
-      setLocalContent('');
-    } else if (content === '# ') {
-      // H1 heading - convert to paragraph with prefix for now
-      updateBlockContent(block.id, { content: '# ' });
-      setLocalContent('# ');
-    } else if (content === '## ') {
-      // H2 heading - convert to paragraph with prefix for now
-      updateBlockContent(block.id, { content: '## ' });
-      setLocalContent('## ');
-    } else if (content === '### ') {
-      // H3 heading - convert to paragraph with prefix for now
-      updateBlockContent(block.id, { content: '### ' });
-      setLocalContent('### ');
-    } else if (content === '> ') {
-      // Quote block - convert to paragraph with prefix for now
-      updateBlockContent(block.id, { content: '> ' });
-      setLocalContent('> ');
-    } else if (content === '--- ') {
-      // Divider - convert to paragraph with prefix for now
-      updateBlockContent(block.id, { content: '--- ' });
-      setLocalContent('--- ');
+    // Handle markdown shortcuts using utility function
+    const markdownMatch = getMarkdownShortcut(content);
+    if (markdownMatch) {
+      convertBlockType(block.id, markdownMatch.type);
+      if (markdownMatch.shouldClearContent) {
+        updateBlockContent(block.id, { content: '' });
+        setLocalContent('');
+      }
     }
 
     // Handle slash command
@@ -236,14 +218,14 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
       }
     }
 
-    // Tab: Indent (only for lists)
-    if (key === 'Tab' && !shiftKey && (block.type === 'bulleted-list' || block.type === 'todo-list')) {
+    // Tab: Indent (works for all block types)
+    if (key === 'Tab' && !shiftKey) {
       e.preventDefault();
       onIndent();
       return;
     }
 
-    // Shift + Tab: Outdent
+    // Shift + Tab: Outdent (works for all block types)
     if (key === 'Tab' && shiftKey) {
       e.preventDefault();
       onOutdent();
@@ -303,75 +285,30 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
     if (cmdKey && input && input.selectionStart !== input.selectionEnd) {
       const start = input.selectionStart || 0;
       const end = input.selectionEnd || 0;
-      const selectedText = localContent.substring(start, end);
       
-      if (key === 'b') {
-        e.preventDefault();
-        const newContent = 
-          localContent.substring(0, start) + 
-          `**${selectedText}**` + 
-          localContent.substring(end);
-        setLocalContent(newContent);
-        updateBlockContent(block.id, { content: newContent });
-        // Set cursor after the formatting
-        setTimeout(() => {
-          input.setSelectionRange(end + 4, end + 4);
-        }, 0);
-        return;
+      let formatType: 'bold' | 'italic' | 'underline' | 'code' | 'strikethrough' | null = null;
+      
+      if (key === KEYBOARD_SHORTCUTS.BOLD) {
+        formatType = 'bold';
+      } else if (key === KEYBOARD_SHORTCUTS.ITALIC) {
+        formatType = 'italic';
+      } else if (key === KEYBOARD_SHORTCUTS.UNDERLINE) {
+        formatType = 'underline';
+      } else if (key === KEYBOARD_SHORTCUTS.INLINE_CODE) {
+        formatType = 'code';
+      } else if (shiftKey && key === KEYBOARD_SHORTCUTS.STRIKETHROUGH) {
+        formatType = 'strikethrough';
       }
       
-      if (key === 'i') {
+      if (formatType) {
         e.preventDefault();
-        const newContent = 
-          localContent.substring(0, start) + 
-          `*${selectedText}*` + 
-          localContent.substring(end);
+        const { content: newContent, cursorPosition } = applyTextFormatting(
+          localContent, start, end, formatType
+        );
         setLocalContent(newContent);
         updateBlockContent(block.id, { content: newContent });
         setTimeout(() => {
-          input.setSelectionRange(end + 2, end + 2);
-        }, 0);
-        return;
-      }
-      
-      if (key === 'u') {
-        e.preventDefault();
-        const newContent = 
-          localContent.substring(0, start) + 
-          `__${selectedText}__` + 
-          localContent.substring(end);
-        setLocalContent(newContent);
-        updateBlockContent(block.id, { content: newContent });
-        setTimeout(() => {
-          input.setSelectionRange(end + 4, end + 4);
-        }, 0);
-        return;
-      }
-      
-      if (key === 'e') {
-        e.preventDefault();
-        const newContent = 
-          localContent.substring(0, start) + 
-          `\`${selectedText}\`` + 
-          localContent.substring(end);
-        setLocalContent(newContent);
-        updateBlockContent(block.id, { content: newContent });
-        setTimeout(() => {
-          input.setSelectionRange(end + 2, end + 2);
-        }, 0);
-        return;
-      }
-      
-      if (shiftKey && key === 'S') {
-        e.preventDefault();
-        const newContent = 
-          localContent.substring(0, start) + 
-          `~~${selectedText}~~` + 
-          localContent.substring(end);
-        setLocalContent(newContent);
-        updateBlockContent(block.id, { content: newContent });
-        setTimeout(() => {
-          input.setSelectionRange(end + 4, end + 4);
+          input.setSelectionRange(cursorPosition, cursorPosition);
         }, 0);
         return;
       }
@@ -446,39 +383,13 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
     updateBlockContent(block.id, { content });
     
     // Handle markdown shortcuts after composition ends
-    if (content === '- ' || content === '* ' || content === '+ ') {
-      convertBlockType(block.id, 'bulleted-list');
-      updateBlockContent(block.id, { content: '' });
-      setLocalContent('');
-    } else if (content === '[] ' || content === '[ ] ') {
-      convertBlockType(block.id, 'todo-list');
-      updateBlockContent(block.id, { content: '' });
-      setLocalContent('');
-    } else if (content.match(/^\d+\. $/)) {
-      // Handle numbered lists - convert to bulleted list for now since we only have 3 types
-      convertBlockType(block.id, 'bulleted-list');
-      updateBlockContent(block.id, { content: '' });
-      setLocalContent('');
-    } else if (content === '# ') {
-      // H1 heading - convert to paragraph with prefix for now
-      updateBlockContent(block.id, { content: '# ' });
-      setLocalContent('# ');
-    } else if (content === '## ') {
-      // H2 heading - convert to paragraph with prefix for now
-      updateBlockContent(block.id, { content: '## ' });
-      setLocalContent('## ');
-    } else if (content === '### ') {
-      // H3 heading - convert to paragraph with prefix for now
-      updateBlockContent(block.id, { content: '### ' });
-      setLocalContent('### ');
-    } else if (content === '> ') {
-      // Quote block - convert to paragraph with prefix for now
-      updateBlockContent(block.id, { content: '> ' });
-      setLocalContent('> ');
-    } else if (content === '--- ') {
-      // Divider - convert to paragraph with prefix for now
-      updateBlockContent(block.id, { content: '--- ' });
-      setLocalContent('--- ');
+    const markdownMatch = getMarkdownShortcut(content);
+    if (markdownMatch) {
+      convertBlockType(block.id, markdownMatch.type);
+      if (markdownMatch.shouldClearContent) {
+        updateBlockContent(block.id, { content: '' });
+        setLocalContent('');
+      }
     }
     
     // Handle slash command after composition ends
@@ -518,7 +429,8 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
   };
 
   const renderBlockIcon = () => {
-    const indentStyle = { marginLeft: `${block.indentLevel * 24}px` };
+    const indentStyle = getIndentStyle(block.indentLevel);
+    const features = getBlockFeatures(block.type);
 
     switch (block.type) {
       case 'bulleted-list':
@@ -527,7 +439,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
             className="text-gray-400 select-none mt-1 w-4 flex justify-center"
             style={indentStyle}
           >
-            •
+            {features.icon}
           </span>
         );
       case 'todo-list':
@@ -579,18 +491,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
     </div>
   );
 
-  const getPlaceholder = () => {
-    switch (block.type) {
-      case 'paragraph':
-        return localContent === '' ? "Type '/' for commands or start writing..." : '';
-      case 'bulleted-list':
-        return localContent === '' ? 'List item' : '';
-      case 'todo-list':
-        return localContent === '' ? 'To-do' : '';
-      default:
-        return localContent === '' ? 'Start typing...' : '';
-    }
-  };
+  const placeholder = getBlockPlaceholder(block, localContent !== '');
 
   return (
     <>
@@ -615,7 +516,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
             onFocus={handleFocus}
             onCompositionStart={handleCompositionStart}
             onCompositionEnd={handleCompositionEnd}
-            placeholder={getPlaceholder()}
+            placeholder={placeholder}
             className={clsx(
               'w-full bg-transparent border-none outline-none resize-none',
               'text-sm leading-6 placeholder-gray-400',
