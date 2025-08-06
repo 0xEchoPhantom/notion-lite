@@ -4,6 +4,7 @@ import React, { useState, useCallback } from 'react';
 import { SimpleBlock } from './SimpleBlock';
 import { useBlocksWithKeyboard } from '@/hooks/useBlocks';
 import { useBlocks } from '@/contexts/BlocksContext';
+import { ShortcutHelper } from '@/components/ui/ShortcutHelper';
 
 interface EditorProps {
   pageId: string;
@@ -22,15 +23,26 @@ export const Editor: React.FC<EditorProps> = () => {
   } = useBlocksWithKeyboard();
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
 
-  // Create a new block after the current one
+  // Create a new block after the current one (Notion-style: same type and indent level)
   const handleNewBlock = useCallback(async (blockId: string) => {
     const currentBlockIndex = blocks.findIndex(b => b.id === blockId);
     const currentBlock = blocks[currentBlockIndex];
     
     if (!currentBlock) return;
 
-    // Create new paragraph block after current one
-    const newBlockId = await createNewBlock('paragraph', '', blockId);
+    // Create new block with same type and indent level as current block
+    const newBlockType = currentBlock.type;
+    const newBlockId = await createNewBlock(newBlockType, '', blockId);
+    
+    // Set the same indent level
+    if (currentBlock.indentLevel > 0) {
+      // Use setTimeout to ensure the block is created before indenting
+      setTimeout(async () => {
+        for (let i = 0; i < currentBlock.indentLevel; i++) {
+          await indentBlock(newBlockId);
+        }
+      }, 10);
+    }
     
     // Focus the new block
     setTimeout(() => {
@@ -41,7 +53,7 @@ export const Editor: React.FC<EditorProps> = () => {
         (newBlockElement as HTMLInputElement).focus();
       }
     }, 50);
-  }, [blocks, createNewBlock]);
+  }, [blocks, createNewBlock, indentBlock]);
 
   // Merge current block content up to previous block
   const handleMergeUp = useCallback(async (blockId: string) => {
@@ -142,6 +154,11 @@ export const Editor: React.FC<EditorProps> = () => {
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
+      {/* Header with shortcut helper */}
+      <div className="flex justify-end mb-4">
+        <ShortcutHelper />
+      </div>
+      
       <div className="space-y-1">
         {blocks.map((block) => (
           <div key={block.id} data-block-id={block.id}>

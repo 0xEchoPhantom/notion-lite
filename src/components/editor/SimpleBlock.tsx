@@ -77,12 +77,18 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
     updateBlockContent(block.id, { content });
 
     // Handle markdown shortcuts
-    if (content === '- ') {
+    if (content === '- ' || content === '* ' || content === '+ ') {
       convertBlockType(block.id, 'bulleted-list');
       updateBlockContent(block.id, { content: '' });
       setLocalContent('');
-    } else if (content === '[] ') {
+    } else if (content === '[] ' || content === '[ ] ') {
       convertBlockType(block.id, 'todo-list');
+      updateBlockContent(block.id, { content: '' });
+      setLocalContent('');
+    } else if (content.match(/^\d+\. $/)) {
+      // Handle numbered lists (though we don't have numbered-list type yet)
+      // For now, convert to bulleted list
+      convertBlockType(block.id, 'bulleted-list');
       updateBlockContent(block.id, { content: '' });
       setLocalContent('');
     }
@@ -201,9 +207,17 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
       return;
     }
 
-    // Enter: Create new block
+    // Enter: Create new block of same type (Notion behavior)
     if (key === 'Enter' && !shiftKey && !cmdKey) {
       e.preventDefault();
+      
+      // If current block is empty and it's a list item, convert to paragraph
+      if (localContent === '' && (block.type === 'bulleted-list' || block.type === 'todo-list')) {
+        convertBlockType(block.id, 'paragraph');
+        return;
+      }
+      
+      // Create new block with same type and indent level
       onNewBlock();
       return;
     }
@@ -233,6 +247,33 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
         setShowSlashMenu(true);
       }
       return;
+    }
+
+    // Cmd/Ctrl + D: Duplicate block (Notion behavior)
+    if (cmdKey && key === 'd') {
+      e.preventDefault();
+      // This would need to be implemented in the Editor component
+      // For now, we'll create a new block with the same content
+      onNewBlock();
+      return;
+    }
+
+    // Notion-style block creation shortcuts (Cmd/Ctrl + Shift + number)
+    if (cmdKey && shiftKey) {
+      switch (key) {
+        case '0':
+          e.preventDefault();
+          convertBlockType(block.id, 'paragraph');
+          return;
+        case '4':
+          e.preventDefault();
+          convertBlockType(block.id, 'todo-list');
+          return;
+        case '5':
+          e.preventDefault();
+          convertBlockType(block.id, 'bulleted-list');
+          return;
+      }
     }
   }, [
     block.type,
@@ -264,12 +305,17 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
     updateBlockContent(block.id, { content });
     
     // Handle markdown shortcuts after composition ends
-    if (content === '- ') {
+    if (content === '- ' || content === '* ' || content === '+ ') {
       convertBlockType(block.id, 'bulleted-list');
       updateBlockContent(block.id, { content: '' });
       setLocalContent('');
-    } else if (content === '[] ') {
+    } else if (content === '[] ' || content === '[ ] ') {
       convertBlockType(block.id, 'todo-list');
+      updateBlockContent(block.id, { content: '' });
+      setLocalContent('');
+    } else if (content.match(/^\d+\. $/)) {
+      // Handle numbered lists (convert to bulleted for now)
+      convertBlockType(block.id, 'bulleted-list');
       updateBlockContent(block.id, { content: '' });
       setLocalContent('');
     }
