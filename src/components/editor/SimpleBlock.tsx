@@ -35,6 +35,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashMenuPosition, setSlashMenuPosition] = useState({ x: 0, y: 0 });
+  const [isComposing, setIsComposing] = useState(false);
   const isArrowNavigating = useRef(false);
 
   // Focus management
@@ -48,6 +49,11 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const content = e.target.value;
     updateBlockContent(block.id, { content });
+
+    // Skip markdown shortcuts and slash commands during Vietnamese composition
+    if (isComposing) {
+      return;
+    }
 
     // Handle markdown shortcuts
     if (content === '- ') {
@@ -71,13 +77,18 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
     } else {
       setShowSlashMenu(false);
     }
-  }, [block.id, updateBlockContent, convertBlockType]);
+  }, [block.id, updateBlockContent, convertBlockType, isComposing]);
 
   // Handle keyboard shortcuts
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     const { key, ctrlKey, metaKey, shiftKey } = e;
     const cmdKey = ctrlKey || metaKey;
     const input = inputRef.current as HTMLInputElement;
+
+    // Skip keyboard shortcuts during Vietnamese composition
+    if (isComposing) {
+      return;
+    }
 
     // Cmd/Ctrl + Enter: Toggle todo
     if (cmdKey && key === 'Enter' && block.type === 'todo-list') {
@@ -212,7 +223,17 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
     onNewBlock,
     onDeleteBlock,
     onMergeUp,
+    isComposing,
   ]);
+
+  // Handle Vietnamese input composition
+  const handleCompositionStart = useCallback(() => {
+    setIsComposing(true);
+  }, []);
+
+  const handleCompositionEnd = useCallback(() => {
+    setIsComposing(false);
+  }, []);
 
   const handleSlashMenuSelect = (type: BType) => {
     convertBlockType(block.id, type);
@@ -326,6 +347,8 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
             onChange={handleChange}
             onKeyDown={handleKeyDown}
             onFocus={handleFocus}
+            onCompositionStart={handleCompositionStart}
+            onCompositionEnd={handleCompositionEnd}
             placeholder={getPlaceholder()}
             className={clsx(
               'w-full bg-transparent border-none outline-none resize-none',
