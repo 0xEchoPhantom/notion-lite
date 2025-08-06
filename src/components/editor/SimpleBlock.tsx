@@ -32,6 +32,7 @@ interface SimpleBlockProps {
   onDrop?: (e: React.DragEvent, targetBlockId: string) => void;
   isDraggedOver?: boolean;
   isDragging?: boolean;
+  dropPosition?: 'above' | 'below' | null;
 }
 
 export const SimpleBlock: React.FC<SimpleBlockProps> = ({
@@ -52,6 +53,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
   onDrop,
   isDraggedOver = false,
   isDragging = false,
+  dropPosition = null,
 }) => {
   const { updateBlockContent, convertBlockType, toggleTodoCheck } = useBlocksWithKeyboard();
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
@@ -537,14 +539,18 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
 
   return (
     <>
+      {/* Drop indicator line above */}
+      {isDraggedOver && dropPosition === 'above' && (
+        <div className="h-0.5 bg-blue-500 mx-2 my-1 rounded-full" />
+      )}
+      
       <div
         className={clsx(
           'group relative flex items-start gap-2 py-1 px-2 mx-2 rounded hover:bg-gray-50',
           'transition-colors duration-150 border-l-2 border-transparent',
           isSelected && 'bg-blue-50 border-l-blue-500',
           block.isChecked && 'opacity-60',
-          isDragging && 'opacity-50',
-          isDraggedOver && 'bg-blue-100 border-l-blue-400'
+          isDragging && 'opacity-50'
         )}
         draggable
         onDragStart={handleDragStart}
@@ -574,6 +580,11 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
           />
         </div>
       </div>
+
+      {/* Drop indicator line below */}
+      {isDraggedOver && dropPosition === 'below' && (
+        <div className="h-0.5 bg-blue-500 mx-2 my-1 rounded-full" />
+      )}
 
       <SlashMenu
         isOpen={showSlashMenu}

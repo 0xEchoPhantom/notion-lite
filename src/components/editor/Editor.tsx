@@ -25,6 +25,7 @@ export const Editor: React.FC<EditorProps> = () => {
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
   const [draggedOverBlockId, setDraggedOverBlockId] = useState<string | null>(null);
+  const [dropPosition, setDropPosition] = useState<'above' | 'below' | null>(null);
 
   // Create a new block after the current one (Notion-style: same type and indent level)
   const handleNewBlock = useCallback(async (blockId: string) => {
@@ -157,12 +158,22 @@ export const Editor: React.FC<EditorProps> = () => {
   const handleDragEnd = useCallback(() => {
     setDraggedBlockId(null);
     setDraggedOverBlockId(null);
+    setDropPosition(null);
   }, []);
 
   const handleDragOver = useCallback((e: React.DragEvent, blockId: string) => {
     e.preventDefault();
     if (draggedBlockId && draggedBlockId !== blockId) {
       setDraggedOverBlockId(blockId);
+      
+      // Calculate drop position based on mouse Y coordinate
+      const blockElement = e.currentTarget as HTMLElement;
+      const rect = blockElement.getBoundingClientRect();
+      const mouseY = e.clientY;
+      const blockCenterY = rect.top + rect.height / 2;
+      
+      // If mouse is in upper half, insert above; if lower half, insert below
+      setDropPosition(mouseY < blockCenterY ? 'above' : 'below');
     }
   }, [draggedBlockId]);
 
@@ -178,7 +189,18 @@ export const Editor: React.FC<EditorProps> = () => {
         // Create new order for blocks
         const newBlocks = [...blocks];
         const [movedBlock] = newBlocks.splice(sourceIndex, 1);
-        newBlocks.splice(targetIndex, 0, movedBlock);
+        
+        // Determine insertion index based on drop position
+        let insertIndex = targetIndex;
+        if (dropPosition === 'below') {
+          insertIndex = targetIndex + 1;
+        }
+        // Adjust for removing source block from earlier position
+        if (sourceIndex < insertIndex) {
+          insertIndex--;
+        }
+        
+        newBlocks.splice(insertIndex, 0, movedBlock);
         
         // Update orders
         const updatedBlocks = newBlocks.map((block, index) => ({
@@ -192,7 +214,8 @@ export const Editor: React.FC<EditorProps> = () => {
     
     setDraggedBlockId(null);
     setDraggedOverBlockId(null);
-  }, [blocks, reorderBlocks]);
+    setDropPosition(null);
+  }, [blocks, reorderBlocks, dropPosition]);
 
   if (loading) {
     return (
@@ -236,6 +259,7 @@ export const Editor: React.FC<EditorProps> = () => {
               onDrop={handleDrop}
               isDraggedOver={draggedOverBlockId === block.id}
               isDragging={draggedBlockId === block.id}
+              dropPosition={draggedOverBlockId === block.id ? dropPosition : null}
             />
           </div>
         ))}
