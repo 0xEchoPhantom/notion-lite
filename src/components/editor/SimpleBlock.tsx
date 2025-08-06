@@ -36,7 +36,15 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashMenuPosition, setSlashMenuPosition] = useState({ x: 0, y: 0 });
   const [isComposing, setIsComposing] = useState(false);
+  const [localContent, setLocalContent] = useState(block.content);
   const isArrowNavigating = useRef(false);
+
+  // Sync local content with block content
+  useEffect(() => {
+    if (!isComposing && localContent !== block.content) {
+      setLocalContent(block.content);
+    }
+  }, [block.content, isComposing, localContent]);
 
   // Focus management
   useEffect(() => {
@@ -48,26 +56,35 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
   // Handle content changes with better Vietnamese input support
   const handleInput = useCallback((e: React.FormEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const content = (e.target as HTMLInputElement).value;
+    setLocalContent(content);
     
-    // Always update content immediately for proper Vietnamese typing
-    updateBlockContent(block.id, { content });
-  }, [block.id, updateBlockContent]);
+    // During composition, only update local state
+    if (!isComposing) {
+      updateBlockContent(block.id, { content });
+    }
+  }, [block.id, updateBlockContent, isComposing]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const content = e.target.value;
+    setLocalContent(content);
     
     // Skip markdown shortcuts and slash commands during Vietnamese composition
     if (isComposing) {
       return;
     }
 
+    // Update the block content
+    updateBlockContent(block.id, { content });
+
     // Handle markdown shortcuts
     if (content === '- ') {
       convertBlockType(block.id, 'bulleted-list');
       updateBlockContent(block.id, { content: '' });
+      setLocalContent('');
     } else if (content === '[] ') {
       convertBlockType(block.id, 'todo-list');
       updateBlockContent(block.id, { content: '' });
+      setLocalContent('');
     }
 
     // Handle slash command
@@ -195,7 +212,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
     if (key === 'Backspace') {
       if (input && input.selectionStart === 0 && input.selectionEnd === 0) {
         e.preventDefault();
-        if (block.content === '') {
+        if (localContent === '') {
           onDeleteBlock();
         } else {
           onMergeUp();
@@ -219,7 +236,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
     }
   }, [
     block.type,
-    block.content,
+    localContent,
     block.id,
     toggleTodoCheck,
     onMoveUp,
@@ -243,14 +260,18 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
     
     // Process the final composed text for shortcuts
     const content = (e.target as HTMLInputElement).value;
+    setLocalContent(content);
+    updateBlockContent(block.id, { content });
     
     // Handle markdown shortcuts after composition ends
     if (content === '- ') {
       convertBlockType(block.id, 'bulleted-list');
       updateBlockContent(block.id, { content: '' });
+      setLocalContent('');
     } else if (content === '[] ') {
       convertBlockType(block.id, 'todo-list');
       updateBlockContent(block.id, { content: '' });
+      setLocalContent('');
     }
     
     // Handle slash command after composition ends
@@ -374,7 +395,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
           <input
             ref={inputRef as React.RefObject<HTMLInputElement>}
             type="text"
-            value={block.content}
+            value={localContent}
             onInput={handleInput}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
