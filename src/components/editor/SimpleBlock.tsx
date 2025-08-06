@@ -26,6 +26,12 @@ interface SimpleBlockProps {
   onOutdent: () => void;
   onDeleteBlock: () => void;
   onDuplicateBlock: () => void;
+  onDragStart?: (blockId: string) => void;
+  onDragEnd?: () => void;
+  onDragOver?: (e: React.DragEvent, blockId: string) => void;
+  onDrop?: (e: React.DragEvent, targetBlockId: string) => void;
+  isDraggedOver?: boolean;
+  isDragging?: boolean;
 }
 
 export const SimpleBlock: React.FC<SimpleBlockProps> = ({
@@ -40,6 +46,12 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
   onOutdent,
   onDeleteBlock,
   onDuplicateBlock,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDrop,
+  isDraggedOver = false,
+  isDragging = false,
 }) => {
   const { updateBlockContent, convertBlockType, toggleTodoCheck } = useBlocksWithKeyboard();
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
@@ -415,6 +427,36 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
     setShowSlashMenu(false);
   };
 
+  // Drag and drop handlers
+  const handleDragStart = useCallback((e: React.DragEvent) => {
+    if (onDragStart) {
+      onDragStart(block.id);
+    }
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', block.id);
+  }, [block.id, onDragStart]);
+
+  const handleDragEnd = useCallback(() => {
+    if (onDragEnd) {
+      onDragEnd();
+    }
+  }, [onDragEnd]);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (onDragOver) {
+      onDragOver(e, block.id);
+    }
+  }, [block.id, onDragOver]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    if (onDrop) {
+      onDrop(e, block.id);
+    }
+  }, [block.id, onDrop]);
+
   const handleToggleCheck = () => {
     if (block.type === 'todo-list') {
       toggleTodoCheck(block.id);
@@ -500,8 +542,15 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
           'group relative flex items-start gap-2 py-1 px-2 mx-2 rounded hover:bg-gray-50',
           'transition-colors duration-150 border-l-2 border-transparent',
           isSelected && 'bg-blue-50 border-l-blue-500',
-          block.isChecked && 'opacity-60'
+          block.isChecked && 'opacity-60',
+          isDragging && 'opacity-50',
+          isDraggedOver && 'bg-blue-100 border-l-blue-400'
         )}
+        draggable
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
       >
         {renderDragHandle()}
         {renderBlockIcon()}

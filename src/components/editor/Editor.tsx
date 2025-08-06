@@ -19,9 +19,12 @@ export const Editor: React.FC<EditorProps> = () => {
     moveBlockUp,
     moveBlockDown,
     indentBlock,
-    outdentBlock
+    outdentBlock,
+    reorderBlocks
   } = useBlocksWithKeyboard();
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+  const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
+  const [draggedOverBlockId, setDraggedOverBlockId] = useState<string | null>(null);
 
   // Create a new block after the current one (Notion-style: same type and indent level)
   const handleNewBlock = useCallback(async (blockId: string) => {
@@ -146,6 +149,51 @@ export const Editor: React.FC<EditorProps> = () => {
     setSelectedBlockId(blockId);
   }, []);
 
+  // Drag and drop handlers
+  const handleDragStart = useCallback((blockId: string) => {
+    setDraggedBlockId(blockId);
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    setDraggedBlockId(null);
+    setDraggedOverBlockId(null);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, blockId: string) => {
+    e.preventDefault();
+    if (draggedBlockId && draggedBlockId !== blockId) {
+      setDraggedOverBlockId(blockId);
+    }
+  }, [draggedBlockId]);
+
+  const handleDrop = useCallback(async (e: React.DragEvent, targetBlockId: string) => {
+    e.preventDefault();
+    const sourceBlockId = e.dataTransfer.getData('text/plain');
+    
+    if (sourceBlockId && sourceBlockId !== targetBlockId) {
+      const sourceIndex = blocks.findIndex(b => b.id === sourceBlockId);
+      const targetIndex = blocks.findIndex(b => b.id === targetBlockId);
+      
+      if (sourceIndex !== -1 && targetIndex !== -1) {
+        // Create new order for blocks
+        const newBlocks = [...blocks];
+        const [movedBlock] = newBlocks.splice(sourceIndex, 1);
+        newBlocks.splice(targetIndex, 0, movedBlock);
+        
+        // Update orders
+        const updatedBlocks = newBlocks.map((block, index) => ({
+          ...block,
+          order: index
+        }));
+        
+        await reorderBlocks(updatedBlocks);
+      }
+    }
+    
+    setDraggedBlockId(null);
+    setDraggedOverBlockId(null);
+  }, [blocks, reorderBlocks]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -182,6 +230,12 @@ export const Editor: React.FC<EditorProps> = () => {
               onOutdent={() => handleOutdent(block.id)}
               onDeleteBlock={() => handleDeleteBlock(block.id)}
               onDuplicateBlock={() => handleDuplicateBlock(block.id)}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+              isDraggedOver={draggedOverBlockId === block.id}
+              isDragging={draggedBlockId === block.id}
             />
           </div>
         ))}

@@ -167,5 +167,6 @@ export const useBlocksWithKeyboard = () => {
     handleKeyDown,
     updateBlockContent,
     deleteBlockById,
+    reorderBlocks: reorderBlocksList,
   };
 };
