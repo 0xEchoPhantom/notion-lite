@@ -121,6 +121,12 @@ export const SelectionProvider: React.FC<SelectionProviderProps> = ({ children, 
       return;
     }
 
+    // Don't start mouse selection if clicking on a block or its children
+    const blockElement = target.closest('[data-block-id]');
+    if (blockElement) {
+      return;
+    }
+
     // Check if Ctrl/Cmd is held for additive selection
     ctrlSelectModeRef.current = e.ctrlKey || e.metaKey;
     

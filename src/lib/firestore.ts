@@ -59,6 +59,29 @@ export const updatePageTitle = async (userId: string, pageId: string, title: str
   });
 };
 
+export const deletePage = async (userId: string, pageId: string): Promise<void> => {
+  if (!userId || !pageId) {
+    throw new Error('User ID and Page ID are required to delete a page');
+  }
+
+  try {
+    // First delete all blocks in the page
+    const blocksRef = collection(db, 'users', userId, 'pages', pageId, 'blocks');
+    const blocksSnapshot = await getDocs(blocksRef);
+    
+    // Delete all blocks
+    const deletePromises = blocksSnapshot.docs.map(blockDoc => deleteDoc(blockDoc.ref));
+    await Promise.all(deletePromises);
+    
+    // Then delete the page itself
+    const pageRef = doc(db, 'users', userId, 'pages', pageId);
+    await deleteDoc(pageRef);
+  } catch (error) {
+    console.error('Error deleting page:', error);
+    throw error;
+  }
+};
+
 // Block operations
 export const createBlock = async (
   userId: string,

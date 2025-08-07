@@ -5,18 +5,22 @@ import { useAuth } from '@/contexts/AuthContext';
 import { BlocksProvider } from '@/contexts/BlocksContext';
 import { GlobalDragProvider, useGlobalDrag } from '@/contexts/GlobalDragContext';
 import { Editor } from '@/components/editor/Editor';
-import { getPages, createPage } from '@/lib/firestore';
+import { getPages, createPage, deletePage } from '@/lib/firestore';
 import { Page } from '@/types/index';
+import { RecycleBin } from '@/components/ui/RecycleBin';
 
 interface PageButtonProps {
   page: Page;
   isActive: boolean;
   onClick: () => void;
+  onDragStart?: (page: Page) => void;
+  onDragEnd?: () => void;
 }
 
-const PageButton: React.FC<PageButtonProps> = ({ page, isActive, onClick }) => {
+const PageButton: React.FC<PageButtonProps> = ({ page, isActive, onClick, onDragStart, onDragEnd }) => {
   const { moveBlockToNewPage, isDragging } = useGlobalDrag();
   const [isHovered, setIsHovered] = useState(false);
+  const [isDraggingPage, setIsDraggingPage] = useState(false);
 
   const handleDragOver = (e: React.DragEvent) => {
     if (isDragging) {
@@ -43,25 +47,62 @@ const PageButton: React.FC<PageButtonProps> = ({ page, isActive, onClick }) => {
     }
   };
 
+  const handlePageDragStart = (e: React.DragEvent) => {
+    setIsDraggingPage(true);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('application/x-page', JSON.stringify(page));
+    if (onDragStart) {
+      onDragStart(page);
+    }
+  };
+
+  const handlePageDragEnd = () => {
+    setIsDraggingPage(false);
+    if (onDragEnd) {
+      onDragEnd();
+    }
+  };
+
   return (
-    <button
-      onClick={onClick}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-      className={`w-full text-left px-2 py-1 rounded text-sm transition-colors ${
-        isActive
-          ? 'bg-blue-100 text-blue-900'
-          : isHovered && isDragging
-          ? 'bg-green-100 text-green-900 border-2 border-green-300'
-          : 'text-gray-700 hover:bg-gray-100'
-      }`}
-    >
-      {page.title}
-      {isHovered && isDragging && (
-        <span className="ml-2 text-xs text-green-600">(Drop here)</span>
-      )}
-    </button>
+    <div className="relative group">
+      <button
+        onClick={onClick}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        className={`w-full text-left px-2 py-1 rounded text-sm transition-colors ${
+          isActive
+            ? 'bg-blue-100 text-blue-900'
+            : isHovered && isDragging
+            ? 'bg-green-100 text-green-900 border-2 border-green-300'
+            : isDraggingPage
+            ? 'opacity-50'
+            : 'text-gray-700 hover:bg-gray-100'
+        }`}
+      >
+        <div className="flex items-center justify-between">
+          <span className="flex-1">{page.title}</span>
+          <div
+            draggable
+            onDragStart={handlePageDragStart}
+            onDragEnd={handlePageDragEnd}
+            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 rounded cursor-grab active:cursor-grabbing"
+            title="Drag to move or delete page"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <svg className="w-3 h-3 text-gray-400" fill="currentColor" viewBox="0 0 8 8">
+              <circle cx="2" cy="2" r="1" />
+              <circle cx="6" cy="2" r="1" />
+              <circle cx="2" cy="6" r="1" />
+              <circle cx="6" cy="6" r="1" />
+            </svg>
+          </div>
+        </div>
+        {isHovered && isDragging && (
+          <span className="ml-2 text-xs text-green-600">(Drop block here)</span>
+        )}
+      </button>
+    </div>
   );
 };
 
@@ -72,6 +113,8 @@ export default function AppPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [draggedPage, setDraggedPage] = useState<Page | null>(null);
+  const [isRecycleBinHovered, setIsRecycleBinHovered] = useState(false);
 
   // Clear state when user changes
   useEffect(() => {
@@ -114,6 +157,53 @@ export default function AppPage() {
 
     loadPages();
   }, [user]);
+
+  const handlePageDragStart = (page: Page) => {
+    setDraggedPage(page);
+  };
+
+  const handleDeletePage = async () => {
+    if (!user || !draggedPage) return;
+
+    try {
+      // Prevent deleting the last page
+      if (pages.length <= 1) {
+        alert('Cannot delete the last page. Create another page first.');
+        return;
+      }
+
+      await deletePage(user.uid, draggedPage.id);
+      
+      // Update local state
+      const updatedPages = pages.filter(p => p.id !== draggedPage.id);
+      setPages(updatedPages);
+      
+      // If deleted page was current, switch to another page
+      if (currentPageId === draggedPage.id) {
+        setCurrentPageId(updatedPages[0]?.id || null);
+      }
+      
+      setDraggedPage(null);
+    } catch (error) {
+      console.error('Error deleting page:', error);
+      alert('Failed to delete page. Please try again.');
+    }
+  };
+
+  const handleRecycleBinDragOver = () => {
+    if (draggedPage) {
+      setIsRecycleBinHovered(true);
+    }
+  };
+
+  const handlePageDragEnd = () => {
+    setDraggedPage(null);
+    setIsRecycleBinHovered(false);
+  };
+
+  const handleRecycleBinDragLeave = () => {
+    setIsRecycleBinHovered(false);
+  };
 
   if (loading) {
     return (
@@ -196,6 +286,8 @@ export default function AppPage() {
                   page={page}
                   isActive={page.id === currentPageId}
                   onClick={() => setCurrentPageId(page.id)}
+                  onDragStart={handlePageDragStart}
+                  onDragEnd={handlePageDragEnd}
                 />
               ))}
             </div>
@@ -213,6 +305,17 @@ export default function AppPage() {
             >
               + New page
             </button>
+
+            {/* Recycle Bin */}
+            <div
+              onDragOver={handleRecycleBinDragOver}
+              onDragLeave={handleRecycleBinDragLeave}
+            >
+              <RecycleBin
+                onDelete={handleDeletePage}
+                isDraggedOver={isRecycleBinHovered && !!draggedPage}
+              />
+            </div>
           </div>
         </div>
 
