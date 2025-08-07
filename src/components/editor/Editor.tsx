@@ -227,6 +227,28 @@ export const Editor: React.FC<EditorProps> = () => {
     setDropPosition(null);
   }, [blocks, reorderBlocks, dropPosition]);
 
+  // Handle global dragover for the entire editor area
+  const handleGlobalDragOver = useCallback((e: React.DragEvent) => {
+    if (draggedBlockId) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = 'move';
+    }
+  }, [draggedBlockId]);
+
+  // Handle global drop for the entire editor area
+  const handleGlobalDrop = useCallback((e: React.DragEvent) => {
+    if (draggedBlockId) {
+      e.preventDefault();
+      e.stopPropagation();
+      // If dropped in empty space, move to end
+      const lastBlock = blocks[blocks.length - 1];
+      if (lastBlock && draggedBlockId !== lastBlock.id) {
+        handleDrop(e, lastBlock.id);
+      }
+    }
+  }, [draggedBlockId, blocks, handleDrop]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -242,7 +264,11 @@ export const Editor: React.FC<EditorProps> = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4">
+    <div 
+      className="max-w-4xl mx-auto py-8 px-4"
+      onDragOver={handleGlobalDragOver}
+      onDrop={handleGlobalDrop}
+    >
       {/* Header with shortcut helper */}
       <div className="flex justify-end mb-4">
         <ShortcutHelper />
@@ -278,6 +304,8 @@ export const Editor: React.FC<EditorProps> = () => {
       {/* Notion-style clickable area below content */}
       <div
         className="min-h-[200px] w-full cursor-text"
+        onDragOver={handleGlobalDragOver}
+        onDrop={handleGlobalDrop}
         onClick={async () => {
           const newBlockId = await createNewBlock('paragraph', '');
           // Set selection immediately for instant UI feedback

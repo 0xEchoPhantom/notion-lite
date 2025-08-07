@@ -433,6 +433,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
   // Drag and drop handlers
   const handleDragStart = useCallback((e: React.DragEvent) => {
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.dropEffect = 'move';
     
     // Set multiple data formats for cross-page compatibility
     e.dataTransfer.setData('text/plain', block.id);
