@@ -321,6 +321,15 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
       return;
     }
 
+    // Cmd/Ctrl + Shift + 9: Convert to todo list (Notion shortcut)
+    if (cmdKey && shiftKey && key === '9') {
+      e.preventDefault();
+      if (block.type !== 'todo-list') {
+        convertBlockType(block.id, 'todo-list');
+      }
+      return;
+    }
+
     // Cmd/Ctrl + Shift + Up/Down: Move block
     if (cmdKey && shiftKey && (key === 'ArrowUp' || key === 'ArrowDown')) {
       e.preventDefault();
