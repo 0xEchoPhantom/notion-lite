@@ -3,108 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { BlocksProvider } from '@/contexts/BlocksContext';
-import { GlobalDragProvider, useGlobalDrag } from '@/contexts/GlobalDragContext';
+import { GlobalDragProvider } from '@/contexts/GlobalDragContext';
 import { Editor } from '@/components/editor/Editor';
-import { getPages, createPage, deletePage } from '@/lib/firestore';
+import { getPages, createPage, deletePage, updatePageTitle, reorderPages } from '@/lib/firestore';
 import { Page } from '@/types/index';
 import { RecycleBin } from '@/components/ui/RecycleBin';
-
-interface PageButtonProps {
-  page: Page;
-  isActive: boolean;
-  onClick: () => void;
-  onDragStart?: (page: Page) => void;
-  onDragEnd?: () => void;
-}
-
-const PageButton: React.FC<PageButtonProps> = ({ page, isActive, onClick, onDragStart, onDragEnd }) => {
-  const { moveBlockToNewPage, isDragging } = useGlobalDrag();
-  const [isHovered, setIsHovered] = useState(false);
-  const [isDraggingPage, setIsDraggingPage] = useState(false);
-
-  const handleDragOver = (e: React.DragEvent) => {
-    if (isDragging) {
-      e.preventDefault();
-      setIsHovered(true);
-    }
-  };
-
-  const handleDragLeave = () => {
-    setIsHovered(false);
-  };
-
-  const handleDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsHovered(false);
-    
-    const blockData = e.dataTransfer.getData('application/json');
-    if (blockData) {
-      try {
-        await moveBlockToNewPage(page.id, 0);
-      } catch (error) {
-        console.error('Error moving block:', error);
-      }
-    }
-  };
-
-  const handlePageDragStart = (e: React.DragEvent) => {
-    setIsDraggingPage(true);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('application/x-page', JSON.stringify(page));
-    if (onDragStart) {
-      onDragStart(page);
-    }
-  };
-
-  const handlePageDragEnd = () => {
-    setIsDraggingPage(false);
-    if (onDragEnd) {
-      onDragEnd();
-    }
-  };
-
-  return (
-    <div className="relative group">
-      <button
-        onClick={onClick}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        className={`w-full text-left px-2 py-1 rounded text-sm transition-colors ${
-          isActive
-            ? 'bg-blue-100 text-blue-900'
-            : isHovered && isDragging
-            ? 'bg-green-100 text-green-900 border-2 border-green-300'
-            : isDraggingPage
-            ? 'opacity-50'
-            : 'text-gray-700 hover:bg-gray-100'
-        }`}
-      >
-        <div className="flex items-center justify-between">
-          <span className="flex-1">{page.title}</span>
-          <div
-            draggable
-            onDragStart={handlePageDragStart}
-            onDragEnd={handlePageDragEnd}
-            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 rounded cursor-grab active:cursor-grabbing"
-            title="Drag to move or delete page"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <svg className="w-3 h-3 text-gray-400" fill="currentColor" viewBox="0 0 8 8">
-              <circle cx="2" cy="2" r="1" />
-              <circle cx="6" cy="2" r="1" />
-              <circle cx="2" cy="6" r="1" />
-              <circle cx="6" cy="6" r="1" />
-            </svg>
-          </div>
-        </div>
-        {isHovered && isDragging && (
-          <span className="ml-2 text-xs text-green-600">(Drop block here)</span>
-        )}
-      </button>
-    </div>
-  );
-};
+import { EditablePageButton } from '@/components/ui/EditablePageButton';
 
 export default function AppPage() {
   const { user } = useAuth();
@@ -115,6 +19,11 @@ export default function AppPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [draggedPage, setDraggedPage] = useState<Page | null>(null);
   const [isRecycleBinHovered, setIsRecycleBinHovered] = useState(false);
+  const [draggedPageId, setDraggedPageId] = useState<string | null>(null);
+  const [dropTargetInfo, setDropTargetInfo] = useState<{
+    pageId: string;
+    position: 'above' | 'below';
+  } | null>(null);
 
   // Clear state when user changes
   useEffect(() => {
@@ -160,6 +69,85 @@ export default function AppPage() {
 
   const handlePageDragStart = (page: Page) => {
     setDraggedPage(page);
+    setDraggedPageId(page.id);
+  };
+
+  const handlePageDragEnd = () => {
+    setDraggedPage(null);
+    setDraggedPageId(null);
+    setDropTargetInfo(null);
+    setIsRecycleBinHovered(false);
+  };
+
+  const handlePageDragOver = (e: React.DragEvent, targetPageId: string) => {
+    if (!draggedPageId || draggedPageId === targetPageId) return;
+    
+    const rect = (e.target as HTMLElement).getBoundingClientRect();
+    const midpoint = rect.top + rect.height / 2;
+    const position = e.clientY < midpoint ? 'above' : 'below';
+    
+    setDropTargetInfo({ pageId: targetPageId, position });
+  };
+
+  const handlePageDrop = async (e: React.DragEvent, targetPageId: string) => {
+    e.preventDefault();
+    if (!user || !draggedPageId || !dropTargetInfo) return;
+
+    try {
+      const draggedIndex = pages.findIndex(p => p.id === draggedPageId);
+      const targetIndex = pages.findIndex(p => p.id === targetPageId);
+      
+      if (draggedIndex === -1 || targetIndex === -1) return;
+
+      // Create new order for pages
+      const newPages = [...pages];
+      const [draggedPage] = newPages.splice(draggedIndex, 1);
+      
+      const insertIndex = dropTargetInfo.position === 'above' ? targetIndex : targetIndex + 1;
+      newPages.splice(insertIndex, 0, draggedPage);
+
+      // Update order values
+      const pageUpdates = newPages.map((page, index) => ({
+        id: page.id,
+        order: index + 1,
+      }));
+
+      // Update in Firestore
+      await reorderPages(user.uid, pageUpdates);
+      
+      // Update local state
+      const updatedPages = newPages.map((page, index) => ({
+        ...page,
+        order: index + 1,
+      }));
+      setPages(updatedPages);
+      
+    } catch (error) {
+      console.error('Error reordering pages:', error);
+      alert('Failed to reorder pages. Please try again.');
+    } finally {
+      setDropTargetInfo(null);
+    }
+  };
+
+  const handleTitleUpdate = async (pageId: string, newTitle: string) => {
+    if (!user) return;
+
+    try {
+      await updatePageTitle(user.uid, pageId, newTitle);
+      
+      // Update local state
+      setPages(prevPages => 
+        prevPages.map(page => 
+          page.id === pageId 
+            ? { ...page, title: newTitle, updatedAt: new Date() }
+            : page
+        )
+      );
+    } catch (error) {
+      console.error('Error updating page title:', error);
+      alert('Failed to update page title. Please try again.');
+    }
   };
 
   const handleDeletePage = async () => {
@@ -194,11 +182,6 @@ export default function AppPage() {
     if (draggedPage) {
       setIsRecycleBinHovered(true);
     }
-  };
-
-  const handlePageDragEnd = () => {
-    setDraggedPage(null);
-    setIsRecycleBinHovered(false);
   };
 
   const handleRecycleBinDragLeave = () => {
@@ -281,13 +264,20 @@ export default function AppPage() {
             <h2 className="text-sm font-medium text-gray-900 mb-4">Pages</h2>
             <div className="space-y-1">
               {pages.map((page) => (
-                <PageButton
+                <EditablePageButton
                   key={page.id}
                   page={page}
                   isActive={page.id === currentPageId}
                   onClick={() => setCurrentPageId(page.id)}
+                  onTitleUpdate={handleTitleUpdate}
                   onDragStart={handlePageDragStart}
                   onDragEnd={handlePageDragEnd}
+                  onDragOver={handlePageDragOver}
+                  onDrop={handlePageDrop}
+                  draggedPageId={draggedPageId}
+                  insertPosition={
+                    dropTargetInfo?.pageId === page.id ? dropTargetInfo.position : null
+                  }
                 />
               ))}
             </div>

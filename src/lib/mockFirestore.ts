@@ -12,9 +12,17 @@ const createMockTimestamp = () => new Date();
 // Mock Page operations
 export const createPage = async (userId: string, title: string): Promise<string> => {
   const id = generateId();
+  
+  // Get the current highest order to append the new page at the end
+  const existingPages = Array.from(mockPages.values());
+  const maxOrder = existingPages.reduce((max, page) => {
+    return Math.max(max, page.order || 0);
+  }, 0);
+  
   const page: Page = {
     id,
     title,
+    order: maxOrder + 1,
     createdAt: createMockTimestamp(),
     updatedAt: createMockTimestamp(),
   };
@@ -23,7 +31,7 @@ export const createPage = async (userId: string, title: string): Promise<string>
 };
 
 export const getPages = async (_userId: string): Promise<Page[]> => {
-  return Array.from(mockPages.values());
+  return Array.from(mockPages.values()).sort((a, b) => (a.order || 0) - (b.order || 0));
 };
 
 export const updatePage = async (_userId: string, pageId: string, updates: Partial<Page>): Promise<void> => {
@@ -115,6 +123,7 @@ export const initializeMockData = () => {
     const page: Page = {
       id: pageId,
       title: 'Welcome to Notion Lite',
+      order: 1,
       createdAt: createMockTimestamp(),
       updatedAt: createMockTimestamp(),
     };
@@ -157,10 +166,48 @@ export const initializeMockData = () => {
   }
 };
 
+export const updatePageTitle = async (userId: string, pageId: string, title: string): Promise<void> => {
+  const page = mockPages.get(pageId);
+  if (page) {
+    mockPages.set(pageId, {
+      ...page,
+      title,
+      updatedAt: createMockTimestamp(),
+    });
+  }
+};
+
+export const updatePageOrder = async (userId: string, pageId: string, order: number): Promise<void> => {
+  const page = mockPages.get(pageId);
+  if (page) {
+    mockPages.set(pageId, {
+      ...page,
+      order,
+      updatedAt: createMockTimestamp(),
+    });
+  }
+};
+
+export const reorderPages = async (userId: string, pageUpdates: { id: string; order: number }[]): Promise<void> => {
+  pageUpdates.forEach(({ id, order }) => {
+    const page = mockPages.get(id);
+    if (page) {
+      mockPages.set(id, {
+        ...page,
+        order,
+        updatedAt: createMockTimestamp(),
+      });
+    }
+  });
+};
+
 const mockFirestore = {
   createPage,
   getPages,
   updatePage,
+  updatePageTitle,
+  updatePageOrder,
+  reorderPages,
   deletePage,
   createBlock,
   getBlocks,

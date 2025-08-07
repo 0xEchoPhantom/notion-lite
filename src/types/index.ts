@@ -24,6 +24,7 @@ export interface Block {
 export interface Page {
   id: string;
   title: string;
+  order: number;
   createdAt: Date;
   updatedAt: Date;
 }

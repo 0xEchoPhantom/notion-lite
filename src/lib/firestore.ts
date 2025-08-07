@@ -25,9 +25,17 @@ export const createPage = async (userId: string, title: string): Promise<string>
     throw new Error('Title is required to create a page');
   }
   
+  // Get the current highest order to append the new page at the end
   const pagesRef = collection(db, 'users', userId, 'pages');
+  const snapshot = await getDocs(pagesRef);
+  const maxOrder = snapshot.docs.reduce((max, doc) => {
+    const order = doc.data().order || 0;
+    return Math.max(max, order);
+  }, 0);
+  
   const docRef = await addDoc(pagesRef, {
     title,
+    order: maxOrder + 1,
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
   });
@@ -40,12 +48,13 @@ export const getPages = async (userId: string): Promise<Page[]> => {
   }
   
   const pagesRef = collection(db, 'users', userId, 'pages');
-  const q = query(pagesRef, orderBy('updatedAt', 'desc'));
+  const q = query(pagesRef, orderBy('order', 'asc'));
   const snapshot = await getDocs(q);
   
   return snapshot.docs.map(doc => ({
     id: doc.id,
     title: doc.data().title,
+    order: doc.data().order || 0,
     createdAt: doc.data().createdAt.toDate(),
     updatedAt: doc.data().updatedAt.toDate(),
   }));
@@ -57,6 +66,28 @@ export const updatePageTitle = async (userId: string, pageId: string, title: str
     title,
     updatedAt: Timestamp.now(),
   });
+};
+
+export const updatePageOrder = async (userId: string, pageId: string, order: number) => {
+  const pageRef = doc(db, 'users', userId, 'pages', pageId);
+  await updateDoc(pageRef, {
+    order,
+    updatedAt: Timestamp.now(),
+  });
+};
+
+export const reorderPages = async (userId: string, pageUpdates: { id: string; order: number }[]) => {
+  const batch = writeBatch(db);
+  
+  pageUpdates.forEach(({ id, order }) => {
+    const pageRef = doc(db, 'users', userId, 'pages', id);
+    batch.update(pageRef, {
+      order,
+      updatedAt: Timestamp.now(),
+    });
+  });
+  
+  await batch.commit();
 };
 
 export const deletePage = async (userId: string, pageId: string): Promise<void> => {
