@@ -168,6 +168,9 @@ export const Editor: React.FC<EditorProps> = () => {
 
   const handleDragOver = useCallback((e: React.DragEvent, blockId: string) => {
     e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    
     if (draggedBlockId && draggedBlockId !== blockId) {
       setDraggedOverBlockId(blockId);
       
@@ -184,6 +187,8 @@ export const Editor: React.FC<EditorProps> = () => {
 
   const handleDrop = useCallback(async (e: React.DragEvent, targetBlockId: string) => {
     e.preventDefault();
+    e.stopPropagation();
+    
     const sourceBlockId = e.dataTransfer.getData('text/plain');
     
     if (sourceBlockId && sourceBlockId !== targetBlockId) {

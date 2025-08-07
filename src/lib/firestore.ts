@@ -5,6 +5,7 @@ import {
   updateDoc,
   deleteDoc,
   getDocs,
+  getDoc,
   onSnapshot,
   query,
   orderBy,
@@ -137,4 +138,46 @@ export const reorderBlocks = async (
   });
   
   await batch.commit();
+};
+
+export const moveBlockToPage = async (
+  userId: string,
+  fromPageId: string,
+  toPageId: string,
+  blockId: string,
+  newOrder: number
+) => {
+  // Get the block data from the source page
+  const sourceBlockRef = doc(db, 'users', userId, 'pages', fromPageId, 'blocks', blockId);
+  const sourceSnapshot = await getDoc(sourceBlockRef);
+  
+  if (!sourceSnapshot.exists()) {
+    throw new Error('Block not found');
+  }
+  
+  const blockData = sourceSnapshot.data();
+  
+  // Create the block in the destination page
+  const destBlocksRef = collection(db, 'users', userId, 'pages', toPageId, 'blocks');
+  const cleanBlockData = Object.fromEntries(
+    Object.entries({
+      ...blockData,
+      order: newOrder,
+      updatedAt: Timestamp.now(),
+    }).filter(([_, value]) => value !== undefined)
+  );
+  
+  // Use batch to ensure atomicity
+  const batch = writeBatch(db);
+  
+  // Add to destination page
+  const newBlockRef = doc(destBlocksRef);
+  batch.set(newBlockRef, cleanBlockData);
+  
+  // Delete from source page
+  batch.delete(sourceBlockRef);
+  
+  await batch.commit();
+  
+  return newBlockRef.id;
 };

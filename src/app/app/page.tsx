@@ -3,9 +3,67 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { BlocksProvider } from '@/contexts/BlocksContext';
+import { GlobalDragProvider, useGlobalDrag } from '@/contexts/GlobalDragContext';
 import { Editor } from '@/components/editor/Editor';
 import { getPages, createPage } from '@/lib/firestore';
 import { Page } from '@/types';
+
+interface PageButtonProps {
+  page: Page;
+  isActive: boolean;
+  onClick: () => void;
+}
+
+const PageButton: React.FC<PageButtonProps> = ({ page, isActive, onClick }) => {
+  const { moveBlockToNewPage, isDragging } = useGlobalDrag();
+  const [isHovered, setIsHovered] = useState(false);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    if (isDragging) {
+      e.preventDefault();
+      setIsHovered(true);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setIsHovered(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsHovered(false);
+    
+    const blockData = e.dataTransfer.getData('application/json');
+    if (blockData) {
+      try {
+        await moveBlockToNewPage(page.id, 0);
+      } catch (error) {
+        console.error('Error moving block:', error);
+      }
+    }
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={`w-full text-left px-2 py-1 rounded text-sm transition-colors ${
+        isActive
+          ? 'bg-blue-100 text-blue-900'
+          : isHovered && isDragging
+          ? 'bg-green-100 text-green-900 border-2 border-green-300'
+          : 'text-gray-700 hover:bg-gray-100'
+      }`}
+    >
+      {page.title}
+      {isHovered && isDragging && (
+        <span className="ml-2 text-xs text-green-600">(Drop here)</span>
+      )}
+    </button>
+  );
+};
 
 export default function AppPage() {
   const { user } = useAuth();
@@ -90,71 +148,68 @@ export default function AppPage() {
   const currentPage = pages.find(p => p.id === currentPageId);
 
   return (
-    <div className="flex">
-      {/* Sidebar */}
-      <div className="w-64 bg-gray-50 border-r border-gray-200 min-h-screen">
-        <div className="p-4">
-          <h2 className="text-sm font-medium text-gray-900 mb-4">Pages</h2>
-          <div className="space-y-1">
-            {pages.map((page) => (
-              <button
-                key={page.id}
-                onClick={() => setCurrentPageId(page.id)}
-                className={`w-full text-left px-2 py-1 rounded text-sm ${
-                  page.id === currentPageId
-                    ? 'bg-blue-100 text-blue-900'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                {page.title}
-              </button>
-            ))}
-          </div>
+    <GlobalDragProvider currentPageId={currentPageId || ''}>
+      <div className="flex">
+        {/* Sidebar */}
+        <div className="w-64 bg-gray-50 border-r border-gray-200 min-h-screen">
+          <div className="p-4">
+            <h2 className="text-sm font-medium text-gray-900 mb-4">Pages</h2>
+            <div className="space-y-1">
+              {pages.map((page) => (
+                <PageButton
+                  key={page.id}
+                  page={page}
+                  isActive={page.id === currentPageId}
+                  onClick={() => setCurrentPageId(page.id)}
+                />
+              ))}
+            </div>
           
-          <button
-            onClick={async () => {
-              if (user) {
-                const pageId = await createPage(user.uid, 'Untitled');
-                const updatedPages = await getPages(user.uid);
-                setPages(updatedPages);
-                setCurrentPageId(pageId);
-              }
-            }}
-            className="w-full mt-4 px-2 py-1 text-left text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
-          >
-            + New page
-          </button>
-        </div>
-      </div>
-
-      {/* Main content */}
-      <div className="flex-1">
-        <div className="p-6">
-          {/* Page title */}
-          <div className="mb-6">
-            <input
-              type="text"
-              value={currentPage?.title || ''}
-              onChange={(e) => {
-                // Update page title - this would need implementation
-                const updatedPages = pages.map(p => 
-                  p.id === currentPageId 
-                    ? { ...p, title: e.target.value }
-                    : p
-                );
-                setPages(updatedPages);
+            <button
+              onClick={async () => {
+                if (user) {
+                  const pageId = await createPage(user.uid, 'Untitled');
+                  const updatedPages = await getPages(user.uid);
+                  setPages(updatedPages);
+                  setCurrentPageId(pageId);
+                }
               }}
-              className="text-4xl font-bold text-gray-900 bg-transparent border-none outline-none w-full placeholder-gray-400"
-              placeholder="Untitled"
-            />
+              className="w-full mt-4 px-2 py-1 text-left text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+            >
+              + New page
+            </button>
           </div>
+        </div>
 
-          {/* Editor */}
-          <BlocksProvider pageId={currentPageId}>
-            <Editor pageId={currentPageId} />
-          </BlocksProvider>
+        {/* Main content */}
+        <div className="flex-1">
+          <div className="p-6">
+            {/* Page title */}
+            <div className="mb-6">
+              <input
+                type="text"
+                value={currentPage?.title || ''}
+                onChange={(e) => {
+                  // Update page title - this would need implementation
+                  const updatedPages = pages.map(p => 
+                    p.id === currentPageId 
+                      ? { ...p, title: e.target.value }
+                      : p
+                  );
+                  setPages(updatedPages);
+                }}
+                className="text-4xl font-bold text-gray-900 bg-transparent border-none outline-none w-full placeholder-gray-400"
+                placeholder="Untitled"
+              />
+            </div>
+
+            {/* Editor */}
+            <BlocksProvider pageId={currentPageId}>
+              <Editor pageId={currentPageId} />
+            </BlocksProvider>
+          </div>
         </div>
       </div>
-    </div>
+    </GlobalDragProvider>
   );
 }

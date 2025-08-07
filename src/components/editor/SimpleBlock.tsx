@@ -3,6 +3,7 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { Block as BlockType, BlockType as BType } from '@/types';
 import { useBlocksWithKeyboard } from '@/hooks/useBlocks';
+import { useGlobalDrag } from '@/contexts/GlobalDragContext';
 import { SlashMenu } from './SlashMenu';
 import { 
   getIndentStyle, 
@@ -56,6 +57,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
   dropPosition = null,
 }) => {
   const { updateBlockContent, convertBlockType, toggleTodoCheck } = useBlocksWithKeyboard();
+  const { setDraggedBlock } = useGlobalDrag();
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashMenuPosition, setSlashMenuPosition] = useState({ x: 0, y: 0 });
@@ -146,17 +148,20 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
       return;
     }
 
-    // Cmd/Ctrl + A: Select current block when at start/end or all text selected
+    // Cmd/Ctrl + A: Select all text, then select block on second press
     if (cmdKey && key === 'a') {
-      if (input && (
-        (input.selectionStart === 0 && input.selectionEnd === 0) ||
-        (input.selectionStart === 0 && input.selectionEnd === input.value.length) ||
-        input.value.length === 0
-      )) {
-        e.preventDefault();
-        onSelect();
-        input.blur(); // Remove focus to show block selection
-        return;
+      if (input) {
+        const isAllTextSelected = input.selectionStart === 0 && input.selectionEnd === input.value.length;
+        const isEmptyBlock = input.value.length === 0;
+        
+        // If all text is already selected OR block is empty, select the entire block
+        if (isAllTextSelected || isEmptyBlock) {
+          e.preventDefault();
+          onSelect();
+          input.blur(); // Remove focus to show block selection
+          return;
+        }
+        // Otherwise, let the default Ctrl+A behavior select all text
       }
     }
 
@@ -427,22 +432,43 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
 
   // Drag and drop handlers
   const handleDragStart = useCallback((e: React.DragEvent) => {
+    e.dataTransfer.effectAllowed = 'move';
+    
+    // Set multiple data formats for cross-page compatibility
+    e.dataTransfer.setData('text/plain', block.id);
+    e.dataTransfer.setData('application/json', JSON.stringify({
+      blockId: block.id,
+      type: block.type,
+      content: block.content,
+      indentLevel: block.indentLevel,
+      isChecked: block.isChecked
+    }));
+    
+    // Set global drag state for cross-page operations
+    setDraggedBlock({
+      blockId: block.id,
+      sourcePageId: '', // Will be set by GlobalDragProvider
+      type: block.type,
+      content: block.content,
+      indentLevel: block.indentLevel,
+      isChecked: block.isChecked
+    });
+    
     if (onDragStart) {
       onDragStart(block.id);
     }
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', block.id);
-  }, [block.id, onDragStart]);
+  }, [block, onDragStart, setDraggedBlock]);
 
   const handleDragEnd = useCallback(() => {
+    setDraggedBlock(null);
     if (onDragEnd) {
       onDragEnd();
     }
-  }, [onDragEnd]);
+  }, [onDragEnd, setDraggedBlock]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    e.stopPropagation();
     if (onDragOver) {
       onDragOver(e, block.id);
     }
@@ -450,6 +476,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     if (onDrop) {
       onDrop(e, block.id);
     }
@@ -523,7 +550,17 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
         'absolute -left-6 top-1 hover:bg-gray-100 rounded',
         isSelected && 'opacity-100'
       )}
+      draggable
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
       title="Drag to move"
+      onMouseDown={(e) => {
+        e.stopPropagation(); // Prevent input focus when dragging
+      }}
     >
       <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
         <circle cx="2" cy="3" r="1" />
@@ -546,15 +583,13 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
       )}
       
       <div
+        data-block-id={block.id}
         className={clsx(
           'group relative flex items-start gap-2 py-1 px-2 mx-2 rounded hover:bg-gray-50',
           'transition-colors duration-150 border-l-2 border-transparent',
           block.isChecked && 'opacity-60',
           isDragging && 'opacity-50'
         )}
-        draggable
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
@@ -572,6 +607,10 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
             onBlur={handleBlur}
             onCompositionStart={handleCompositionStart}
             onCompositionEnd={handleCompositionEnd}
+            onMouseDown={(e) => {
+              // Prevent drag start when clicking in the input
+              e.stopPropagation();
+            }}
             placeholder={placeholder}
             className={clsx(
               'w-full bg-transparent border-none outline-none resize-none',
