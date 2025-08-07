@@ -5,13 +5,15 @@ import { SimpleBlock } from './SimpleBlock';
 import { useBlocksWithKeyboard } from '@/hooks/useBlocks';
 import { useBlocks } from '@/contexts/BlocksContext';
 import { ShortcutHelper } from '@/components/ui/ShortcutHelper';
+import { SelectionProvider, useSelection } from '@/contexts/SelectionContext';
 import { BlockType as BType } from '@/types/index';
 
 interface EditorProps {
   pageId: string;
 }
 
-export const Editor: React.FC<EditorProps> = () => {
+// Inner editor component that uses selection context
+const EditorInner: React.FC = () => {
   const { blocks, loading } = useBlocks();
   const { 
     createNewBlock, 
@@ -23,6 +25,19 @@ export const Editor: React.FC<EditorProps> = () => {
     outdentBlock,
     reorderBlocks
   } = useBlocksWithKeyboard();
+  
+  // Selection context
+  const {
+    selectedBlockIds,
+    selectBlock,
+    clearSelection,
+    isBlockSelected,
+    startMouseSelection,
+    updateMouseSelection,
+    endMouseSelection,
+    handleKeyboardSelection
+  } = useSelection();
+  
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
   const [draggedOverBlockId, setDraggedOverBlockId] = useState<string | null>(null);
@@ -151,9 +166,98 @@ export const Editor: React.FC<EditorProps> = () => {
     await outdentBlock(blockId);
   }, [outdentBlock]);
 
-  const handleBlockSelect = useCallback((blockId: string) => {
-    setSelectedBlockId(blockId);
-  }, []);
+  const handleBlockSelect = useCallback((blockId: string, event?: React.MouseEvent) => {
+    // Check if this is a multi-select operation
+    const isCtrlClick = event && (event.ctrlKey || event.metaKey);
+    const isShiftClick = event && event.shiftKey;
+    
+    if (isCtrlClick) {
+      // Ctrl+Click: Toggle individual block selection
+      if (isBlockSelected(blockId)) {
+        // Remove from selection
+        const newSelection = new Set(selectedBlockIds);
+        newSelection.delete(blockId);
+        clearSelection();
+        if (newSelection.size > 0) {
+          const selectedIds = Array.from(newSelection);
+          selectBlock(selectedIds[0], false);
+          selectedIds.slice(1).forEach(id => {
+            selectBlock(id, true);
+          });
+        }
+      } else {
+        // Add to selection
+        selectBlock(blockId, selectedBlockIds.size > 0);
+      }
+    } else if (isShiftClick && selectedBlockId) {
+      // Shift+Click: Select range
+      const allBlocks = blocks;
+      const startIndex = allBlocks.findIndex(b => b.id === selectedBlockId);
+      const endIndex = allBlocks.findIndex(b => b.id === blockId);
+      
+      if (startIndex !== -1 && endIndex !== -1) {
+        const start = Math.min(startIndex, endIndex);
+        const end = Math.max(startIndex, endIndex);
+        const rangeBlockIds = allBlocks.slice(start, end + 1).map(b => b.id);
+        clearSelection();
+        rangeBlockIds.forEach((id, index) => {
+          selectBlock(id, index > 0);
+        });
+      }
+    } else {
+      // Normal click: Single selection
+      clearSelection();
+      selectBlock(blockId, false);
+      setSelectedBlockId(blockId);
+    }
+  }, [selectedBlockId, selectedBlockIds, isBlockSelected, selectBlock, clearSelection, blocks]);
+
+  // Handle global keyboard events
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    const handled = handleKeyboardSelection(e);
+    if (handled) return;
+
+    // Handle bulk operations on selected blocks
+    if (selectedBlockIds.size > 1) {
+      const { key } = e;
+
+      // Delete multiple blocks
+      if (key === 'Delete' || key === 'Backspace') {
+        e.preventDefault();
+        const blockIds = Array.from(selectedBlockIds);
+        // Delete from last to first to maintain indices
+        blockIds.sort((a, b) => {
+          const indexA = blocks.findIndex(block => block.id === a);
+          const indexB = blocks.findIndex(block => block.id === b);
+          return indexB - indexA;
+        });
+        
+        blockIds.forEach(blockId => {
+          deleteBlockById(blockId);
+        });
+        clearSelection();
+        return;
+      }
+
+      // Indent multiple blocks
+      if (key === 'Tab' && !e.shiftKey) {
+        e.preventDefault();
+        selectedBlockIds.forEach(blockId => {
+          handleIndent(blockId);
+        });
+        return;
+      }
+
+      // Outdent multiple blocks
+      if (key === 'Tab' && e.shiftKey) {
+        e.preventDefault();
+        selectedBlockIds.forEach(blockId => {
+          handleOutdent(blockId);
+        });
+        return;
+      }
+    }
+  }, [handleKeyboardSelection, selectedBlockIds, blocks, deleteBlockById, clearSelection, handleIndent, handleOutdent]);
 
   // Drag and drop handlers
   const handleDragStart = useCallback((blockId: string) => {
@@ -265,22 +369,35 @@ export const Editor: React.FC<EditorProps> = () => {
 
   return (
     <div 
-      className="max-w-4xl mx-auto py-8 px-4"
+      className="max-w-4xl mx-auto py-8 px-4 relative"
       onDragOver={handleGlobalDragOver}
       onDrop={handleGlobalDrop}
+      onMouseDown={startMouseSelection}
+      onMouseMove={updateMouseSelection}
+      onMouseUp={endMouseSelection}
+      onKeyDown={handleKeyDown}
+      tabIndex={0} // Make div focusable for keyboard events
     >
       {/* Header with shortcut helper */}
       <div className="flex justify-end mb-4">
         <ShortcutHelper />
       </div>
       
+      {/* Selection info */}
+      {selectedBlockIds.size > 1 && (
+        <div className="mb-4 px-3 py-2 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-700">
+          {selectedBlockIds.size} blocks selected • Tab/Shift+Tab to indent/outdent • Delete to remove
+        </div>
+      )}
+      
       <div className="space-y-1">
         {blocks.map((block) => (
           <div key={block.id} data-block-id={block.id}>
             <SimpleBlock
               block={block}
-              isSelected={selectedBlockId === block.id}
-              onSelect={() => handleBlockSelect(block.id)}
+              isSelected={selectedBlockId === block.id || isBlockSelected(block.id)}
+              isMultiSelected={isBlockSelected(block.id) && selectedBlockIds.size > 1}
+              onSelect={(event?: React.MouseEvent) => handleBlockSelect(block.id, event)}
               onNewBlock={() => handleNewBlock(block.id)}
               onCreateBlock={createNewBlock}
               onMergeUp={() => handleMergeUp(block.id)}
@@ -308,19 +425,38 @@ export const Editor: React.FC<EditorProps> = () => {
         onDragOver={handleGlobalDragOver}
         onDrop={handleGlobalDrop}
         onClick={async () => {
+          // Clear selection when clicking in empty area
+          clearSelection();
+          
           const newBlockId = await createNewBlock('paragraph', '');
           // Set selection immediately for instant UI feedback
           setSelectedBlockId(newBlockId);
+          selectBlock(newBlockId, false);
           
           // Focus the new block with minimal delay
           setTimeout(() => {
-            const newBlockElement = document.querySelector(`[data-block-id="${newBlockId}"] input`);
+            const newBlockElement = document.querySelector(`[data-block-id="${newBlockId}"] textarea`);
             if (newBlockElement) {
-              (newBlockElement as HTMLInputElement).focus();
+              (newBlockElement as HTMLTextAreaElement).focus();
             }
-          }, 10); // Reduced from 50ms to 10ms for better responsiveness
+          }, 10);
         }}
       />
     </div>
+  );
+};
+
+// Main Editor component with SelectionProvider wrapper
+export const Editor: React.FC<EditorProps> = () => {
+  const { blocks } = useBlocks();
+  
+  const getAllBlocks = useCallback(() => {
+    return blocks.map(block => ({ id: block.id }));
+  }, [blocks]);
+
+  return (
+    <SelectionProvider getAllBlocks={getAllBlocks}>
+      <EditorInner />
+    </SelectionProvider>
   );
 };

@@ -19,7 +19,8 @@ import clsx from 'clsx';
 interface SimpleBlockProps {
   block: BlockType;
   isSelected: boolean;
-  onSelect: () => void;
+  isMultiSelected?: boolean;
+  onSelect: (event?: React.MouseEvent) => void;
   onNewBlock: (type?: BType, indentLevel?: number) => void;
   onCreateBlock?: (type: BType, content: string, afterBlockId: string, indentLevel?: number) => Promise<string>;
   onMergeUp: () => void;
@@ -41,6 +42,7 @@ interface SimpleBlockProps {
 export const SimpleBlock: React.FC<SimpleBlockProps> = ({
   block,
   isSelected,
+  isMultiSelected = false,
   onSelect,
   onNewBlock,
   onCreateBlock,
@@ -682,6 +684,15 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
     }
   };
 
+  const handleBlockClick = (e: React.MouseEvent) => {
+    // Only handle click if not clicking on textarea or drag handle
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'TEXTAREA' || target.closest('[draggable="true"]')) {
+      return;
+    }
+    onSelect(e);
+  };
+
   const handleBlur = () => {
     setIsFocused(false);
   };
@@ -854,11 +865,14 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
         className={clsx(
           'group relative flex items-start gap-2 py-1 px-2 mx-2 rounded hover:bg-gray-50',
           'transition-all duration-200 border-l-2 border-transparent',
+          (isSelected || isMultiSelected) && 'bg-blue-50 border-l-blue-500',
+          isMultiSelected && 'ring-2 ring-blue-200',
           block.type === 'todo-list' && block.isChecked && 'opacity-60 bg-gray-50',
           isDragging && 'opacity-50'
         )}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
+        onClick={handleBlockClick}
       >
         {renderDragHandle()}
         {renderBlockIcon()}
