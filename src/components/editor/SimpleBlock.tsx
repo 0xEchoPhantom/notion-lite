@@ -425,7 +425,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
       return;
     }
 
-    // Enter: Create new block of same type (Notion behavior)
+    // Enter: Create new block with Notion-like behavior
     // Shift+Enter: Insert line break within the block
     if (key === 'Enter') {
       if (shiftKey) {
@@ -436,19 +436,61 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
       if (!cmdKey) {
         e.preventDefault();
         
-        // Always create new block with same type and indent level
-        onNewBlock(block.type, block.indentLevel);
+        // Special logic for todo blocks (Notion behavior)
+        if (block.type === 'todo-list') {
+          if (localContent.trim() === '') {
+            // Empty todo + Enter: Smart outdenting behavior
+            if (block.indentLevel === 0) {
+              // Root level empty todo: convert to paragraph
+              onNewBlock('paragraph', 0);
+            } else if (block.indentLevel >= 3) {
+              // Deeply nested empty todo: outdent by 2 levels for better UX
+              onNewBlock('paragraph', Math.max(0, block.indentLevel - 2));
+            } else {
+              // Shallow nested empty todo: outdent by 1 level
+              onNewBlock('paragraph', Math.max(0, block.indentLevel - 1));
+            }
+          } else {
+            // Non-empty todo + Enter: Create new todo at same indent level
+            onNewBlock('todo-list', block.indentLevel);
+          }
+        } else {
+          // For all other block types, maintain current behavior
+          onNewBlock(block.type, block.indentLevel);
+        }
         return;
       }
     }
 
-    // Backspace at start: Merge up or delete
+    // Backspace at start: Smart behavior for todos
     if (key === 'Backspace') {
       if (input && input.selectionStart === 0 && input.selectionEnd === 0) {
         e.preventDefault();
+        
         if (localContent === '') {
-          onDeleteBlock();
+          // Empty block logic with smart outdenting
+          if (block.type === 'todo-list' && block.indentLevel > 0) {
+            // Smart outdenting for nested todos
+            if (block.indentLevel >= 4) {
+              // Very deep nesting: outdent by 2 levels for faster navigation
+              const newIndent = Math.max(0, block.indentLevel - 2);
+              // First outdent, don't delete yet
+              if (newIndent > 0) {
+                onOutdent();
+                onOutdent(); // Double outdent for deep nesting
+              } else {
+                onDeleteBlock();
+              }
+            } else {
+              // Normal outdenting behavior
+              onOutdent();
+            }
+          } else {
+            // Regular delete behavior for non-todos or root level
+            onDeleteBlock();
+          }
         } else {
+          // Non-empty block: merge up
           onMergeUp();
         }
         return;

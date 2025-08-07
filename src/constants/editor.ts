@@ -4,7 +4,7 @@
  */
 
 /** Maximum nesting/indent level for blocks */
-export const MAX_INDENT_LEVEL = 10; // Increased from 5 to 10 for deeper nesting
+export const MAX_INDENT_LEVEL = 6; // Reduced from 10 to 6 for better visual hierarchy
 
 /** Minimum nesting/indent level for blocks */
 export const MIN_INDENT_LEVEL = 0;

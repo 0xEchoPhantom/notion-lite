@@ -60,9 +60,9 @@ const EditorInner: React.FC = () => {
     
     // Focus the new block with minimal delay for DOM update
     setTimeout(() => {
-      const newBlockElement = document.querySelector(`[data-block-id="${newBlockId}"] input`);
+      const newBlockElement = document.querySelector(`[data-block-id="${newBlockId}"] textarea`);
       if (newBlockElement) {
-        (newBlockElement as HTMLInputElement).focus();
+        (newBlockElement as HTMLTextAreaElement).focus();
       }
     }, 10); // Reduced from 50ms to 10ms for better responsiveness
   }, [blocks, createNewBlock]);
@@ -80,7 +80,7 @@ const EditorInner: React.FC = () => {
     
     // Focus the new block with minimal delay
     setTimeout(() => {
-      const newBlockElement = document.querySelector(`[data-block-id="${newBlockId}"] input`);
+      const newBlockElement = document.querySelector(`[data-block-id="${newBlockId}"] textarea`);
       if (newBlockElement) {
         (newBlockElement as HTMLInputElement).focus();
       }
@@ -105,9 +105,9 @@ const EditorInner: React.FC = () => {
     // Focus previous block
     setTimeout(() => {
       setSelectedBlockId(previousBlock.id);
-      const prevBlockElement = document.querySelector(`[data-block-id="${previousBlock.id}"] input`);
+      const prevBlockElement = document.querySelector(`[data-block-id="${previousBlock.id}"] textarea`);
       if (prevBlockElement) {
-        const input = prevBlockElement as HTMLInputElement;
+        const input = prevBlockElement as HTMLTextAreaElement;
         input.focus();
         // Position cursor at the merge point
         input.setSelectionRange(previousBlock.content.length, previousBlock.content.length);
@@ -138,9 +138,9 @@ const EditorInner: React.FC = () => {
     if (focusBlockId) {
       setTimeout(() => {
         setSelectedBlockId(focusBlockId);
-        const blockElement = document.querySelector(`[data-block-id="${focusBlockId}"] input`);
+        const blockElement = document.querySelector(`[data-block-id="${focusBlockId}"] textarea`);
         if (blockElement) {
-          (blockElement as HTMLInputElement).focus();
+          (blockElement as HTMLTextAreaElement).focus();
         }
       }, 50);
     }
