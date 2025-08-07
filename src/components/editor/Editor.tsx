@@ -265,14 +265,21 @@ export const Editor: React.FC<EditorProps> = () => {
         ))}
       </div>
       
-      {/* Add new block button */}
-      <button
-        onClick={() => createNewBlock('paragraph', '')}
-        className="flex items-center gap-2 text-gray-400 hover:text-gray-600 mt-4 px-2 py-2 rounded hover:bg-gray-50"
-      >
-        <span className="text-lg">+</span>
-        <span className="text-sm">Click or press Enter to add a new block</span>
-      </button>
+      {/* Notion-style clickable area below content */}
+      <div
+        className="min-h-[200px] w-full cursor-text"
+        onClick={async () => {
+          const newBlockId = await createNewBlock('paragraph', '');
+          // Focus the new block
+          setTimeout(() => {
+            setSelectedBlockId(newBlockId);
+            const newBlockElement = document.querySelector(`[data-block-id="${newBlockId}"] input`);
+            if (newBlockElement) {
+              (newBlockElement as HTMLInputElement).focus();
+            }
+          }, 50);
+        }}
+      />
     </div>
   );
 };
