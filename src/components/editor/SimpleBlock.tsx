@@ -18,7 +18,7 @@ interface SimpleBlockProps {
   block: BlockType;
   isSelected: boolean;
   onSelect: () => void;
-  onNewBlock: () => void;
+  onNewBlock: (type?: BType, indentLevel?: number) => void;
   onMergeUp: () => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
@@ -252,14 +252,8 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
     if (key === 'Enter' && !shiftKey && !cmdKey) {
       e.preventDefault();
       
-      // If current block is empty and it's a list item, convert to paragraph
-      if (localContent === '' && (block.type === 'bulleted-list' || block.type === 'todo-list')) {
-        convertBlockType(block.id, 'paragraph');
-        return;
-      }
-      
-      // Create new block with same type and indent level
-      onNewBlock();
+      // Always create new block with same type and indent level
+      onNewBlock(block.type, block.indentLevel);
       return;
     }
 

@@ -5,6 +5,7 @@ import { SimpleBlock } from './SimpleBlock';
 import { useBlocksWithKeyboard } from '@/hooks/useBlocks';
 import { useBlocks } from '@/contexts/BlocksContext';
 import { ShortcutHelper } from '@/components/ui/ShortcutHelper';
+import { BlockType as BType } from '@/types';
 
 interface EditorProps {
   pageId: string;
@@ -28,15 +29,16 @@ export const Editor: React.FC<EditorProps> = () => {
   const [dropPosition, setDropPosition] = useState<'above' | 'below' | null>(null);
 
   // Create a new block after the current one (Notion-style: same type and indent level)
-  const handleNewBlock = useCallback(async (blockId: string) => {
+  const handleNewBlock = useCallback(async (blockId: string, type?: BType, indentLevel?: number) => {
     const currentBlockIndex = blocks.findIndex(b => b.id === blockId);
     const currentBlock = blocks[currentBlockIndex];
     
     if (!currentBlock) return;
 
     // Create new block with same type and indent level as current block
-    const newBlockType = currentBlock.type;
-    const newBlockId = await createNewBlock(newBlockType, '', blockId, currentBlock.indentLevel);
+    const newBlockType = type || currentBlock.type;
+    const newBlockIndent = indentLevel !== undefined ? indentLevel : currentBlock.indentLevel;
+    const newBlockId = await createNewBlock(newBlockType, '', blockId, newBlockIndent);
     
     // Set selection immediately for instant UI feedback
     setSelectedBlockId(newBlockId);
