@@ -127,6 +127,15 @@ git push origin main
 **Commit Hash**: `a751bd7`
 **Files Changed**: 12 files, +1221 insertions, -912 deletions
 
+### Vercel Deployment
+```bash
+vercel --prod
+```
+**Status**: ✅ Successfully deployed to Vercel
+**Production URL**: https://notion-lite-bb1947l1y-quangvust201s-projects.vercel.app
+**Build Time**: 32 seconds
+**Build Status**: ✅ Successful (with minor ESLint warnings only)
+
 ---
 
 ## 🧪 **Testing & Validation**
@@ -201,4 +210,5 @@ git push origin main
 **Session Completed**: August 7, 2025  
 **Duration**: Full development session  
 **Status**: ✅ All objectives completed and deployed to production  
+**Production URL**: https://notion-lite-bb1947l1y-quangvust201s-projects.vercel.app  
 **Next Steps**: Ready for next session enhancements
