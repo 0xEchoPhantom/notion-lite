@@ -61,6 +61,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
   const [slashMenuPosition, setSlashMenuPosition] = useState({ x: 0, y: 0 });
   const [isComposing, setIsComposing] = useState(false);
   const [localContent, setLocalContent] = useState(block.content);
+  const [isFocused, setIsFocused] = useState(false);
   const isArrowNavigating = useRef(false);
 
   // Sync local content with block content
@@ -466,10 +467,15 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
   };
 
   const handleFocus = () => {
+    setIsFocused(true);
     // Only trigger selection if it's not from arrow navigation
     if (!isArrowNavigating.current) {
       onSelect();
     }
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
   };
 
   const renderBlockIcon = () => {
@@ -535,7 +541,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
     </div>
   );
 
-  const placeholder = getBlockPlaceholder(block, localContent !== '');
+  const placeholder = getBlockPlaceholder(block, localContent !== '', isFocused);
 
   return (
     <>
@@ -548,7 +554,6 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
         className={clsx(
           'group relative flex items-start gap-2 py-1 px-2 mx-2 rounded hover:bg-gray-50',
           'transition-colors duration-150 border-l-2 border-transparent',
-          isSelected && 'bg-blue-50 border-l-blue-500',
           block.isChecked && 'opacity-60',
           isDragging && 'opacity-50'
         )}
@@ -569,6 +574,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
             onChange={handleChange}
             onKeyDown={handleKeyDown}
             onFocus={handleFocus}
+            onBlur={handleBlur}
             onCompositionStart={handleCompositionStart}
             onCompositionEnd={handleCompositionEnd}
             placeholder={placeholder}

@@ -95,8 +95,13 @@ export const getMarkdownShortcut = (content: string): {
  * @param hasContent - Whether the block has content
  * @returns Placeholder text
  */
-export const getBlockPlaceholder = (block: Block, hasContent: boolean): string => {
+export const getBlockPlaceholder = (block: Block, hasContent: boolean, isFocused: boolean = false): string => {
   if (hasContent) return '';
+  
+  // Only show "Type / for commands" when block is focused and empty
+  if (isFocused && !hasContent) {
+    return 'Type / for commands';
+  }
   
   const config = BLOCK_TYPE_CONFIG[block.type];
   return config?.placeholder || 'Start typing...';
