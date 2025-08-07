@@ -12,6 +12,7 @@ import {
   applyTextFormatting,
   getBlockFeatures 
 } from '@/utils/editor';
+import { parseNotionClipboard, isNotionContent, cleanContent } from '@/utils/clipboard';
 import { KEYBOARD_SHORTCUTS } from '@/constants/editor';
 import clsx from 'clsx';
 
@@ -20,6 +21,7 @@ interface SimpleBlockProps {
   isSelected: boolean;
   onSelect: () => void;
   onNewBlock: (type?: BType, indentLevel?: number) => void;
+  onCreateBlock?: (type: BType, content: string, afterBlockId: string, indentLevel?: number) => Promise<string>;
   onMergeUp: () => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
@@ -41,6 +43,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
   isSelected,
   onSelect,
   onNewBlock,
+  onCreateBlock,
   onMergeUp,
   onMoveUp,
   onMoveDown,
@@ -88,6 +91,97 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
     setLocalContent(content);
     // Don't update Firebase here - let handleChange handle it to avoid double updates
   }, []);
+
+  // Handle paste with Notion format support
+  const handlePaste = useCallback(async (e: React.ClipboardEvent) => {
+    const clipboardText = e.clipboardData.getData('text');
+    
+    // Check if the pasted content looks like it came from Notion
+    if (!isNotionContent(clipboardText)) {
+      // For regular text, let the default paste behavior handle it
+      return;
+    }
+
+    e.preventDefault();
+    
+    try {
+      // Parse the Notion content into blocks
+      const parsedBlocks = parseNotionClipboard(clipboardText);
+      
+      if (parsedBlocks.length === 0) {
+        return;
+      }
+
+      // If only one block, replace current block content
+      if (parsedBlocks.length === 1) {
+        const parsed = parsedBlocks[0];
+        const cleanedContent = cleanContent(parsed.content);
+        
+        // Update current block type and content
+        if (parsed.type !== block.type) {
+          await convertBlockType(block.id, parsed.type);
+        }
+        
+        updateBlockContent(block.id, { 
+          content: cleanedContent,
+          ...(parsed.type === 'todo-list' && { isChecked: parsed.completed || false })
+        });
+        setLocalContent(cleanedContent);
+        return;
+      }
+
+      // For multiple blocks, replace current block with first one and create new blocks for the rest
+      const [firstBlock, ...remainingBlocks] = parsedBlocks;
+      
+      // Update current block with first parsed block
+      const firstCleanedContent = cleanContent(firstBlock.content);
+      if (firstBlock.type !== block.type) {
+        await convertBlockType(block.id, firstBlock.type);
+      }
+      
+      updateBlockContent(block.id, { 
+        content: firstCleanedContent,
+        ...(firstBlock.type === 'todo-list' && { isChecked: firstBlock.completed || false })
+      });
+      setLocalContent(firstCleanedContent);
+
+      // Create new blocks for remaining content
+      let lastBlockId = block.id;
+      for (const parsedBlock of remainingBlocks) {
+        const cleanedContent = cleanContent(parsedBlock.content);
+        
+        if (onCreateBlock) {
+          const newBlockId = await onCreateBlock(
+            parsedBlock.type, 
+            cleanedContent, 
+            lastBlockId, 
+            block.indentLevel
+          );
+          
+          // Set todo completion state if it's a todo block
+          if (parsedBlock.type === 'todo-list' && parsedBlock.completed) {
+            setTimeout(() => {
+              updateBlockContent(newBlockId, { isChecked: true });
+            }, 50);
+          }
+          
+          lastBlockId = newBlockId;
+        }
+      }
+
+      // Focus the last created block
+      setTimeout(() => {
+        const lastBlockElement = document.querySelector(`[data-block-id="${lastBlockId}"] input`);
+        if (lastBlockElement) {
+          (lastBlockElement as HTMLInputElement).focus();
+        }
+      }, 100);
+
+    } catch (error) {
+      console.error('Error parsing pasted content:', error);
+      // Fall back to default paste behavior
+    }
+  }, [block, updateBlockContent, convertBlockType, onCreateBlock]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const content = e.target.value;
@@ -704,6 +798,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
               onInput={handleInput}
               onChange={handleChange}
               onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
               onFocus={handleFocus}
               onBlur={handleBlur}
               onCompositionStart={handleCompositionStart}

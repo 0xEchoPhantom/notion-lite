@@ -282,6 +282,7 @@ export const Editor: React.FC<EditorProps> = () => {
               isSelected={selectedBlockId === block.id}
               onSelect={() => handleBlockSelect(block.id)}
               onNewBlock={() => handleNewBlock(block.id)}
+              onCreateBlock={createNewBlock}
               onMergeUp={() => handleMergeUp(block.id)}
               onMoveUp={() => handleMoveUp(block.id)}
               onMoveDown={() => handleMoveDown(block.id)}
