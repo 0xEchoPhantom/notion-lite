@@ -10,7 +10,7 @@ import {
   onAuthStateChanged,
 } from 'firebase/auth';
 import { auth, googleProvider } from '@/firebase/client';
-import { User } from '@/types';
+import { User } from '@/types/index';
 
 interface AuthContextType {
   user: User | null;
@@ -42,13 +42,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
-        setUser({
-          uid: firebaseUser.uid,
-          email: firebaseUser.email!,
-          displayName: firebaseUser.displayName || undefined,
-          photoURL: firebaseUser.photoURL || undefined,
-        });
+        // Ensure we have a valid user with required fields
+        if (!firebaseUser.uid || !firebaseUser.email) {
+          console.error('❌ Invalid user data:', firebaseUser);
+          setUser(null);
+        } else {
+          console.log('✅ User authenticated:', firebaseUser.uid, firebaseUser.email);
+          setUser({
+            uid: firebaseUser.uid,
+            email: firebaseUser.email,
+            displayName: firebaseUser.displayName || undefined,
+            photoURL: firebaseUser.photoURL || undefined,
+          });
+        }
       } else {
+        console.log('❌ User not authenticated');
         setUser(null);
       }
       setLoading(false);

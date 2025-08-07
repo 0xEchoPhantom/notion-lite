@@ -4,8 +4,6 @@ import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { createPage } from '@/lib/firestore';
-import { auth } from '@/firebase/client';
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
@@ -36,20 +34,6 @@ export default function SignupPage() {
 
     try {
       await signUp(email, password);
-      
-      // Create initial page for new user
-      // Note: We need to wait for auth context to update with the user
-      setTimeout(async () => {
-        try {
-          const user = auth.currentUser;
-          if (user) {
-            await createPage(user.uid, 'Quick Capture');
-          }
-        } catch (error) {
-          console.error('Error creating initial page:', error);
-        }
-      }, 1000);
-      
       router.push('/app');
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to create account';

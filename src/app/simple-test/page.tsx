@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getPages, createPage, getBlocks, createBlock } from '@/lib/firestore';
-import { Page, Block } from '@/types';
+import { Page, Block } from '@/types/index';
 
 export default function SimpleTestPage() {
   const { user, loading } = useAuth();

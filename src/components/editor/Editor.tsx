@@ -5,7 +5,7 @@ import { SimpleBlock } from './SimpleBlock';
 import { useBlocksWithKeyboard } from '@/hooks/useBlocks';
 import { useBlocks } from '@/contexts/BlocksContext';
 import { ShortcutHelper } from '@/components/ui/ShortcutHelper';
-import { BlockType as BType } from '@/types';
+import { BlockType as BType } from '@/types/index';
 
 interface EditorProps {
   pageId: string;

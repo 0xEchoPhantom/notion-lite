@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { moveBlockToPage } from '@/lib/firestore';
-import { BlockType } from '@/types';
+import { BlockType } from '@/types/index';
 
 interface DraggedBlockData {
   blockId: string;

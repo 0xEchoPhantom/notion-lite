@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useRef, useEffect, useCallback, useState } from 'react';
-import { Block as BlockType, BlockType as BType } from '@/types';
+import { Block as BlockType, BlockType as BType } from '@/types/index';
 import { useBlocksWithKeyboard } from '@/hooks/useBlocks';
 import { useGlobalDrag } from '@/contexts/GlobalDragContext';
-import { SlashMenu } from './SlashMenu';
+import { SlashMenu, SlashMenuRef } from './SlashMenu';
 import { 
   getIndentStyle, 
   getMarkdownShortcut, 
@@ -59,8 +59,10 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
   const { updateBlockContent, convertBlockType, toggleTodoCheck } = useBlocksWithKeyboard();
   const { setDraggedBlock } = useGlobalDrag();
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+  const slashMenuRef = useRef<SlashMenuRef>(null);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashMenuPosition, setSlashMenuPosition] = useState({ x: 0, y: 0 });
+  const [slashSearchQuery, setSlashSearchQuery] = useState('');
   const [isComposing, setIsComposing] = useState(false);
   const [localContent, setLocalContent] = useState(block.content);
   const [isFocused, setIsFocused] = useState(false);
@@ -115,19 +117,37 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
     }
 
     // Handle slash command
-    if (content.endsWith('/')) {
+    const slashIndex = content.lastIndexOf('/');
+    if (slashIndex !== -1 && slashIndex === content.length - 1) {
+      // Just typed '/', show menu
       const rect = inputRef.current?.getBoundingClientRect();
       if (rect) {
         setSlashMenuPosition({
           x: rect.left,
           y: rect.bottom + 4,
         });
+        setSlashSearchQuery('');
         setShowSlashMenu(true);
+      }
+    } else if (slashIndex !== -1 && content.substring(0, slashIndex).trim() === '') {
+      // Typing after '/', update search query
+      const searchQuery = content.substring(slashIndex + 1);
+      setSlashSearchQuery(searchQuery);
+      if (!showSlashMenu) {
+        const rect = inputRef.current?.getBoundingClientRect();
+        if (rect) {
+          setSlashMenuPosition({
+            x: rect.left,
+            y: rect.bottom + 4,
+          });
+          setShowSlashMenu(true);
+        }
       }
     } else {
       setShowSlashMenu(false);
+      setSlashSearchQuery('');
     }
-  }, [block.id, updateBlockContent, convertBlockType, isComposing]);
+  }, [block.id, updateBlockContent, convertBlockType, isComposing, showSlashMenu]);
 
   // Handle keyboard shortcuts
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -138,6 +158,19 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
     // Skip keyboard shortcuts during Vietnamese composition
     if (isComposing) {
       return;
+    }
+
+    // Special handling when slash menu is open
+    if (showSlashMenu) {
+      if (key === 'ArrowDown' || key === 'ArrowUp' || key === 'Enter' || key === 'Escape') {
+        // Delegate to SlashMenu and prevent default if handled
+        const handled = slashMenuRef.current?.handleKeyDown(key);
+        if (handled) {
+          e.preventDefault();
+          return;
+        }
+      }
+      // For other keys, let them through to continue typing/filtering
     }
 
     // ESC: Select current block (Notion behavior)
@@ -379,6 +412,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
     onDuplicateBlock,
     onSelect,
     isComposing,
+    showSlashMenu,
     convertBlockType,
     updateBlockContent,
   ]);
@@ -424,10 +458,16 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
     convertBlockType(block.id, type);
     if (inputRef.current) {
       const content = inputRef.current.value;
-      const newContent = content.slice(0, -1); // Remove the '/'
-      updateBlockContent(block.id, { content: newContent });
+      const slashIndex = content.lastIndexOf('/');
+      if (slashIndex !== -1) {
+        // Remove the slash command and everything after it
+        const newContent = content.substring(0, slashIndex);
+        updateBlockContent(block.id, { content: newContent });
+        setLocalContent(newContent);
+      }
     }
     setShowSlashMenu(false);
+    setSlashSearchQuery('');
   };
 
   // Drag and drop handlers
@@ -506,7 +546,19 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
     const features = getBlockFeatures(block.type);
 
     switch (block.type) {
+      case 'heading-1':
+      case 'heading-2':
+      case 'heading-3':
+        return (
+          <span
+            className="text-gray-400 select-none mt-1 w-6 flex justify-center text-xs font-medium"
+            style={indentStyle}
+          >
+            {features.icon}
+          </span>
+        );
       case 'bulleted-list':
+      case 'numbered-list':
         return (
           <span
             className="text-gray-400 select-none mt-1 w-4 flex justify-center"
@@ -537,6 +589,28 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
               </svg>
             )}
           </button>
+        );
+      case 'quote':
+        return (
+          <span
+            className="text-gray-400 select-none mt-1 w-4 flex justify-center"
+            style={indentStyle}
+          >
+            {features.icon}
+          </span>
+        );
+      case 'code':
+        return (
+          <span
+            className="text-gray-400 select-none mt-1 w-6 flex justify-center text-xs"
+            style={indentStyle}
+          >
+            {features.icon}
+          </span>
+        );
+      case 'divider':
+        return (
+          <div className="w-4 mt-1" style={indentStyle} />
         );
       default:
         return <div className="w-4 mt-1" style={indentStyle} />;
@@ -574,6 +648,27 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
     </div>
   );
 
+  const getInputStyles = () => {
+    const baseStyles = 'w-full bg-transparent border-none outline-none resize-none placeholder-gray-400';
+    
+    switch (block.type) {
+      case 'heading-1':
+        return `${baseStyles} text-2xl font-bold leading-8 text-gray-900`;
+      case 'heading-2':
+        return `${baseStyles} text-xl font-semibold leading-7 text-gray-900`;
+      case 'heading-3':
+        return `${baseStyles} text-lg font-medium leading-6 text-gray-900`;
+      case 'quote':
+        return `${baseStyles} text-sm leading-6 italic text-gray-700 border-l-4 border-gray-300 pl-4`;
+      case 'code':
+        return `${baseStyles} text-sm leading-6 font-mono bg-gray-100 px-2 py-1 rounded`;
+      case 'divider':
+        return `${baseStyles} text-sm leading-6 text-center`;
+      default:
+        return `${baseStyles} text-sm leading-6 ${block.isChecked ? 'line-through text-gray-500' : 'text-gray-900'}`;
+    }
+  };
+
   const placeholder = getBlockPlaceholder(block, localContent !== '', isFocused);
 
   return (
@@ -597,28 +692,30 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
         {renderDragHandle()}
         {renderBlockIcon()}
         <div className="flex-1 min-w-0">
-          <input
-            ref={inputRef as React.RefObject<HTMLInputElement>}
-            type="text"
-            value={localContent}
-            onInput={handleInput}
-            onChange={handleChange}
-            onKeyDown={handleKeyDown}
-            onFocus={handleFocus}
-            onBlur={handleBlur}
-            onCompositionStart={handleCompositionStart}
-            onCompositionEnd={handleCompositionEnd}
-            onMouseDown={(e) => {
-              // Prevent drag start when clicking in the input
-              e.stopPropagation();
-            }}
-            placeholder={placeholder}
-            className={clsx(
-              'w-full bg-transparent border-none outline-none resize-none',
-              'text-sm leading-6 placeholder-gray-400',
-              block.isChecked && 'line-through text-gray-500'
-            )}
-          />
+          {block.type === 'divider' ? (
+            <div className="py-2">
+              <hr className="border-gray-300" />
+            </div>
+          ) : (
+            <input
+              ref={inputRef as React.RefObject<HTMLInputElement>}
+              type="text"
+              value={localContent}
+              onInput={handleInput}
+              onChange={handleChange}
+              onKeyDown={handleKeyDown}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
+              onCompositionStart={handleCompositionStart}
+              onCompositionEnd={handleCompositionEnd}
+              onMouseDown={(e) => {
+                // Prevent drag start when clicking in the input
+                e.stopPropagation();
+              }}
+              placeholder={placeholder}
+              className={getInputStyles()}
+            />
+          )}
         </div>
       </div>
 
@@ -628,10 +725,15 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
       )}
 
       <SlashMenu
+        ref={slashMenuRef}
         isOpen={showSlashMenu}
-        onClose={() => setShowSlashMenu(false)}
+        onClose={() => {
+          setShowSlashMenu(false);
+          setSlashSearchQuery('');
+        }}
         onSelectType={handleSlashMenuSelect}
         position={slashMenuPosition}
+        searchQuery={slashSearchQuery}
       />
     </>
   );

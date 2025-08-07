@@ -1,4 +1,4 @@
-import { Block, Page, BlockType } from '@/types';
+import { Block, Page, BlockType } from '@/types/index';
 
 // In-memory storage for local development
 const mockPages: Map<string, Page> = new Map();

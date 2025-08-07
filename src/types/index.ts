@@ -1,4 +1,14 @@
-export type BlockType = 'paragraph' | 'bulleted-list' | 'todo-list';
+export type BlockType = 
+  | 'paragraph'
+  | 'heading-1'
+  | 'heading-2' 
+  | 'heading-3'
+  | 'bulleted-list'
+  | 'numbered-list'
+  | 'todo-list'
+  | 'quote'
+  | 'code'
+  | 'divider';
 
 export interface Block {
   id: string;

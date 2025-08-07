@@ -14,10 +14,17 @@ import {
   deleteField,
 } from 'firebase/firestore';
 import { db } from '@/firebase/client';
-import { Block, Page, BlockType } from '@/types';
+import { Block, Page, BlockType } from '@/types/index';
 
 // Page operations
 export const createPage = async (userId: string, title: string): Promise<string> => {
+  if (!userId) {
+    throw new Error('User ID is required to create a page');
+  }
+  if (!title) {
+    throw new Error('Title is required to create a page');
+  }
+  
   const pagesRef = collection(db, 'users', userId, 'pages');
   const docRef = await addDoc(pagesRef, {
     title,
@@ -28,6 +35,10 @@ export const createPage = async (userId: string, title: string): Promise<string>
 };
 
 export const getPages = async (userId: string): Promise<Page[]> => {
+  if (!userId) {
+    throw new Error('User ID is required to fetch pages');
+  }
+  
   const pagesRef = collection(db, 'users', userId, 'pages');
   const q = query(pagesRef, orderBy('updatedAt', 'desc'));
   const snapshot = await getDocs(q);
@@ -54,6 +65,13 @@ export const createBlock = async (
   pageId: string,
   block: Omit<Block, 'id' | 'createdAt' | 'updatedAt'>
 ): Promise<string> => {
+  if (!userId) {
+    throw new Error('User ID is required to create a block');
+  }
+  if (!pageId) {
+    throw new Error('Page ID is required to create a block');
+  }
+  
   const blocksRef = collection(db, 'users', userId, 'pages', pageId, 'blocks');
   
   // Filter out undefined values to avoid Firebase errors

@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
-import { Block as BlockType, BlockType as BType } from '@/types';
+import { Block as BlockType, BlockType as BType } from '@/types/index';
 import { useBlocksWithKeyboard } from '@/hooks/useBlocks';
 import { SlashMenu } from './SlashMenu';
 import clsx from 'clsx';

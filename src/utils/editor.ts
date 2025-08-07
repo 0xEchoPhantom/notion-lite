@@ -3,7 +3,7 @@
  * Centralized utilities for better maintainability and AI collaboration
  */
 
-import { Block, BlockType } from '@/types';
+import { Block, BlockType } from '@/types/index';
 import { 
   MAX_INDENT_LEVEL, 
   MIN_INDENT_LEVEL, 

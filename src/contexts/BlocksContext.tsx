@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { Block } from '@/types';
+import { Block, BlockType } from '@/types/index';
 import {
   createBlock,
   updateBlock,
@@ -60,6 +60,7 @@ interface BlocksContextType {
   updateBlockContent: (id: string, updates: Partial<Block>) => Promise<void>;
   deleteBlockById: (id: string) => Promise<void>;
   reorderBlocksList: (blockUpdates: { id: string; order: number }[]) => Promise<void>;
+  convertBlockType: (id: string, newType: BlockType) => Promise<void>;
 }
 
 const BlocksContext = createContext<BlocksContextType | undefined>(undefined);
@@ -121,6 +122,12 @@ export const BlocksProvider: React.FC<BlocksProviderProps> = ({ children, pageId
     await reorderBlocks(user.uid, pageId, blockUpdates);
   };
 
+  const convertBlockType = async (id: string, newType: BlockType) => {
+    if (!user) throw new Error('User not authenticated');
+    
+    await updateBlock(user.uid, pageId, id, { type: newType });
+  };
+
   const value = {
     blocks: state.blocks,
     loading: state.loading,
@@ -128,6 +135,7 @@ export const BlocksProvider: React.FC<BlocksProviderProps> = ({ children, pageId
     updateBlockContent,
     deleteBlockById,
     reorderBlocksList,
+    convertBlockType,
   };
 
   return <BlocksContext.Provider value={value}>{children}</BlocksContext.Provider>;

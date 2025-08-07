@@ -2,11 +2,11 @@
 
 import { useCallback } from 'react';
 import { useBlocks } from '@/contexts/BlocksContext';
-import { Block, BlockType } from '@/types';
+import { Block, BlockType } from '@/types/index';
 import { MAX_INDENT_LEVEL } from '@/constants/editor';
 
 export const useBlocksWithKeyboard = () => {
-  const { blocks, addBlock, updateBlockContent, deleteBlockById, reorderBlocksList } = useBlocks();
+  const { blocks, addBlock, updateBlockContent, deleteBlockById, reorderBlocksList, convertBlockType: convertBlockTypeContext } = useBlocks();
 
   const createNewBlock = useCallback(async (
     type: BlockType = 'paragraph',
@@ -53,19 +53,8 @@ export const useBlocksWithKeyboard = () => {
   }, [blocks, addBlock]);
 
   const convertBlockType = useCallback(async (blockId: string, newType: BlockType) => {
-    const block = blocks.find(b => b.id === blockId);
-    if (!block) return;
-
-    // Only include isChecked if converting to todo-list
-    const updates: Partial<Block> = { type: newType };
-    
-    if (newType === 'todo-list') {
-      updates.isChecked = false;
-    }
-    // For other types, don't include isChecked field at all
-
-    await updateBlockContent(blockId, updates);
-  }, [blocks, updateBlockContent]);
+    await convertBlockTypeContext(blockId, newType);
+  }, [convertBlockTypeContext]);
 
   const toggleTodoCheck = useCallback(async (blockId: string) => {
     const block = blocks.find(b => b.id === blockId);

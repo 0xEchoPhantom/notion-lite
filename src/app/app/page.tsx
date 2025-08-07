@@ -6,7 +6,7 @@ import { BlocksProvider } from '@/contexts/BlocksContext';
 import { GlobalDragProvider, useGlobalDrag } from '@/contexts/GlobalDragContext';
 import { Editor } from '@/components/editor/Editor';
 import { getPages, createPage } from '@/lib/firestore';
-import { Page } from '@/types';
+import { Page } from '@/types/index';
 
 interface PageButtonProps {
   page: Page;
@@ -71,23 +71,35 @@ export default function AppPage() {
   const [currentPageId, setCurrentPageId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // Clear state when user changes
+  useEffect(() => {
+    if (!user) {
+      setPages([]);
+      setCurrentPageId(null);
+      setCurrentUserId(null);
+      setLoading(false);
+      return;
+    }
+
+    // If user changed, clear previous user's data
+    if (user.uid !== currentUserId) {
+      console.log('👤 User changed from', currentUserId, 'to', user.uid);
+      setPages([]);
+      setCurrentPageId(null);
+      setCurrentUserId(user.uid);
+    }
+  }, [user, currentUserId]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !user.uid) return;
 
     const loadPages = async () => {
       try {
         console.log('🔄 Loading pages for user:', user.uid);
-        let userPages = await getPages(user.uid);
+        const userPages = await getPages(user.uid);
         console.log('📄 Pages loaded:', userPages);
-        
-        // If no pages exist, create the initial "Quick Capture" page
-        if (userPages.length === 0) {
-          console.log('🆕 Creating initial page...');
-          await createPage(user.uid, 'Quick Capture');
-          userPages = await getPages(user.uid);
-          console.log('📄 Pages after creation:', userPages);
-        }
         
         setPages(userPages);
         setCurrentPageId(userPages[0]?.id || null);
@@ -134,12 +146,35 @@ export default function AppPage() {
     );
   }
 
-  if (!currentPageId) {
+  if (!currentPageId || pages.length === 0) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <h2 className="text-lg font-medium text-gray-900">No pages found</h2>
-          <p className="text-gray-500">Something went wrong loading your pages.</p>
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center max-w-md mx-auto p-8">
+          <div className="mb-8">
+            <div className="text-6xl mb-4">📝</div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome to Notion Lite!</h2>
+            <p className="text-gray-600">
+              Start by creating your first page. You can write notes, organize thoughts, and create content just like in Notion.
+            </p>
+          </div>
+          
+          <button
+            onClick={async () => {
+              if (user) {
+                const pageId = await createPage(user.uid, 'My First Page');
+                const updatedPages = await getPages(user.uid);
+                setPages(updatedPages);
+                setCurrentPageId(pageId);
+              }
+            }}
+            className="bg-blue-500 hover:bg-blue-600 text-white font-medium px-6 py-3 rounded-lg transition-colors"
+          >
+            Create Your First Page
+          </button>
+          
+          <p className="text-sm text-gray-500 mt-4">
+            You can always create more pages later using the &quot;+ New page&quot; button
+          </p>
         </div>
       </div>
     );
