@@ -59,7 +59,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
   isDragging = false,
   dropPosition = null,
 }) => {
-  const { updateBlockContent, convertBlockType, toggleTodoCheck } = useBlocksWithKeyboard();
+  const { updateBlockContent, convertBlockType, toggleTodoCheck, getTodoChildStats } = useBlocksWithKeyboard();
   const { setDraggedBlock } = useGlobalDrag();
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const slashMenuRef = useRef<SlashMenuRef>(null);
@@ -704,27 +704,49 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
           </span>
         );
       case 'todo-list':
+        const childStats = getTodoChildStats(block.id);
+        const hasChildren = childStats?.hasChildren;
+        const completionPercentage = childStats?.percentage || 0;
+        
         return (
-          <button
-            onClick={handleToggleCheck}
-            className={clsx(
-              'w-4 h-4 rounded border-2 mt-1 flex items-center justify-center transition-colors',
-              block.isChecked
-                ? 'bg-blue-500 border-blue-500 text-white'
-                : 'border-gray-300 hover:border-gray-400'
-            )}
-            style={indentStyle}
-          >
-            {block.isChecked && (
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                  clipRule="evenodd"
+          <div className="relative" style={indentStyle}>
+            <button
+              onClick={handleToggleCheck}
+              className={clsx(
+                'w-4 h-4 rounded border-2 mt-1 flex items-center justify-center transition-colors relative',
+                block.isChecked
+                  ? 'bg-blue-500 border-blue-500 text-white'
+                  : 'border-gray-300 hover:border-gray-400'
+              )}
+            >
+              {block.isChecked && (
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path
+                    fillRule="evenodd"
+                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              )}
+              
+              {/* Progress indicator for parent todos */}
+              {hasChildren && !block.isChecked && completionPercentage > 0 && (
+                <div 
+                  className="absolute inset-0 rounded bg-blue-200"
+                  style={{ 
+                    clipPath: `inset(${100 - completionPercentage}% 0 0 0)` 
+                  }}
                 />
-              </svg>
+              )}
+            </button>
+            
+            {/* Child progress indicator */}
+            {hasChildren && childStats && (
+              <div className="absolute -right-6 top-1 text-xs text-gray-400 whitespace-nowrap">
+                {childStats.completed}/{childStats.total}
+              </div>
             )}
-          </button>
+          </div>
         );
       case 'quote':
         return (
@@ -800,8 +822,12 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
         return `${baseStyles} text-sm leading-6 font-mono bg-gray-100 px-2 py-1 rounded`;
       case 'divider':
         return `${baseStyles} text-sm leading-6 text-center`;
+      case 'todo-list':
+        return `${baseStyles} text-sm leading-6 ${block.isChecked 
+          ? 'line-through text-gray-400' 
+          : 'text-gray-900'}`;
       default:
-        return `${baseStyles} text-sm leading-6 ${block.isChecked ? 'line-through text-gray-500' : 'text-gray-900'}`;
+        return `${baseStyles} text-sm leading-6 text-gray-900`;
     }
   };
 
@@ -818,8 +844,8 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
         data-block-id={block.id}
         className={clsx(
           'group relative flex items-start gap-2 py-1 px-2 mx-2 rounded hover:bg-gray-50',
-          'transition-colors duration-150 border-l-2 border-transparent',
-          block.isChecked && 'opacity-60',
+          'transition-all duration-200 border-l-2 border-transparent',
+          block.type === 'todo-list' && block.isChecked && 'opacity-60 bg-gray-50',
           isDragging && 'opacity-50'
         )}
         onDragOver={handleDragOver}

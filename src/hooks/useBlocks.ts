@@ -56,12 +56,84 @@ export const useBlocksWithKeyboard = () => {
     await convertBlockTypeContext(blockId, newType);
   }, [convertBlockTypeContext]);
 
-  const toggleTodoCheck = useCallback(async (blockId: string) => {
+  const toggleTodoCheck = useCallback(async (blockId: string, options?: { skipChildren?: boolean }) => {
     const block = blocks.find(b => b.id === blockId);
     if (!block || block.type !== 'todo-list') return;
 
-    await updateBlockContent(blockId, { isChecked: !block.isChecked });
+    const newCheckedState = !block.isChecked;
+    
+    // Update the current block
+    await updateBlockContent(blockId, { isChecked: newCheckedState });
+
+    // Handle child todos if not explicitly skipped
+    if (!options?.skipChildren) {
+      const currentIndex = blocks.findIndex(b => b.id === blockId);
+      const childBlocks = [];
+      
+      // Find all child blocks (higher indent level immediately following)
+      for (let i = currentIndex + 1; i < blocks.length; i++) {
+        const nextBlock = blocks[i];
+        
+        // If we hit a block at same or lower level, we're done with children
+        if (nextBlock.indentLevel <= block.indentLevel) {
+          break;
+        }
+        
+        // If it's a direct child (one level deeper) and a todo, add it
+        if (nextBlock.indentLevel === block.indentLevel + 1 && nextBlock.type === 'todo-list') {
+          childBlocks.push(nextBlock);
+        }
+      }
+
+      // Update all direct child todos to match parent state
+      for (const childBlock of childBlocks) {
+        if (childBlock.isChecked !== newCheckedState) {
+          await updateBlockContent(childBlock.id, { isChecked: newCheckedState });
+        }
+      }
+    }
   }, [blocks, updateBlockContent]);
+
+  /**
+   * Get child todo completion stats for a parent todo
+   */
+  const getTodoChildStats = useCallback((blockId: string) => {
+    const blockIndex = blocks.findIndex(b => b.id === blockId);
+    if (blockIndex === -1) return null;
+    
+    const parentBlock = blocks[blockIndex];
+    if (parentBlock.type !== 'todo-list') return null;
+
+    const childTodos = [];
+    
+    // Find all child todos (direct children only)
+    for (let i = blockIndex + 1; i < blocks.length; i++) {
+      const nextBlock = blocks[i];
+      
+      // If we hit a block at same or lower level, we're done with children
+      if (nextBlock.indentLevel <= parentBlock.indentLevel) {
+        break;
+      }
+      
+      // If it's a direct child (one level deeper) and a todo, add it
+      if (nextBlock.indentLevel === parentBlock.indentLevel + 1 && nextBlock.type === 'todo-list') {
+        childTodos.push(nextBlock);
+      }
+    }
+
+    if (childTodos.length === 0) return null;
+
+    const completedCount = childTodos.filter(child => child.isChecked).length;
+    const totalCount = childTodos.length;
+    const percentage = Math.round((completedCount / totalCount) * 100);
+
+    return {
+      completed: completedCount,
+      total: totalCount,
+      percentage,
+      hasChildren: true
+    };
+  }, [blocks]);
 
   /**
    * Indents a block (increases nesting level)
@@ -150,6 +222,7 @@ export const useBlocksWithKeyboard = () => {
     createNewBlock,
     convertBlockType,
     toggleTodoCheck,
+    getTodoChildStats,
     indentBlock,
     outdentBlock,
     moveBlockUp,
