@@ -61,7 +61,7 @@ export function parseNotionClipboard(text: string): ParsedBlock[] {
         // If the next line is more indented, it's part of this item
         if (nextIndent > getIndentLevel(line)) {
           if (fullContent) {
-            fullContent += ' ' + nextTrimmed;
+            fullContent += '\n' + nextTrimmed;
           } else {
             fullContent = nextTrimmed;
           }
@@ -108,7 +108,7 @@ export function parseNotionClipboard(text: string): ParsedBlock[] {
         // If the next line is more indented, it's part of this item
         if (nextIndent > getIndentLevel(line)) {
           if (fullContent) {
-            fullContent += ' ' + nextTrimmed;
+            fullContent += '\n' + nextTrimmed;
           } else {
             fullContent = nextTrimmed;
           }

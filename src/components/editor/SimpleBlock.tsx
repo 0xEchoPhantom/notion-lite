@@ -61,7 +61,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
 }) => {
   const { updateBlockContent, convertBlockType, toggleTodoCheck } = useBlocksWithKeyboard();
   const { setDraggedBlock } = useGlobalDrag();
-  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const slashMenuRef = useRef<SlashMenuRef>(null);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashMenuPosition, setSlashMenuPosition] = useState({ x: 0, y: 0 });
@@ -85,9 +85,22 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
     }
   }, [isSelected]);
 
+  // Auto-resize textarea based on content
+  useEffect(() => {
+    const textarea = inputRef.current;
+    if (textarea) {
+      // Reset height to get accurate scrollHeight
+      textarea.style.height = 'auto';
+      // Set height based on scrollHeight with a minimum height
+      const minHeight = 24; // 1.5rem in pixels
+      const newHeight = Math.max(textarea.scrollHeight, minHeight);
+      textarea.style.height = `${newHeight}px`;
+    }
+  }, [localContent]);
+
   // Handle content changes with better Vietnamese input support
   const handleInput = useCallback((e: React.FormEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const content = (e.target as HTMLInputElement).value;
+    const content = (e.target as HTMLTextAreaElement).value;
     setLocalContent(content);
     // Don't update Firebase here - let handleChange handle it to avoid double updates
   }, []);
@@ -256,7 +269,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     const { key, ctrlKey, metaKey, shiftKey } = e;
     const cmdKey = ctrlKey || metaKey;
-    const input = inputRef.current as HTMLInputElement;
+    const input = inputRef.current as HTMLTextAreaElement;
 
     // Skip keyboard shortcuts during Vietnamese composition
     if (isComposing) {
@@ -319,59 +332,71 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
       return;
     }
 
-    // Arrow Up: Move to previous block if at start
+    // Arrow Up: Move to previous block if at start of first line
     if (key === 'ArrowUp' && !cmdKey && !shiftKey) {
       if (input && input.selectionStart === 0 && input.selectionEnd === 0) {
-        e.preventDefault();
-        // Find previous block and focus it
-        const allBlocks = document.querySelectorAll('[data-block-id]');
-        const currentBlockElement = input.closest('[data-block-id]');
-        if (currentBlockElement) {
-          const currentIndex = Array.from(allBlocks).indexOf(currentBlockElement);
-          if (currentIndex > 0) {
-            const prevBlock = allBlocks[currentIndex - 1];
-            const prevInput = prevBlock.querySelector('input') as HTMLInputElement;
-            if (prevInput) {
-              // Set flag to prevent unnecessary state updates
-              isArrowNavigating.current = true;
-              prevInput.focus();
-              prevInput.setSelectionRange(prevInput.value.length, prevInput.value.length);
-              // Reset flag after a short delay
-              setTimeout(() => {
-                isArrowNavigating.current = false;
-              }, 0);
+        // Check if we're on the first line
+        const beforeCursor = input.value.substring(0, input.selectionStart);
+        const isOnFirstLine = !beforeCursor.includes('\n');
+        
+        if (isOnFirstLine) {
+          e.preventDefault();
+          // Find previous block and focus it
+          const allBlocks = document.querySelectorAll('[data-block-id]');
+          const currentBlockElement = input.closest('[data-block-id]');
+          if (currentBlockElement) {
+            const currentIndex = Array.from(allBlocks).indexOf(currentBlockElement);
+            if (currentIndex > 0) {
+              const prevBlock = allBlocks[currentIndex - 1];
+              const prevInput = prevBlock.querySelector('textarea') as HTMLTextAreaElement;
+              if (prevInput) {
+                // Set flag to prevent unnecessary state updates
+                isArrowNavigating.current = true;
+                prevInput.focus();
+                prevInput.setSelectionRange(prevInput.value.length, prevInput.value.length);
+                // Reset flag after a short delay
+                setTimeout(() => {
+                  isArrowNavigating.current = false;
+                }, 0);
+              }
             }
           }
+          return;
         }
-        return;
       }
     }
 
-    // Arrow Down: Move to next block if at end
+    // Arrow Down: Move to next block if at end of last line
     if (key === 'ArrowDown' && !cmdKey && !shiftKey) {
       if (input && input.selectionStart === input.value.length && input.selectionEnd === input.value.length) {
-        e.preventDefault();
-        // Find next block and focus it
-        const allBlocks = document.querySelectorAll('[data-block-id]');
-        const currentBlockElement = input.closest('[data-block-id]');
-        if (currentBlockElement) {
-          const currentIndex = Array.from(allBlocks).indexOf(currentBlockElement);
-          if (currentIndex < allBlocks.length - 1) {
-            const nextBlock = allBlocks[currentIndex + 1];
-            const nextInput = nextBlock.querySelector('input') as HTMLInputElement;
-            if (nextInput) {
-              // Set flag to prevent unnecessary state updates
-              isArrowNavigating.current = true;
-              nextInput.focus();
-              nextInput.setSelectionRange(0, 0);
-              // Reset flag after a short delay
-              setTimeout(() => {
-                isArrowNavigating.current = false;
-              }, 0);
+        // Check if we're on the last line
+        const afterCursor = input.value.substring(input.selectionStart);
+        const isOnLastLine = !afterCursor.includes('\n');
+        
+        if (isOnLastLine) {
+          e.preventDefault();
+          // Find next block and focus it
+          const allBlocks = document.querySelectorAll('[data-block-id]');
+          const currentBlockElement = input.closest('[data-block-id]');
+          if (currentBlockElement) {
+            const currentIndex = Array.from(allBlocks).indexOf(currentBlockElement);
+            if (currentIndex < allBlocks.length - 1) {
+              const nextBlock = allBlocks[currentIndex + 1];
+              const nextInput = nextBlock.querySelector('textarea') as HTMLTextAreaElement;
+              if (nextInput) {
+                // Set flag to prevent unnecessary state updates
+                isArrowNavigating.current = true;
+                nextInput.focus();
+                nextInput.setSelectionRange(0, 0);
+                // Reset flag after a short delay
+                setTimeout(() => {
+                  isArrowNavigating.current = false;
+                }, 0);
+              }
             }
           }
+          return;
         }
-        return;
       }
     }
 
@@ -390,12 +415,20 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
     }
 
     // Enter: Create new block of same type (Notion behavior)
-    if (key === 'Enter' && !shiftKey && !cmdKey) {
-      e.preventDefault();
+    // Shift+Enter: Insert line break within the block
+    if (key === 'Enter') {
+      if (shiftKey) {
+        // Allow default behavior for Shift+Enter (line break within block)
+        return;
+      }
       
-      // Always create new block with same type and indent level
-      onNewBlock(block.type, block.indentLevel);
-      return;
+      if (!cmdKey) {
+        e.preventDefault();
+        
+        // Always create new block with same type and indent level
+        onNewBlock(block.type, block.indentLevel);
+        return;
+      }
     }
 
     // Backspace at start: Merge up or delete
@@ -526,7 +559,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
     setShowSlashMenu(false); // Hide slash menu during composition
   }, []);
 
-  const handleCompositionEnd = useCallback((e: React.CompositionEvent<HTMLInputElement>) => {
+  const handleCompositionEnd = useCallback((e: React.CompositionEvent<HTMLTextAreaElement>) => {
     setIsComposing(false);
     
     // Process the final composed text for shortcuts
@@ -800,9 +833,8 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
               <hr className="border-gray-300" />
             </div>
           ) : (
-            <input
-              ref={inputRef as React.RefObject<HTMLInputElement>}
-              type="text"
+            <textarea
+              ref={inputRef as React.RefObject<HTMLTextAreaElement>}
               value={localContent}
               onInput={handleInput}
               onChange={handleChange}
@@ -813,11 +845,17 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
               onCompositionStart={handleCompositionStart}
               onCompositionEnd={handleCompositionEnd}
               onMouseDown={(e) => {
-                // Prevent drag start when clicking in the input
+                // Prevent drag start when clicking in the textarea
                 e.stopPropagation();
               }}
               placeholder={placeholder}
               className={getInputStyles()}
+              rows={1}
+              style={{ 
+                resize: 'none',
+                overflow: 'hidden',
+                minHeight: '1.5rem'
+              }}
             />
           )}
         </div>
