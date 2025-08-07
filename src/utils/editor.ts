@@ -103,8 +103,8 @@ export const getBlockPlaceholder = (block: Block, hasContent: boolean, isFocused
     return 'Type / for commands';
   }
   
-  const config = BLOCK_TYPE_CONFIG[block.type];
-  return config?.placeholder || 'Start typing...';
+  // When not focused, show empty placeholder for clean look
+  return '';
 };
 
 /**

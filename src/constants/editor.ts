@@ -62,7 +62,7 @@ export const BLOCK_TYPE_CONFIG = {
     name: 'Paragraph',
     description: 'Regular text content',
     supportsIndent: true,
-    placeholder: "Type '/' for commands or start writing...",
+    placeholder: '',
     hasCheckbox: false,
     icon: undefined,
   },
