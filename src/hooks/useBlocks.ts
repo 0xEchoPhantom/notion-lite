@@ -95,49 +95,8 @@ export const useBlocksWithKeyboard = () => {
   }, [blocks, updateBlockContent]);
 
   /**
-   * Get child todo completion stats for a parent todo
-   */
-  const getTodoChildStats = useCallback((blockId: string) => {
-    const blockIndex = blocks.findIndex(b => b.id === blockId);
-    if (blockIndex === -1) return null;
-    
-    const parentBlock = blocks[blockIndex];
-    if (parentBlock.type !== 'todo-list') return null;
-
-    const childTodos = [];
-    
-    // Find all child todos (direct children only)
-    for (let i = blockIndex + 1; i < blocks.length; i++) {
-      const nextBlock = blocks[i];
-      
-      // If we hit a block at same or lower level, we're done with children
-      if (nextBlock.indentLevel <= parentBlock.indentLevel) {
-        break;
-      }
-      
-      // If it's a direct child (one level deeper) and a todo, add it
-      if (nextBlock.indentLevel === parentBlock.indentLevel + 1 && nextBlock.type === 'todo-list') {
-        childTodos.push(nextBlock);
-      }
-    }
-
-    if (childTodos.length === 0) return null;
-
-    const completedCount = childTodos.filter(child => child.isChecked).length;
-    const totalCount = childTodos.length;
-    const percentage = Math.round((completedCount / totalCount) * 100);
-
-    return {
-      completed: completedCount,
-      total: totalCount,
-      percentage,
-      hasChildren: true
-    };
-  }, [blocks]);
-
-  /**
    * Indents a block (increases nesting level)
-   * Supports all block types with a maximum depth of 5 levels
+   * Supports all block types with a maximum depth of 6 levels
    * @param blockId - The ID of the block to indent
    */
   const indentBlock = useCallback(async (blockId: string) => {
@@ -222,7 +181,6 @@ export const useBlocksWithKeyboard = () => {
     createNewBlock,
     convertBlockType,
     toggleTodoCheck,
-    getTodoChildStats,
     indentBlock,
     outdentBlock,
     moveBlockUp,
