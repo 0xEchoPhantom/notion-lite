@@ -48,16 +48,54 @@ export const getPages = async (userId: string): Promise<Page[]> => {
   }
   
   const pagesRef = collection(db, 'users', userId, 'pages');
-  const q = query(pagesRef, orderBy('order', 'asc'));
-  const snapshot = await getDocs(q);
   
-  return snapshot.docs.map(doc => ({
-    id: doc.id,
-    title: doc.data().title,
-    order: doc.data().order || 0,
-    createdAt: doc.data().createdAt.toDate(),
-    updatedAt: doc.data().updatedAt.toDate(),
-  }));
+  // First try to get pages ordered by 'order' field
+  try {
+    const q = query(pagesRef, orderBy('order', 'asc'));
+    const snapshot = await getDocs(q);
+    
+    if (snapshot.docs.length > 0) {
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        title: doc.data().title,
+        order: doc.data().order || 0,
+        createdAt: doc.data().createdAt.toDate(),
+        updatedAt: doc.data().updatedAt.toDate(),
+      }));
+    }
+  } catch (error) {
+    console.log('No pages with order field found, trying legacy query...');
+  }
+  
+  // Fallback: get all pages and migrate them
+  const snapshot = await getDocs(pagesRef);
+  const pages = snapshot.docs.map(doc => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      title: data.title,
+      order: data.order || 0,
+      createdAt: data.createdAt.toDate(),
+      updatedAt: data.updatedAt.toDate(),
+    };
+  });
+  
+  // If we found pages without order, migrate them
+  if (pages.length > 0 && pages.some(p => !p.order)) {
+    await migratePages(userId, pages);
+    // Re-fetch with proper ordering
+    const q = query(pagesRef, orderBy('order', 'asc'));
+    const newSnapshot = await getDocs(q);
+    return newSnapshot.docs.map(doc => ({
+      id: doc.id,
+      title: doc.data().title,
+      order: doc.data().order || 0,
+      createdAt: doc.data().createdAt.toDate(),
+      updatedAt: doc.data().updatedAt.toDate(),
+    }));
+  }
+  
+  return pages.sort((a, b) => a.order - b.order);
 };
 
 export const updatePageTitle = async (userId: string, pageId: string, title: string) => {
@@ -88,6 +126,25 @@ export const reorderPages = async (userId: string, pageUpdates: { id: string; or
   });
   
   await batch.commit();
+};
+
+// Migration function to add order field to existing pages
+export const migratePages = async (userId: string, pages: Page[]) => {
+  console.log('🔄 Migrating pages to add order field...');
+  const batch = writeBatch(db);
+  
+  pages.forEach((page, index) => {
+    if (!page.order) {
+      const pageRef = doc(db, 'users', userId, 'pages', page.id);
+      batch.update(pageRef, {
+        order: index + 1,
+        updatedAt: Timestamp.now(),
+      });
+    }
+  });
+  
+  await batch.commit();
+  console.log('✅ Pages migration completed');
 };
 
 export const deletePage = async (userId: string, pageId: string): Promise<void> => {
