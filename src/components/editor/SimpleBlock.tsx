@@ -122,8 +122,12 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
           await convertBlockType(block.id, parsed.type);
         }
         
+        // Update indent level if specified
+        const targetIndentLevel = parsed.indentLevel !== undefined ? parsed.indentLevel : block.indentLevel;
+        
         updateBlockContent(block.id, { 
           content: cleanedContent,
+          indentLevel: targetIndentLevel,
           ...(parsed.type === 'todo-list' && { isChecked: parsed.completed || false })
         });
         setLocalContent(cleanedContent);
@@ -139,8 +143,12 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
         await convertBlockType(block.id, firstBlock.type);
       }
       
+      // Update indent level if specified
+      const firstTargetIndentLevel = firstBlock.indentLevel !== undefined ? firstBlock.indentLevel : block.indentLevel;
+      
       updateBlockContent(block.id, { 
         content: firstCleanedContent,
+        indentLevel: firstTargetIndentLevel,
         ...(firstBlock.type === 'todo-list' && { isChecked: firstBlock.completed || false })
       });
       setLocalContent(firstCleanedContent);
@@ -149,13 +157,14 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
       let lastBlockId = block.id;
       for (const parsedBlock of remainingBlocks) {
         const cleanedContent = cleanContent(parsedBlock.content);
+        const targetIndentLevel = parsedBlock.indentLevel !== undefined ? parsedBlock.indentLevel : block.indentLevel;
         
         if (onCreateBlock) {
           const newBlockId = await onCreateBlock(
             parsedBlock.type, 
             cleanedContent, 
             lastBlockId, 
-            block.indentLevel
+            targetIndentLevel
           );
           
           // Set todo completion state if it's a todo block
