@@ -1,13 +1,15 @@
 # Notion-Lite Development Log
 
-## Session: August 7, 2025
+## Session: August 7, 2025 - Extended
 
 ### 🎯 **Today's Objectives Completed**
 1. ✅ Refactor SimpleBlock component for better maintainability
 2. ✅ Improve drag-and-drop functionality and visual feedback
 3. ✅ Implement recycle bin feature for page deletion
 4. ✅ Enhanced block selection and interaction
-5. ✅ Deploy to production
+5. ✅ **NEW: Enable drag-to-reorder pages**
+6. ✅ **NEW: Add inline page name editing**
+7. ✅ Deploy to production
 
 ---
 
@@ -59,6 +61,24 @@
   - Improved block interaction logic
   - Fixed conflicts between drag and selection events
 
+### 6. **Page Reordering & Editing** 🆕
+- **Drag-and-drop page reordering** with:
+  - Visual drop indicators (blue lines above/below pages)
+  - Smooth reordering with batch Firestore updates
+  - Maintains page order across sessions
+  - Prevents dropping on same position
+
+- **Inline page name editing** with:
+  - Double-click to edit page names
+  - Keyboard shortcuts (Enter to save, Escape to cancel)
+  - Auto-focus and text selection for better UX
+  - Real-time updates to Firestore
+
+- **Enhanced page structure** with:
+  - Added `order` field to Page type
+  - Custom sorting by order instead of date
+  - Batch updates for efficient reordering
+
 ---
 
 ## 🔧 **Technical Improvements**
@@ -92,13 +112,16 @@
 - `src/components/editor/block-parts/blockStyles.ts`
 - `src/components/editor/block-parts/index.ts`
 - `src/components/ui/RecycleBin.tsx`
+- `src/components/ui/EditablePageButton.tsx` **🆕**
 - `src/hooks/useBlockLogic.ts`
 
 ### ✏️ **Modified Files**
 - `src/components/editor/SimpleBlock.tsx` - Refactored to use modular components
 - `src/contexts/SelectionContext.tsx` - Enhanced selection logic
-- `src/lib/firestore.ts` - Added deletePage function
-- `src/app/app/page.tsx` - Integrated RecycleBin and page drag functionality
+- `src/lib/firestore.ts` - Added deletePage, updatePageTitle, updatePageOrder, reorderPages functions **🆕**
+- `src/lib/mockFirestore.ts` - Updated with new page functions and order field **🆕**
+- `src/app/app/page.tsx` - Integrated RecycleBin, page reordering, and inline editing **🆕**
+- `src/types/index.ts` - Added order field to Page type **🆕**
 
 ---
 
@@ -131,10 +154,16 @@ git push origin main
 ```bash
 vercel --prod
 ```
-**Status**: ✅ Successfully deployed to Vercel
-**Production URL**: https://notion-lite-bb1947l1y-quangvust201s-projects.vercel.app
-**Build Time**: 32 seconds
+**Status**: ✅ Successfully deployed to Vercel  
+**Production URL**: https://notion-lite-69x95hl5h-quangvust201s-projects.vercel.app  
+**Build Time**: 32 seconds  
 **Build Status**: ✅ Successful (with minor ESLint warnings only)
+
+### Latest Features Deployed
+- **Page Reordering**: Drag pages up/down to reorder them
+- **Inline Editing**: Double-click page names to edit them
+- **Visual Feedback**: Blue drop indicators when reordering
+- **Keyboard Support**: Enter/Escape for editing page names
 
 ---
 
@@ -152,6 +181,9 @@ vercel --prod
 - ✅ Drag-and-drop for block reordering
 - ✅ Page creation and navigation
 - ✅ Page drag-to-delete via recycle bin
+- ✅ **NEW: Page drag-to-reorder with visual feedback**
+- ✅ **NEW: Double-click page name editing**
+- ✅ **NEW: Keyboard shortcuts for page editing (Enter/Escape)**
 - ✅ Selection and interaction states
 - ✅ Responsive design on different screen sizes
 
@@ -164,6 +196,8 @@ vercel --prod
 3. **Production-Ready**: All features tested and successfully deployed
 4. **Developer-Friendly**: Clear separation of concerns and comprehensive TypeScript support
 5. **Feature-Complete**: Recycle bin adds intuitive page deletion functionality
+6. **🆕 Advanced Page Management**: Drag-to-reorder and inline editing for better organization
+7. **🆕 Visual Polish**: Drop indicators and smooth animations for professional feel
 
 ---
 
@@ -207,8 +241,9 @@ vercel --prod
 
 ---
 
-**Session Completed**: August 7, 2025  
-**Duration**: Full development session  
+**Session Completed**: August 7, 2025 - Extended Session  
+**Duration**: Full development session + additional features  
 **Status**: ✅ All objectives completed and deployed to production  
-**Production URL**: https://notion-lite-bb1947l1y-quangvust201s-projects.vercel.app  
+**Production URL**: https://notion-lite-69x95hl5h-quangvust201s-projects.vercel.app  
+**Latest Features**: Page reordering, inline editing, visual feedback  
 **Next Steps**: Ready for next session enhancements
