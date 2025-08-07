@@ -50,42 +50,65 @@ export const getMarkdownShortcut = (content: string): {
 } | null => {
   const trimmed = content.trim();
   
-  // Bullet list shortcuts
-  if (MARKDOWN_SHORTCUTS.BULLET_LIST.some(marker => trimmed === `${marker} `)) {
-    return { type: 'bulleted-list', shouldClearContent: true };
-  }
+  console.log('getMarkdownShortcut called:', {
+    original: `"${content}"`,
+    trimmed: `"${trimmed}"`,
+    length: content.length,
+    trimmedLength: trimmed.length
+  });
   
-  // Todo list shortcuts
-  if (MARKDOWN_SHORTCUTS.TODO_LIST.some(marker => trimmed === `${marker} `)) {
-    return { type: 'todo-list', shouldClearContent: true };
+  // Check for exact patterns with space at the end
+  switch (content) { // Use content directly, not trimmed
+    case '- ':
+      console.log('Matched: dash todo');
+      return { type: 'todo-list', shouldClearContent: true };
+    case '* ':
+      console.log('Matched: asterisk bullet');
+      return { type: 'bulleted-list', shouldClearContent: true };
+    case '+ ':
+      console.log('Matched: plus bullet');
+      return { type: 'bulleted-list', shouldClearContent: true };
+    case '[] ':
+      console.log('Matched: bracket todo');
+      return { type: 'todo-list', shouldClearContent: true };
+    case '[ ] ':
+      console.log('Matched: spaced bracket todo');
+      return { type: 'todo-list', shouldClearContent: true };
   }
   
   // Numbered list (convert to bullet for now)
-  if (/^\d+\. $/.test(trimmed)) {
+  if (/^\d+\. $/.test(content)) {
+    console.log('Matched: numbered list');
     return { type: 'bulleted-list', shouldClearContent: true };
   }
-  
+
   // Heading shortcuts (don't clear content, just add prefix)
-  if (trimmed === `${MARKDOWN_SHORTCUTS.HEADING_1} `) {
+  if (content === `${MARKDOWN_SHORTCUTS.HEADING_1} `) {
+    console.log('Matched: heading 1');
     return { type: 'paragraph', shouldClearContent: false };
   }
-  
-  if (trimmed === `${MARKDOWN_SHORTCUTS.HEADING_2} `) {
+
+  if (content === `${MARKDOWN_SHORTCUTS.HEADING_2} `) {
+    console.log('Matched: heading 2');
     return { type: 'paragraph', shouldClearContent: false };
   }
-  
-  if (trimmed === `${MARKDOWN_SHORTCUTS.HEADING_3} `) {
+
+  if (content === `${MARKDOWN_SHORTCUTS.HEADING_3} `) {
+    console.log('Matched: heading 3');
     return { type: 'paragraph', shouldClearContent: false };
   }
-  
-  if (trimmed === `${MARKDOWN_SHORTCUTS.QUOTE} `) {
+
+  if (content === `${MARKDOWN_SHORTCUTS.QUOTE} `) {
+    console.log('Matched: quote');
     return { type: 'paragraph', shouldClearContent: false };
   }
-  
-  if (trimmed === `${MARKDOWN_SHORTCUTS.DIVIDER} `) {
+
+  if (content === `${MARKDOWN_SHORTCUTS.DIVIDER} `) {
+    console.log('Matched: divider');
     return { type: 'paragraph', shouldClearContent: false };
   }
-  
+
+  console.log('No markdown match found');
   return null;
 };
 

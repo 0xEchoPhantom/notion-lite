@@ -3,6 +3,7 @@
 import { useCallback } from 'react';
 import { useBlocks } from '@/contexts/BlocksContext';
 import { Block, BlockType } from '@/types';
+import { MAX_INDENT_LEVEL } from '@/constants/editor';
 
 export const useBlocksWithKeyboard = () => {
   const { blocks, addBlock, updateBlockContent, deleteBlockById, reorderBlocksList } = useBlocks();
@@ -82,8 +83,8 @@ export const useBlocksWithKeyboard = () => {
     const block = blocks.find(b => b.id === blockId);
     if (!block) return;
 
-    // Allow indentation for all block types with max level of 5
-    if (block.indentLevel < 5) {
+    // Allow indentation for all block types with max level from constants
+    if (block.indentLevel < MAX_INDENT_LEVEL) {
       await updateBlockContent(blockId, { indentLevel: block.indentLevel + 1 });
     }
   }, [blocks, updateBlockContent]);

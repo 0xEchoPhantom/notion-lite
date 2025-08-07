@@ -38,15 +38,16 @@ export const Editor: React.FC<EditorProps> = () => {
     const newBlockType = currentBlock.type;
     const newBlockId = await createNewBlock(newBlockType, '', blockId, currentBlock.indentLevel);
     
-    // Focus the new block
+    // Set selection immediately for instant UI feedback
+    setSelectedBlockId(newBlockId);
+    
+    // Focus the new block with minimal delay for DOM update
     setTimeout(() => {
-      setSelectedBlockId(newBlockId);
-      // Focus the input of the new block
       const newBlockElement = document.querySelector(`[data-block-id="${newBlockId}"] input`);
       if (newBlockElement) {
         (newBlockElement as HTMLInputElement).focus();
       }
-    }, 50);
+    }, 10); // Reduced from 50ms to 10ms for better responsiveness
   }, [blocks, createNewBlock]);
 
   // Duplicate current block (Notion behavior)
@@ -57,14 +58,16 @@ export const Editor: React.FC<EditorProps> = () => {
     // Create new block with same content, type, and indent level
     const newBlockId = await createNewBlock(currentBlock.type, currentBlock.content, blockId, currentBlock.indentLevel);
     
-    // Focus the new block
+    // Set selection immediately for instant UI feedback
+    setSelectedBlockId(newBlockId);
+    
+    // Focus the new block with minimal delay
     setTimeout(() => {
-      setSelectedBlockId(newBlockId);
       const newBlockElement = document.querySelector(`[data-block-id="${newBlockId}"] input`);
       if (newBlockElement) {
         (newBlockElement as HTMLInputElement).focus();
       }
-    }, 50);
+    }, 10); // Reduced from 50ms to 10ms for better responsiveness
   }, [blocks, createNewBlock]);
 
   // Merge current block content up to previous block
@@ -270,14 +273,16 @@ export const Editor: React.FC<EditorProps> = () => {
         className="min-h-[200px] w-full cursor-text"
         onClick={async () => {
           const newBlockId = await createNewBlock('paragraph', '');
-          // Focus the new block
+          // Set selection immediately for instant UI feedback
+          setSelectedBlockId(newBlockId);
+          
+          // Focus the new block with minimal delay
           setTimeout(() => {
-            setSelectedBlockId(newBlockId);
             const newBlockElement = document.querySelector(`[data-block-id="${newBlockId}"] input`);
             if (newBlockElement) {
               (newBlockElement as HTMLInputElement).focus();
             }
-          }, 50);
+          }, 10); // Reduced from 50ms to 10ms for better responsiveness
         }}
       />
     </div>

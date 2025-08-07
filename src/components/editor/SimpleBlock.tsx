@@ -69,7 +69,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
     if (!isComposing && localContent !== block.content) {
       setLocalContent(block.content);
     }
-  }, [block.content, isComposing, localContent]);
+  }, [block.content, isComposing]); // Removed localContent to prevent infinite loops
 
   // Focus management
   useEffect(() => {
@@ -82,19 +82,18 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
   const handleInput = useCallback((e: React.FormEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const content = (e.target as HTMLInputElement).value;
     setLocalContent(content);
-    
-    // During composition, only update local state
-    if (!isComposing) {
-      updateBlockContent(block.id, { content });
-    }
-  }, [block.id, updateBlockContent, isComposing]);
+    // Don't update Firebase here - let handleChange handle it to avoid double updates
+  }, []);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const content = e.target.value;
     setLocalContent(content);
     
+    console.log('handleChange called with:', content);
+    
     // Skip markdown shortcuts and slash commands during Vietnamese composition
     if (isComposing) {
+      console.log('Skipping because composing');
       return;
     }
 
@@ -103,7 +102,9 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = ({
 
     // Handle markdown shortcuts using utility function
     const markdownMatch = getMarkdownShortcut(content);
+    console.log('Markdown detection result:', markdownMatch);
     if (markdownMatch) {
+      console.log('Converting block to:', markdownMatch.type);
       convertBlockType(block.id, markdownMatch.type);
       if (markdownMatch.shouldClearContent) {
         updateBlockContent(block.id, { content: '' });
