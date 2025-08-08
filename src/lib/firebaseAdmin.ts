@@ -9,19 +9,22 @@ try {
   const existingApp = getApps().find(app => app?.name === 'admin');
   
   if (!existingApp) {
-    let serviceAccountKey;
+    let credentialConfig: any = {};
     
     // Try to get service account from environment variables
     if (process.env.FIREBASE_SERVICE_ACCOUNT) {
       try {
-        serviceAccountKey = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+        const serviceAccountKey = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+        credentialConfig.credential = cert(serviceAccountKey);
       } catch (error) {
         console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT:', error);
         throw new Error('Invalid FIREBASE_SERVICE_ACCOUNT JSON');
       }
     } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-      // This will be handled automatically by Firebase Admin SDK
-      serviceAccountKey = undefined;
+      // When using GOOGLE_APPLICATION_CREDENTIALS, Firebase Admin SDK 
+      // will automatically detect and use the credential file
+      // We don't need to explicitly set the credential
+      console.log('Using GOOGLE_APPLICATION_CREDENTIALS:', process.env.GOOGLE_APPLICATION_CREDENTIALS);
     } else {
       console.warn('No Firebase Admin credentials found. Admin SDK will not be available.');
       throw new Error('Missing Firebase Admin credentials');
@@ -29,7 +32,7 @@ try {
 
     // Initialize Firebase Admin SDK
     adminApp = initializeApp({
-      credential: serviceAccountKey ? cert(serviceAccountKey) : undefined,
+      ...credentialConfig,
       projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
     }, 'admin');
     

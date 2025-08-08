@@ -10,9 +10,15 @@ import { Page } from '@/types/index';
 import { Archive } from '@/components/ui/Archive';
 import { ArchiveViewer } from '@/components/ui/ArchiveViewer';
 import { EditablePageButton } from '@/components/ui/EditablePageButton';
+import { SettingsPanel } from '@/components/ui/SettingsPanel';
+import { FixedPageIndicator } from '@/components/ui/FixedPageIndicator';
+import { useSettings } from '@/contexts/SettingsContext';
+import { useFixedPages } from '@/hooks/useFixedPages';
 
 export default function AppPage() {
   const { user } = useAuth();
+  const { settings } = useSettings();
+  const { fixedPages, isInitialized } = useFixedPages();
   const [pages, setPages] = useState<Page[]>([]);
   const [currentPageId, setCurrentPageId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -22,6 +28,7 @@ export default function AppPage() {
   const [isArchiveHovered, setIsArchiveHovered] = useState(false);
   const [isArchiveViewerOpen, setIsArchiveViewerOpen] = useState(false);
   const [draggedPageId, setDraggedPageId] = useState<string | null>(null);
+  const [showTasksView, setShowTasksView] = useState(false);
   const [dropTargetInfo, setDropTargetInfo] = useState<{
     pageId: string;
     position: 'above' | 'below';
@@ -295,20 +302,42 @@ export default function AppPage() {
                 />
               ))}
             </div>
+
+            {/* Tasks View Button */}
+            {settings.showTasksView && (
+              <button
+                onClick={() => setShowTasksView(!showTasksView)}
+                className={`w-full mt-2 px-2 py-1 text-left text-sm rounded flex items-center space-x-2 ${
+                  showTasksView 
+                    ? 'bg-blue-100 text-blue-700' 
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <span>📊</span>
+                <span>Task Overview</span>
+              </button>
+            )}
           
-            <button
-              onClick={async () => {
-                if (user) {
-                  const pageId = await createPage(user.uid, 'Untitled');
-                  const updatedPages = await getPages(user.uid);
-                  setPages(updatedPages);
-                  setCurrentPageId(pageId);
-                }
-              }}
-              className="w-full mt-4 px-2 py-1 text-left text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
-            >
-              + New page
-            </button>
+            {/* New Page Button - Conditional */}
+            {settings.allowNewPageCreation ? (
+              <button
+                onClick={async () => {
+                  if (user) {
+                    const pageId = await createPage(user.uid, 'Untitled');
+                    const updatedPages = await getPages(user.uid);
+                    setPages(updatedPages);
+                    setCurrentPageId(pageId);
+                  }
+                }}
+                className="w-full mt-4 px-2 py-1 text-left text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+              >
+                + New page
+              </button>
+            ) : (
+              <div className="mt-4 px-2 py-1 text-xs text-gray-400 italic">
+                Page creation disabled
+              </div>
+            )}
 
             {/* Archive */}
             <div
@@ -328,29 +357,67 @@ export default function AppPage() {
         {/* Main content */}
         <div className="flex-1">
           <div className="p-6">
-            {/* Page title */}
-            <div className="mb-6">
-              <input
-                type="text"
-                value={currentPage?.title || ''}
-                onChange={(e) => {
-                  // Update page title - this would need implementation
-                  const updatedPages = pages.map(p => 
-                    p.id === currentPageId 
-                      ? { ...p, title: e.target.value }
-                      : p
-                  );
-                  setPages(updatedPages);
-                }}
-                className="text-4xl font-bold text-gray-900 bg-transparent border-none outline-none w-full placeholder-gray-400"
-                placeholder="Untitled"
-              />
-            </div>
+            {showTasksView ? (
+              /* Task Overview */
+              <div>
+                <div className="mb-6">
+                  <h1 className="text-4xl font-bold text-gray-900 mb-2">📊 Task Overview</h1>
+                  <p className="text-gray-600">Analytics and insights across all your tasks</p>
+                </div>
+                
+                {/* Placeholder for DecisionViews - will integrate with real task data */}
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <h2 className="text-xl font-semibold mb-4">Task Analytics</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="text-center p-4 bg-blue-50 rounded-lg">
+                      <div className="text-2xl font-bold text-blue-600">0</div>
+                      <div className="text-sm text-blue-800">Total Tasks</div>
+                    </div>
+                    <div className="text-center p-4 bg-green-50 rounded-lg">
+                      <div className="text-2xl font-bold text-green-600">0</div>
+                      <div className="text-sm text-green-800">Completed</div>
+                    </div>
+                    <div className="text-center p-4 bg-orange-50 rounded-lg">
+                      <div className="text-2xl font-bold text-orange-600">N/A</div>
+                      <div className="text-sm text-orange-800">Avg ROI</div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-6 text-center text-gray-500">
+                    <p>Task integration coming soon...</p>
+                    <p className="text-sm mt-2">Create todo-list blocks in your pages to see task analytics here</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Regular Page Content */
+              <>
+                {/* Page title */}
+                <div className="mb-6 flex items-center">
+                  <input
+                    type="text"
+                    value={currentPage?.title || ''}
+                    onChange={(e) => {
+                      // Update page title - this would need implementation
+                      const updatedPages = pages.map(p => 
+                        p.id === currentPageId 
+                          ? { ...p, title: e.target.value }
+                          : p
+                      );
+                      setPages(updatedPages);
+                    }}
+                    className="text-4xl font-bold text-gray-900 bg-transparent border-none outline-none flex-1 placeholder-gray-400"
+                    placeholder="Untitled"
+                  />
+                  <FixedPageIndicator pageTitle={currentPage?.title || ''} />
+                </div>
 
-            {/* Editor */}
-            <BlocksProvider pageId={currentPageId}>
-              <Editor pageId={currentPageId} />
-            </BlocksProvider>
+                {/* Editor */}
+                <BlocksProvider pageId={currentPageId}>
+                  <Editor pageId={currentPageId} />
+                </BlocksProvider>
+              </>
+            )}
           </div>
         </div>
 
@@ -361,6 +428,9 @@ export default function AppPage() {
           userId={user?.uid || ''}
           currentPageId={currentPageId || undefined}
         />
+
+        {/* Settings Panel */}
+        <SettingsPanel />
       </div>
     </GlobalDragProvider>
   );
