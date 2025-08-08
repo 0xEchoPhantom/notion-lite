@@ -134,10 +134,10 @@ const createGTDPages = async (userId: string, workspaceId: string) => {
 export const getWorkspacePages = async (userId: string, workspaceId: string) => {
   try {
     const pagesRef = collection(db, 'users', userId, 'pages');
+    // Simple query without orderBy to avoid index requirements
     const q = query(
       pagesRef,
-      where('workspaceId', '==', workspaceId),
-      orderBy('order', 'asc')
+      where('workspaceId', '==', workspaceId)
     );
     
     const snapshot = await getDocs(q);
@@ -148,7 +148,18 @@ export const getWorkspacePages = async (userId: string, workspaceId: string) => 
       updatedAt: doc.data().updatedAt?.toDate() || new Date(),
     }));
 
-    console.log(`Found ${pages.length} pages in workspace ${workspaceId}`);
+    // Client-side sorting by order field (more reliable than Firestore orderBy)
+    pages.sort((a: any, b: any) => {
+      const orderA = a.order || 0;
+      const orderB = b.order || 0;
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+      // Secondary sort by creation time if orders are equal
+      return (a.createdAt?.getTime() || 0) - (b.createdAt?.getTime() || 0);
+    });
+
+    console.log(`Found ${pages.length} pages in workspace ${workspaceId}:`, pages.map((p: any) => p.title));
     return pages;
   } catch (error) {
     console.error('Error fetching workspace pages:', error);
