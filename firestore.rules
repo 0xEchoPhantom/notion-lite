@@ -1,9 +1,22 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // More permissive rules for development - allows authenticated users to access their data
+    // DEVELOPMENT RULES - More permissive for debugging
+    // TODO: Tighten security before production
+    
+    // User-specific documents
     match /users/{userId}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Workspaces - allow authenticated users to access any workspace for now
+    match /workspaces/{workspaceId} {
+      allow read, write, create: if request.auth != null;
+    }
+    
+    // Page references - allow authenticated users
+    match /pageReferences/{referenceId} {
+      allow read, write, create: if request.auth != null;
     }
   }
 }
