@@ -1,0 +1,242 @@
+import { 
+  collection, 
+  doc, 
+  addDoc, 
+  getDocs, 
+  getDoc,
+  query, 
+  where, 
+  orderBy,
+  Timestamp,
+  writeBatch
+} from 'firebase/firestore';
+import { db } from '@/firebase/client';
+import { Workspace, WorkspaceMode, PageReference, GTD_PAGES } from '@/types/workspace';
+
+// ===== WORKSPACE OPERATIONS =====
+
+export const createWorkspace = async (
+  userId: string, 
+  name: string, 
+  mode: WorkspaceMode,
+  isDefault: boolean = false
+): Promise<Workspace> => {
+  try {
+    const workspaceData = {
+      name,
+      mode,
+      userId,
+      isDefault,
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    };
+
+    const docRef = await addDoc(collection(db, 'workspaces'), workspaceData);
+    
+    const workspace: Workspace = {
+      id: docRef.id,
+      ...workspaceData,
+      createdAt: workspaceData.createdAt.toDate(),
+      updatedAt: workspaceData.updatedAt.toDate(),
+    };
+
+    // If GTD workspace, create fixed pages
+    if (mode === 'gtd') {
+      await createGTDPages(userId, docRef.id);
+    }
+
+    console.log(`Created ${mode} workspace:`, workspace.name);
+    return workspace;
+  } catch (error) {
+    console.error('Error creating workspace:', error);
+    throw error;
+  }
+};
+
+export const getUserWorkspaces = async (userId: string): Promise<Workspace[]> => {
+  try {
+    const workspacesRef = collection(db, 'workspaces');
+    const q = query(
+      workspacesRef, 
+      where('userId', '==', userId),
+      orderBy('createdAt', 'asc')
+    );
+    
+    const snapshot = await getDocs(q);
+    const workspaces = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      createdAt: doc.data().createdAt?.toDate() || new Date(),
+      updatedAt: doc.data().updatedAt?.toDate() || new Date(),
+    })) as Workspace[];
+
+    console.log(`Found ${workspaces.length} workspaces for user`);
+    return workspaces;
+  } catch (error) {
+    console.error('Error fetching workspaces:', error);
+    throw error;
+  }
+};
+
+export const getWorkspace = async (workspaceId: string): Promise<Workspace | null> => {
+  try {
+    const docRef = doc(db, 'workspaces', workspaceId);
+    const snapshot = await getDoc(docRef);
+    
+    if (!snapshot.exists()) {
+      return null;
+    }
+
+    return {
+      id: snapshot.id,
+      ...snapshot.data(),
+      createdAt: snapshot.data().createdAt?.toDate() || new Date(),
+      updatedAt: snapshot.data().updatedAt?.toDate() || new Date(),
+    } as Workspace;
+  } catch (error) {
+    console.error('Error fetching workspace:', error);
+    throw error;
+  }
+};
+
+// ===== GTD PAGES CREATION =====
+
+const createGTDPages = async (userId: string, workspaceId: string) => {
+  try {
+    const batch = writeBatch(db);
+    
+    GTD_PAGES.forEach((pageConfig) => {
+      const pageRef = doc(collection(db, 'users', userId, 'pages'));
+      batch.set(pageRef, {
+        title: `${pageConfig.emoji} ${pageConfig.title}`,
+        order: pageConfig.order,
+        workspaceId,
+        isFixed: true,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      });
+    });
+
+    await batch.commit();
+    console.log(`Created ${GTD_PAGES.length} GTD pages for workspace ${workspaceId}`);
+  } catch (error) {
+    console.error('Error creating GTD pages:', error);
+    throw error;
+  }
+};
+
+// ===== WORKSPACE PAGES =====
+
+export const getWorkspacePages = async (userId: string, workspaceId: string) => {
+  try {
+    const pagesRef = collection(db, 'users', userId, 'pages');
+    const q = query(
+      pagesRef,
+      where('workspaceId', '==', workspaceId),
+      orderBy('order', 'asc')
+    );
+    
+    const snapshot = await getDocs(q);
+    const pages = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      createdAt: doc.data().createdAt?.toDate() || new Date(),
+      updatedAt: doc.data().updatedAt?.toDate() || new Date(),
+    }));
+
+    console.log(`Found ${pages.length} pages in workspace ${workspaceId}`);
+    return pages;
+  } catch (error) {
+    console.error('Error fetching workspace pages:', error);
+    throw error;
+  }
+};
+
+// ===== CROSS-WORKSPACE TAGGING =====
+
+export const tagPageToGTD = async (
+  originalPageId: string,
+  originalWorkspaceId: string,
+  gtdWorkspaceId: string,
+  gtdPageId: string
+): Promise<PageReference> => {
+  try {
+    const referenceData = {
+      originalPageId,
+      originalWorkspaceId,
+      gtdWorkspaceId,
+      gtdPageId,
+      createdAt: Timestamp.now(),
+    };
+
+    const docRef = await addDoc(collection(db, 'pageReferences'), referenceData);
+    
+    const reference: PageReference = {
+      id: docRef.id,
+      ...referenceData,
+      createdAt: referenceData.createdAt.toDate(),
+    };
+
+    console.log('Created page reference:', reference);
+    return reference;
+  } catch (error) {
+    console.error('Error creating page reference:', error);
+    throw error;
+  }
+};
+
+export const getPageReferences = async (gtdWorkspaceId: string): Promise<PageReference[]> => {
+  try {
+    const referencesRef = collection(db, 'pageReferences');
+    const q = query(
+      referencesRef,
+      where('gtdWorkspaceId', '==', gtdWorkspaceId),
+      orderBy('createdAt', 'desc')
+    );
+    
+    const snapshot = await getDocs(q);
+    const references = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      createdAt: doc.data().createdAt?.toDate() || new Date(),
+    })) as PageReference[];
+
+    console.log(`Found ${references.length} page references for GTD workspace`);
+    return references;
+  } catch (error) {
+    console.error('Error fetching page references:', error);
+    throw error;
+  }
+};
+
+// ===== MIGRATION HELPERS =====
+
+export const initializeUserWorkspaces = async (userId: string): Promise<{
+  gtdWorkspace: Workspace;
+  notesWorkspace: Workspace;
+}> => {
+  try {
+    console.log('Initializing workspaces for user:', userId);
+    
+    // Check if workspaces already exist
+    const existingWorkspaces = await getUserWorkspaces(userId);
+    
+    let gtdWorkspace = existingWorkspaces.find(w => w.mode === 'gtd');
+    let notesWorkspace = existingWorkspaces.find(w => w.mode === 'notes');
+
+    // Create GTD workspace if it doesn't exist
+    if (!gtdWorkspace) {
+      gtdWorkspace = await createWorkspace(userId, 'GTD Workflow', 'gtd', false);
+    }
+
+    // Create Notes workspace if it doesn't exist
+    if (!notesWorkspace) {
+      notesWorkspace = await createWorkspace(userId, 'Notes & Ideas', 'notes', true);
+    }
+
+    return { gtdWorkspace, notesWorkspace };
+  } catch (error) {
+    console.error('Error initializing user workspaces:', error);
+    throw error;
+  }
+};

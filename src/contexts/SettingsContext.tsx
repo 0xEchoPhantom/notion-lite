@@ -16,10 +16,17 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
 
   const toggleMode = () => {
+    const newMode = !settings.isGTDMode;
+    console.log(`🔄 Toggling mode: ${settings.isGTDMode ? 'GTD' : 'Free'} → ${newMode ? 'GTD' : 'Free'}`);
     setSettings(prev => ({ 
-      isGTDMode: !prev.isGTDMode 
+      isGTDMode: newMode 
     }));
   };
+
+  console.log('⚙️ SettingsContext render:', { 
+    isGTDMode: settings.isGTDMode,
+    isFreeMode: !settings.isGTDMode 
+  });
 
   return (
     <SettingsContext.Provider value={{

@@ -25,6 +25,9 @@ export interface Page {
   id: string;
   title: string;
   order: number;
+  workspaceId?: string; // New: Links page to workspace
+  isFixed?: boolean; // New: Marks GTD fixed pages
+  tags?: string[]; // New: For cross-workspace tagging
   createdAt: Date;
   updatedAt: Date;
 }

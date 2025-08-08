@@ -16,9 +16,16 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { useFixedPages } from '@/hooks/useFixedPages';
 
 export default function AppPage() {
+  console.log('📱 AppPage render start');
+  
   const { user } = useAuth();
-  const { settings } = useSettings();
+  const { isGTDMode, isFreeMode } = useSettings();
+  
+  console.log('📱 AppPage hooks loaded:', { hasUser: !!user, isGTDMode, isFreeMode });
+  
+  // Only initialize fixed pages in GTD mode
   const { fixedPages, isInitialized } = useFixedPages();
+  
   const [pages, setPages] = useState<Page[]>([]);
   const [currentPageId, setCurrentPageId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -209,7 +216,10 @@ export default function AppPage() {
     setIsArchiveHovered(false);
   };
 
+  console.log('📱 AppPage state check:', { loading, error, hasUser: !!user });
+
   if (loading) {
+    console.log('⏳ AppPage: showing loading state');
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-center">
@@ -221,6 +231,7 @@ export default function AppPage() {
   }
 
   if (error) {
+    console.log('❌ AppPage: showing error state', error);
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-center">
@@ -303,8 +314,8 @@ export default function AppPage() {
               ))}
             </div>
 
-            {/* Tasks View Button */}
-            {settings.showTasksView && (
+            {/* Tasks View Button - Only in GTD mode */}
+            {isGTDMode && (
               <button
                 onClick={() => setShowTasksView(!showTasksView)}
                 className={`w-full mt-2 px-2 py-1 text-left text-sm rounded flex items-center space-x-2 ${
@@ -318,8 +329,8 @@ export default function AppPage() {
               </button>
             )}
           
-            {/* New Page Button - Conditional */}
-            {settings.allowNewPageCreation ? (
+            {/* New Page Button - Only in Free mode */}
+            {isFreeMode && (
               <button
                 onClick={async () => {
                   if (user) {
@@ -333,9 +344,12 @@ export default function AppPage() {
               >
                 + New page
               </button>
-            ) : (
+            )}
+            
+            {/* GTD Mode Info */}
+            {isGTDMode && (
               <div className="mt-4 px-2 py-1 text-xs text-gray-400 italic">
-                Page creation disabled
+                GTD Mode: Fixed workflow pages
               </div>
             )}
 
