@@ -4,12 +4,14 @@ import React, { useState } from 'react';
 import clsx from 'clsx';
 
 interface RecycleBinProps {
-  onDelete: () => Promise<void>;
+  onDeletePage?: () => Promise<void>;
+  onDeleteBlock?: (blockId: string) => Promise<void>;
   isDraggedOver?: boolean;
 }
 
 export const RecycleBin: React.FC<RecycleBinProps> = ({ 
-  onDelete, 
+  onDeletePage,
+  onDeleteBlock,
   isDraggedOver = false 
 }) => {
   const [isDeleting, setIsDeleting] = useState(false);
@@ -19,9 +21,9 @@ export const RecycleBin: React.FC<RecycleBinProps> = ({
     e.preventDefault();
     e.stopPropagation();
     
-    // Check if this is a page being dragged
+    // Check if this is a page or block being dragged
     const types = Array.from(e.dataTransfer.types);
-    if (types.includes('application/x-page')) {
+    if (types.includes('application/x-page') || types.includes('application/json')) {
       e.dataTransfer.dropEffect = 'move';
       setIsDraggedOverLocal(true);
     }
@@ -45,8 +47,7 @@ export const RecycleBin: React.FC<RecycleBinProps> = ({
     
     // Check if this is a page being dragged
     const pageData = e.dataTransfer.getData('application/x-page');
-    
-    if (pageData) {
+    if (pageData && onDeletePage) {
       try {
         const page = JSON.parse(pageData);
         
@@ -55,11 +56,34 @@ export const RecycleBin: React.FC<RecycleBinProps> = ({
         
         if (confirmed) {
           setIsDeleting(true);
-          await onDelete();
+          await onDeletePage();
         }
       } catch (error) {
         console.error('Error deleting page:', error);
         alert('Failed to delete page. Please try again.');
+      } finally {
+        setIsDeleting(false);
+      }
+      return;
+    }
+    
+    // Check if this is a block being dragged
+    const blockData = e.dataTransfer.getData('application/json');
+    if (blockData && onDeleteBlock) {
+      try {
+        const block = JSON.parse(blockData);
+        
+        // Confirm deletion
+        const confirmed = window.confirm(`Are you sure you want to delete this block? This action cannot be undone.`);
+        
+        if (confirmed) {
+          setIsDeleting(true);
+          // Use blockId since that's what's set in the drag data
+          await onDeleteBlock(block.blockId);
+        }
+      } catch (error) {
+        console.error('Error deleting block:', error);
+        alert('Failed to delete block. Please try again.');
       } finally {
         setIsDeleting(false);
       }
@@ -80,7 +104,7 @@ export const RecycleBin: React.FC<RecycleBinProps> = ({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      title="Drag pages here to delete them"
+      title="Drag pages or blocks here to delete them"
     >
       <div className="flex items-center space-x-2">
         <svg 

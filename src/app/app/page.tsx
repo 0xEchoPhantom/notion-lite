@@ -5,9 +5,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { BlocksProvider } from '@/contexts/BlocksContext';
 import { GlobalDragProvider } from '@/contexts/GlobalDragContext';
 import { Editor } from '@/components/editor/Editor';
-import { getPages, createPage, deletePage, updatePageTitle, reorderPages } from '@/lib/firestore';
+import { getPages, createPage, updatePageTitle, reorderPages, archivePage, archiveBlock } from '@/lib/firestore';
 import { Page } from '@/types/index';
-import { RecycleBin } from '@/components/ui/RecycleBin';
+import { Archive } from '@/components/ui/Archive';
+import { ArchiveViewer } from '@/components/ui/ArchiveViewer';
 import { EditablePageButton } from '@/components/ui/EditablePageButton';
 
 export default function AppPage() {
@@ -18,7 +19,8 @@ export default function AppPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [draggedPage, setDraggedPage] = useState<Page | null>(null);
-  const [isRecycleBinHovered, setIsRecycleBinHovered] = useState(false);
+  const [isArchiveHovered, setIsArchiveHovered] = useState(false);
+  const [isArchiveViewerOpen, setIsArchiveViewerOpen] = useState(false);
   const [draggedPageId, setDraggedPageId] = useState<string | null>(null);
   const [dropTargetInfo, setDropTargetInfo] = useState<{
     pageId: string;
@@ -76,7 +78,7 @@ export default function AppPage() {
     setDraggedPage(null);
     setDraggedPageId(null);
     setDropTargetInfo(null);
-    setIsRecycleBinHovered(false);
+    setIsArchiveHovered(false);
   };
 
   const handlePageDragOver = (e: React.DragEvent, targetPageId: string) => {
@@ -150,42 +152,54 @@ export default function AppPage() {
     }
   };
 
-  const handleDeletePage = async () => {
+  const handleArchivePage = async () => {
     if (!user || !draggedPage) return;
 
     try {
-      // Prevent deleting the last page
+      // Prevent archiving the last page
       if (pages.length <= 1) {
-        alert('Cannot delete the last page. Create another page first.');
+        alert('Cannot archive the last page. Create another page first.');
         return;
       }
 
-      await deletePage(user.uid, draggedPage.id);
+      await archivePage(user.uid, draggedPage.id);
       
       // Update local state
       const updatedPages = pages.filter(p => p.id !== draggedPage.id);
       setPages(updatedPages);
       
-      // If deleted page was current, switch to another page
+      // If archived page was current, switch to another page
       if (currentPageId === draggedPage.id) {
         setCurrentPageId(updatedPages[0]?.id || null);
       }
       
       setDraggedPage(null);
     } catch (error) {
-      console.error('Error deleting page:', error);
-      alert('Failed to delete page. Please try again.');
+      console.error('Error archiving page:', error);
+      alert('Failed to archive page. Please try again.');
     }
   };
 
-  const handleRecycleBinDragOver = () => {
+  const handleArchiveBlock = async (blockId: string) => {
+    if (!user || !currentPageId) return;
+
+    try {
+      await archiveBlock(user.uid, currentPageId, blockId);
+      // The block will be removed from the UI automatically via the real-time subscription
+    } catch (error) {
+      console.error('Error archiving block:', error);
+      alert('Failed to archive block. Please try again.');
+    }
+  };
+
+  const handleArchiveDragOver = () => {
     if (draggedPage) {
-      setIsRecycleBinHovered(true);
+      setIsArchiveHovered(true);
     }
   };
 
-  const handleRecycleBinDragLeave = () => {
-    setIsRecycleBinHovered(false);
+  const handleArchiveDragLeave = () => {
+    setIsArchiveHovered(false);
   };
 
   if (loading) {
@@ -296,14 +310,16 @@ export default function AppPage() {
               + New page
             </button>
 
-            {/* Recycle Bin */}
+            {/* Archive */}
             <div
-              onDragOver={handleRecycleBinDragOver}
-              onDragLeave={handleRecycleBinDragLeave}
+              onDragOver={handleArchiveDragOver}
+              onDragLeave={handleArchiveDragLeave}
             >
-              <RecycleBin
-                onDelete={handleDeletePage}
-                isDraggedOver={isRecycleBinHovered && !!draggedPage}
+              <Archive
+                onDeletePage={handleArchivePage}
+                onDeleteBlock={handleArchiveBlock}
+                onViewArchive={() => setIsArchiveViewerOpen(true)}
+                isDraggedOver={isArchiveHovered && !!draggedPage}
               />
             </div>
           </div>
@@ -337,6 +353,14 @@ export default function AppPage() {
             </BlocksProvider>
           </div>
         </div>
+
+        {/* Archive Viewer Modal */}
+        <ArchiveViewer
+          isOpen={isArchiveViewerOpen}
+          onClose={() => setIsArchiveViewerOpen(false)}
+          userId={user?.uid || ''}
+          currentPageId={currentPageId || undefined}
+        />
       </div>
     </GlobalDragProvider>
   );

@@ -29,6 +29,31 @@ export interface Page {
   updatedAt: Date;
 }
 
+export interface ArchivedPage {
+  id: string;
+  originalId: string;
+  title: string;
+  order: number;
+  archivedAt: Date;
+  originalCreatedAt: Date;
+  originalUpdatedAt: Date;
+}
+
+export interface ArchivedBlock {
+  id: string;
+  originalId: string;
+  pageId: string;
+  pageTitle: string;
+  type: BlockType;
+  content: string;
+  indentLevel: number;
+  isChecked?: boolean;
+  order: number;
+  archivedAt: Date;
+  originalCreatedAt: Date;
+  originalUpdatedAt: Date;
+}
+
 export interface User {
   uid: string;
   email: string;
