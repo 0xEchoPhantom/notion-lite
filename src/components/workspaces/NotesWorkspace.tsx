@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
+import { GlobalDragProvider } from '@/contexts/GlobalDragContext';
 import { BlocksProvider } from '@/contexts/BlocksContext';
 import { Editor } from '@/components/editor/Editor';
 import { EditablePageButton } from '@/components/ui/EditablePageButton';
@@ -111,7 +112,8 @@ export function NotesWorkspace() {
   }
 
   return (
-    <div className="flex flex-1">
+    <GlobalDragProvider currentPageId={currentPageId || ''}>
+      <div className="flex flex-1">
       {/* Notes Sidebar */}
       <div className="w-64 bg-white border-r border-gray-200 h-screen overflow-y-auto">
         <div className="p-4">
@@ -209,5 +211,6 @@ export function NotesWorkspace() {
         )}
       </div>
     </div>
+    </GlobalDragProvider>
   );
 }

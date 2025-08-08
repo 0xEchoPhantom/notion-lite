@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
+import { GlobalDragProvider } from '@/contexts/GlobalDragContext';
 import { BlocksProvider } from '@/contexts/BlocksContext';
 import { Editor } from '@/components/editor/Editor';
 import { GTD_PAGES } from '@/types/workspace';
@@ -93,8 +94,84 @@ export function GTDWorkspace() {
     );
   }
 
+  // If no currentPageId is selected, don't render GlobalDragProvider yet
+  if (!currentPageId) {
+    return (
+      <div className="flex flex-1">
+        {/* GTD Sidebar */}
+        <div className="w-64 bg-white border-r border-gray-200 h-screen overflow-y-auto">
+          <div className="p-4">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">🎯 GTD Workflow</h2>
+            
+            {/* GTD Pages from Firestore */}
+            <div className="space-y-1">
+              {gtdPages.length > 0 ? (
+                gtdPages.map((page) => (
+                  <div
+                    key={page.id}
+                    onClick={() => handlePageClick(page.id)}
+                    className="flex items-center gap-3 p-2 rounded-lg cursor-pointer group transition-colors hover:bg-gray-50"
+                  >
+                    <span className="text-lg">
+                      {page.title.includes('📬') ? '📬' :
+                       page.title.includes('🎯') ? '🎯' :
+                       page.title.includes('⏳') ? '⏳' :
+                       page.title.includes('📅') ? '📅' : '📄'}
+                    </span>
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-900">
+                        {page.title}
+                      </div>
+                    </div>
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                      <span className="text-xs text-blue-600 font-medium">Fixed</span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center p-4">
+                  <div className="text-sm text-gray-500 mb-3">
+                    No GTD pages found
+                  </div>
+                  <button
+                    onClick={handleCreateGTDPages}
+                    className="px-3 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+                  >
+                    Create GTD Pages
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Tagged Notes Section */}
+            <div className="mt-8">
+              <h3 className="text-sm font-medium text-gray-500 mb-3">📎 Tagged Notes</h3>
+              <div className="text-sm text-gray-400">
+                Notes from your workspace will appear here when tagged
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* GTD Main Content */}
+        <div className="flex-1 bg-gray-50">
+          <div className="h-full flex items-center justify-center">
+            <div className="text-center max-w-md">
+              <div className="text-6xl mb-4">🎯</div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">GTD Workflow</h1>
+              <p className="text-gray-600 mb-6">
+                Select a page from the sidebar to start organizing your tasks
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-1">
+    <GlobalDragProvider currentPageId={currentPageId}>
+      <div className="flex flex-1">
       {/* GTD Sidebar */}
       <div className="w-64 bg-white border-r border-gray-200 h-screen overflow-y-auto">
         <div className="p-4">
@@ -190,5 +267,6 @@ export function GTDWorkspace() {
         )}
       </div>
     </div>
+    </GlobalDragProvider>
   );
 }
