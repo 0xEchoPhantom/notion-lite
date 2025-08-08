@@ -58,8 +58,9 @@ export const getUserWorkspaces = async (userId: string): Promise<Workspace[]> =>
     const workspacesRef = collection(db, 'workspaces');
     const q = query(
       workspacesRef, 
-      where('userId', '==', userId),
-      orderBy('createdAt', 'asc')
+      where('userId', '==', userId)
+      // Temporarily remove orderBy to avoid index requirement
+      // orderBy('createdAt', 'asc')
     );
     
     const snapshot = await getDocs(q);
@@ -69,6 +70,9 @@ export const getUserWorkspaces = async (userId: string): Promise<Workspace[]> =>
       createdAt: doc.data().createdAt?.toDate() || new Date(),
       updatedAt: doc.data().updatedAt?.toDate() || new Date(),
     })) as Workspace[];
+
+    // Sort manually in JavaScript
+    workspaces.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 
     console.log(`Found ${workspaces.length} workspaces for user`);
     return workspaces;
