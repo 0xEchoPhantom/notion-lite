@@ -11,10 +11,10 @@ export const DragHandle: React.FC<DragHandleProps> = ({ isSelected, onDragStart,
   return (
     <div
       className={clsx(
-        'opacity-40 group-hover:opacity-100 transition-all cursor-grab active:cursor-grabbing',
+        'transition-all cursor-grab active:cursor-grabbing',
         'flex items-center justify-center w-6 h-6 text-gray-500 hover:text-gray-700',
         'hover:bg-gray-200 rounded flex-shrink-0 mr-1 active:bg-gray-300',
-        isSelected && 'opacity-100 bg-gray-100'
+        isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
       )}
       draggable
       onDragStart={onDragStart}

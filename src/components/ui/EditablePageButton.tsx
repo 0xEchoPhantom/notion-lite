@@ -141,7 +141,7 @@ export const EditablePageButton: React.FC<EditablePageButtonProps> = ({
         onDoubleClick={handleDoubleClick}
         className={`w-full text-left px-2 py-1 rounded text-sm transition-colors ${
           isActive
-            ? 'bg-blue-100 text-blue-900'
+            ? 'bg-gray-100 text-gray-900'
             : isHovered && isDragging
             ? 'bg-green-100 text-green-900 border-2 border-green-300'
             : isDraggingPage
@@ -171,7 +171,9 @@ export const EditablePageButton: React.FC<EditablePageButtonProps> = ({
               draggable
               onDragStart={handlePageDragStart}
               onDragEnd={handlePageDragEnd}
-              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 rounded cursor-grab active:cursor-grabbing"
+              className={`p-1 hover:bg-gray-200 rounded cursor-grab active:cursor-grabbing transition-opacity ${
+                isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+              }`}
               title="Drag to reorder or delete page"
               onClick={(e) => e.stopPropagation()}
             >

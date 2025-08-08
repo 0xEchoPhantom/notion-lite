@@ -36,10 +36,7 @@ export const BlockWrapper: React.FC<BlockWrapperProps> = ({
         className={clsx(
           'group relative flex items-start gap-1 py-1 px-2 mx-2 rounded hover:bg-gray-50',
           'transition-all duration-200 border-l-2 border-transparent cursor-pointer',
-          (isSelected || isMultiSelected) && 'bg-blue-50 border-l-blue-500',
-          isMultiSelected && 'ring-2 ring-blue-200',
-          isDragging && 'opacity-50 transform scale-95',
-          isSelected && !isMultiSelected && 'ring-1 ring-blue-300'
+          isDragging && 'opacity-50 transform scale-95'
         )}
         onDragOver={onDragOver}
         onDrop={onDrop}
