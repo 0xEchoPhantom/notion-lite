@@ -32,31 +32,31 @@ export interface GTDPageConfig {
 
 export const GTD_PAGES: GTDPageConfig[] = [
   {
-    id: 'capture',
-    title: 'Capture',
-    emoji: '📥',
+    id: 'inbox',
+    title: 'Inbox',
+    emoji: '�',
     order: 1,
-    description: 'Quick thoughts and ideas'
+    description: 'Capture everything that needs your attention'
   },
   {
-    id: '2min',
-    title: '2 min',
-    emoji: '⚡',
-    order: 2,
-    description: 'Tasks that take 2 minutes or less'
-  },
-  {
-    id: 'next-step',
-    title: 'Next Step',
+    id: 'actions',
+    title: 'Actions',
     emoji: '🎯',
-    order: 3,
-    description: 'Next actions to take'
+    order: 2,
+    description: 'Next actions you can take now'
   },
   {
-    id: 'delegate',
-    title: 'Delegate',
-    emoji: '👥',
-    order: 4,
+    id: 'waiting',
+    title: 'Waiting',
+    emoji: '⏳',
+    order: 3,
     description: 'Tasks waiting on others'
+  },
+  {
+    id: 'someday',
+    title: 'Someday',
+    emoji: '�',
+    order: 4,
+    description: 'Ideas for the future'
   }
 ];

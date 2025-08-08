@@ -156,6 +156,40 @@ export const getWorkspacePages = async (userId: string, workspaceId: string) => 
   }
 };
 
+export const createWorkspacePage = async (
+  userId: string, 
+  workspaceId: string, 
+  title: string = 'Untitled'
+): Promise<string> => {
+  try {
+    // Get highest order number for workspace pages
+    const existingPages = await getWorkspacePages(userId, workspaceId);
+    const maxOrder = existingPages.length > 0 
+      ? Math.max(...existingPages.map((p: any) => p.order || 0))
+      : 0;
+
+    const pageRef = doc(collection(db, 'users', userId, 'pages'));
+    const pageData = {
+      title,
+      order: maxOrder + 1,
+      workspaceId,
+      isFixed: false,
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    };
+
+    const batch = writeBatch(db);
+    batch.set(pageRef, pageData);
+    await batch.commit();
+
+    console.log(`Created workspace page: ${title} in workspace ${workspaceId}`);
+    return pageRef.id;
+  } catch (error) {
+    console.error('Error creating workspace page:', error);
+    throw error;
+  }
+};
+
 // ===== CROSS-WORKSPACE TAGGING =====
 
 export const tagPageToGTD = async (
