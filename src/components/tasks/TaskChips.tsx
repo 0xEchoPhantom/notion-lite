@@ -1,0 +1,293 @@
+'use client';
+
+import React, { useState, useRef, useEffect } from 'react';
+import { Task, TaskCompany, TASK_RULES } from '@/types/task';
+import { formatValue, formatEffort, formatDueDate } from '@/utils/smartTokenParser';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/firebase/client';
+import { useAuth } from '@/contexts/AuthContext';
+
+interface TaskChipsProps {
+  task: Task;
+  onUpdate?: (task: Task) => void;
+}
+
+export function TaskChips({ task, onUpdate }: TaskChipsProps) {
+  const { user } = useAuth();
+  const [editingChip, setEditingChip] = useState<'value' | 'effort' | 'due' | 'company' | null>(null);
+  
+  return (
+    <div className="inline-flex items-center gap-1">
+      {/* Value Chip */}
+      <ChipEditor
+        type="value"
+        value={task.value}
+        displayValue={task.value ? formatValue(task.value) : '@value'}
+        isEditing={editingChip === 'value'}
+        onEdit={() => setEditingChip('value')}
+        onSave={async (newValue) => {
+          if (user && newValue !== undefined) {
+            const taskRef = doc(db, 'users', user.uid, 'tasks', task.id);
+            await updateDoc(taskRef, {
+              value: newValue,
+              updatedAt: serverTimestamp()
+            });
+            onUpdate?.({ ...task, value: newValue });
+          }
+          setEditingChip(null);
+        }}
+        onCancel={() => setEditingChip(null)}
+        placeholder="@15M"
+        parser={parseValueInput}
+        color="green"
+      />
+      
+      {/* Effort Chip */}
+      <ChipEditor
+        type="effort"
+        value={task.effort}
+        displayValue={task.effort ? formatEffort(task.effort) : '@effort'}
+        isEditing={editingChip === 'effort'}
+        onEdit={() => setEditingChip('effort')}
+        onSave={async (newValue) => {
+          if (user && newValue !== undefined) {
+            const taskRef = doc(db, 'users', user.uid, 'tasks', task.id);
+            await updateDoc(taskRef, {
+              effort: newValue,
+              updatedAt: serverTimestamp()
+            });
+            onUpdate?.({ ...task, effort: newValue });
+          }
+          setEditingChip(null);
+        }}
+        onCancel={() => setEditingChip(null)}
+        placeholder="@3h"
+        parser={parseEffortInput}
+        color="blue"
+      />
+      
+      {/* Due Date Chip */}
+      <ChipEditor
+        type="due"
+        value={task.dueDate}
+        displayValue={task.dueDate ? formatDueDate(task.dueDate) : '@due'}
+        isEditing={editingChip === 'due'}
+        onEdit={() => setEditingChip('due')}
+        onSave={async (newValue) => {
+          if (user) {
+            const taskRef = doc(db, 'users', user.uid, 'tasks', task.id);
+            const updateData: any = {
+              updatedAt: serverTimestamp()
+            };
+            
+            // Only set dueDate if there's a value, otherwise remove it
+            if (newValue !== undefined) {
+              updateData.dueDate = newValue;
+            }
+            
+            await updateDoc(taskRef, updateData);
+            onUpdate?.({ ...task, dueDate: newValue });
+          }
+          setEditingChip(null);
+        }}
+        onCancel={() => setEditingChip(null)}
+        placeholder="@tomorrow"
+        parser={parseDueDateInput}
+        color="purple"
+      />
+      
+      {/* Company Chip */}
+      <ChipEditor
+        type="company"
+        value={task.company}
+        displayValue={task.company || '@company'}
+        isEditing={editingChip === 'company'}
+        onEdit={() => setEditingChip('company')}
+        onSave={async (newValue) => {
+          if (user && newValue !== undefined) {
+            const taskRef = doc(db, 'users', user.uid, 'tasks', task.id);
+            await updateDoc(taskRef, {
+              company: newValue,
+              updatedAt: serverTimestamp()
+            });
+            onUpdate?.({ ...task, company: newValue });
+          }
+          setEditingChip(null);
+        }}
+        onCancel={() => setEditingChip(null)}
+        placeholder="@AIC"
+        parser={parseCompanyInput}
+        color="indigo"
+      />
+      
+      {/* ROI Display (read-only) */}
+      {(task.roi !== undefined && isFinite(task.roi)) && (
+        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+          task.roi > 0 
+            ? 'bg-emerald-100 text-emerald-700' 
+            : 'bg-gray-100 text-gray-600'
+        }`}>
+          ROI: {task.roi > 0 ? `$${Math.round(task.roi).toLocaleString()}/h` : 'Incomplete'}
+        </span>
+      )}
+    </div>
+  );
+}
+
+interface ChipEditorProps {
+  type: string;
+  value: any;
+  displayValue: string;
+  isEditing: boolean;
+  onEdit: () => void;
+  onSave: (value: any) => void;
+  onCancel: () => void;
+  placeholder: string;
+  parser: (input: string) => any;
+  color: string;
+}
+
+function ChipEditor({
+  type,
+  value,
+  displayValue,
+  isEditing,
+  onEdit,
+  onSave,
+  onCancel,
+  placeholder,
+  parser,
+  color
+}: ChipEditorProps) {
+  const [inputValue, setInputValue] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+  
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+  
+  const handleSave = () => {
+    const parsed = parser(inputValue);
+    onSave(parsed);
+  };
+  
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSave();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      onCancel();
+    }
+  };
+  
+  if (isEditing) {
+    return (
+      <input
+        ref={inputRef}
+        type="text"
+        value={inputValue}
+        onChange={(e) => setInputValue(e.target.value)}
+        onBlur={handleSave}
+        onKeyDown={handleKeyDown}
+        placeholder={placeholder}
+        className={`inline-block px-2 py-0.5 text-xs font-medium rounded border-2 border-${color}-300 focus:outline-none focus:border-${color}-500`}
+        style={{ width: '80px' }}
+      />
+    );
+  }
+  
+  const hasValue = value !== undefined && value !== null;
+  
+  return (
+    <button
+      onClick={onEdit}
+      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium transition-colors ${
+        hasValue
+          ? `bg-${color}-100 text-${color}-700 hover:bg-${color}-200`
+          : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+      }`}
+    >
+      {displayValue}
+    </button>
+  );
+}
+
+// Parsers for chip inputs
+function parseValueInput(input: string): number | undefined {
+  const cleaned = input.replace('@', '').trim();
+  const match = cleaned.match(/^(\d+(?:\.\d+)?)\s*([KMB])?$/i);
+  if (!match) return undefined;
+  
+  const [, numStr, multiplier] = match;
+  const num = parseFloat(numStr);
+  
+  if (multiplier) {
+    const multipliers: Record<string, number> = {
+      K: 1000,
+      M: 1000000,
+      B: 1000000000
+    };
+    return num * multipliers[multiplier.toUpperCase()];
+  }
+  
+  return num;
+}
+
+function parseEffortInput(input: string): number | undefined {
+  const cleaned = input.replace('@', '').trim();
+  const match = cleaned.match(/^(\d+(?:\.\d+)?)\s*([hdwm])?$/i);
+  if (!match) return undefined;
+  
+  const [, numStr, unit = 'h'] = match;
+  const num = parseFloat(numStr);
+  
+  const multipliers: Record<string, number> = {
+    h: 1,
+    d: 8,
+    w: 40,
+    m: 160
+  };
+  
+  return num * multipliers[unit.toLowerCase()];
+}
+
+function parseDueDateInput(input: string): Date | undefined {
+  // Remove leading @ if present
+  const cleaned = input.replace('@', '').trim();
+  
+  if (cleaned === 'today') {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  }
+  
+  if (cleaned === 'tomorrow') {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    return tomorrow;
+  }
+  
+  // Try parsing as date
+  const date = new Date(cleaned);
+  if (!isNaN(date.getTime())) {
+    date.setHours(0, 0, 0, 0);
+    return date;
+  }
+  
+  return undefined;
+}
+
+function parseCompanyInput(input: string): TaskCompany | undefined {
+  const cleaned = input.replace('@', '').trim().toUpperCase();
+  
+  if (TASK_RULES.COMPANIES.includes(cleaned as TaskCompany)) {
+    return cleaned as TaskCompany;
+  }
+  
+  return undefined;
+}
