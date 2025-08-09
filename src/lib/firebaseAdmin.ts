@@ -9,7 +9,7 @@ try {
   const existingApp = getApps().find(app => app?.name === 'admin');
   
   if (!existingApp) {
-    let credentialConfig: any = {};
+    const credentialConfig: Record<string, unknown> = {};
     
     // Try to get service account from environment variables
     if (process.env.FIREBASE_SERVICE_ACCOUNT) {
@@ -158,8 +158,6 @@ export const adminOperations = {
     const usersSnapshot = await adminDb.collection('users').get();
     
     for (const userDoc of usersSnapshot.docs) {
-      const currentUserId = userDoc.id;
-      
       // Get all pages for this user
       const pagesSnapshot = await userDoc.ref.collection('pages').get();
       const validPageIds = new Set(pagesSnapshot.docs.map(doc => doc.id));

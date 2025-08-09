@@ -11,7 +11,12 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import { db } from '@/firebase/client';
+import { Page } from '@/types/index';
 import { Workspace, WorkspaceMode, PageReference, GTD_PAGES } from '@/types/workspace';
+
+interface PageWithOrder extends Omit<Page, 'order'> {
+  order?: number;
+}
 
 // ===== WORKSPACE OPERATIONS =====
 
@@ -109,11 +114,11 @@ const createGTDPages = async (userId: string, workspaceId: string) => {
   try {
     const batch = writeBatch(db);
     
-    GTD_PAGES.forEach((pageConfig) => {
+    GTD_PAGES.forEach((pageConfig, index) => {
       const pageRef = doc(collection(db, 'users', userId, 'pages'));
       batch.set(pageRef, {
         title: `${pageConfig.emoji} ${pageConfig.title}`,
-        order: pageConfig.order,
+        order: index,
         workspaceId,
         isFixed: true,
         createdAt: Timestamp.now(),
@@ -131,7 +136,10 @@ const createGTDPages = async (userId: string, workspaceId: string) => {
 
 // ===== WORKSPACE PAGES =====
 
-export const getWorkspacePages = async (userId: string, workspaceId: string) => {
+export const getWorkspacePages = async (
+  userId: string, 
+  workspaceId: string
+): Promise<PageWithOrder[]> => {
   try {
     const pagesRef = collection(db, 'users', userId, 'pages');
     // Simple query without orderBy to avoid index requirements
@@ -141,15 +149,21 @@ export const getWorkspacePages = async (userId: string, workspaceId: string) => 
     );
     
     const snapshot = await getDocs(q);
-    const pages = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      createdAt: doc.data().createdAt?.toDate() || new Date(),
-      updatedAt: doc.data().updatedAt?.toDate() || new Date(),
-    }));
+    const pages: PageWithOrder[] = snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        title: data.title || 'Untitled',
+        workspaceId: data.workspaceId,
+        isFixed: data.isFixed || false,
+        order: data.order,
+        createdAt: data.createdAt?.toDate() || new Date(),
+        updatedAt: data.updatedAt?.toDate() || new Date(),
+      };
+    });
 
     // Client-side sorting by order field (more reliable than Firestore orderBy)
-    pages.sort((a: any, b: any) => {
+    pages.sort((a: PageWithOrder, b: PageWithOrder) => {
       const orderA = a.order || 0;
       const orderB = b.order || 0;
       if (orderA !== orderB) {
@@ -159,7 +173,7 @@ export const getWorkspacePages = async (userId: string, workspaceId: string) => 
       return (a.createdAt?.getTime() || 0) - (b.createdAt?.getTime() || 0);
     });
 
-    console.log(`Found ${pages.length} pages in workspace ${workspaceId}:`, pages.map((p: any) => p.title));
+    console.log(`Found ${pages.length} pages in workspace ${workspaceId}:`, pages.map((p: PageWithOrder) => p.title));
     return pages;
   } catch (error) {
     console.error('Error fetching workspace pages:', error);
@@ -176,7 +190,7 @@ export const createWorkspacePage = async (
     // Get highest order number for workspace pages
     const existingPages = await getWorkspacePages(userId, workspaceId);
     const maxOrder = existingPages.length > 0 
-      ? Math.max(...existingPages.map((p: any) => p.order || 0))
+      ? Math.max(...existingPages.map((p: PageWithOrder) => p.order || 0))
       : 0;
 
     const pageRef = doc(collection(db, 'users', userId, 'pages'));
@@ -203,27 +217,36 @@ export const createWorkspacePage = async (
 
 // ===== CROSS-WORKSPACE TAGGING =====
 
+interface TagReferenceData {
+  originalPageId: string;
+  originalWorkspaceId: string;
+  gtdWorkspaceId: string;
+  gtdPageId: string;
+  taggedAt: Timestamp;
+  createdAt?: Timestamp;
+}
+
 export const tagPageToGTD = async (
   originalPageId: string,
   originalWorkspaceId: string,
   gtdWorkspaceId: string,
   gtdPageId: string
-): Promise<PageReference> => {
+): Promise<TagReferenceData & { id: string }> => {
   try {
-    const referenceData = {
+    const referenceData: TagReferenceData = {
       originalPageId,
       originalWorkspaceId,
       gtdWorkspaceId,
       gtdPageId,
+      taggedAt: Timestamp.now(),
       createdAt: Timestamp.now(),
     };
 
     const docRef = await addDoc(collection(db, 'pageReferences'), referenceData);
     
-    const reference: PageReference = {
+    const reference = {
       id: docRef.id,
       ...referenceData,
-      createdAt: referenceData.createdAt.toDate(),
     };
 
     console.log('Created page reference:', reference);

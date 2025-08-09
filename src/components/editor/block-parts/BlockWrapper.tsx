@@ -16,8 +16,6 @@ interface BlockWrapperProps {
 
 export const BlockWrapper: React.FC<BlockWrapperProps> = ({
   blockId,
-  isSelected,
-  isMultiSelected,
   isDragging,
   isDraggedOver,
   dropPosition,

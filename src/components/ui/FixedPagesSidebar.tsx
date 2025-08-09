@@ -1,8 +1,7 @@
 'use client';
 
 import React from 'react';
-import { FIXED_PAGES, FixedPage } from '@/constants/fixedPages';
-import { useSettings } from '@/contexts/SettingsContext';
+import { GTD_PAGES } from '@/types/workspace';
 
 interface FixedPagesSidebarProps {
   currentPageId?: string;
@@ -17,27 +16,27 @@ export const FixedPagesSidebar: React.FC<FixedPagesSidebarProps> = ({
   onTasksViewSelect,
   showTasksView = false
 }) => {
-  const { settings } = useSettings();
+  // const { settings } = useSettings();
 
-  const PageItem: React.FC<{ page: FixedPage; isActive: boolean }> = ({ page, isActive }) => (
+  const PageItem: React.FC<{ page: typeof GTD_PAGES[number]; isActive: boolean }> = ({ page, isActive }) => (
     <button
       onClick={() => onPageSelect(page.id)}
       className={`w-full text-left p-3 rounded-lg transition-all duration-200 border ${
         isActive 
-          ? `${page.bgColor} ${page.color} border-current shadow-sm` 
+          ? 'bg-blue-50 text-blue-700 border-blue-200 shadow-sm' 
           : 'hover:bg-gray-50 border-transparent'
       }`}
     >
       <div className="flex items-center space-x-3">
         <div className={`w-3 h-3 rounded-full ${
           isActive 
-            ? page.bgColor.replace('bg-', 'bg-').replace('-100', '-500')
-            : page.bgColor.replace('-100', '-300')
+            ? 'bg-blue-500'
+            : 'bg-gray-300'
         }`}>
         </div>
         <div className="flex-1">
           <div className="flex items-center space-x-2">
-            <span className="text-lg">{page.icon}</span>
+            <span className="text-lg">{page.emoji}</span>
             <span className="font-medium">{page.title}</span>
           </div>
           <p className="text-xs text-gray-500 mt-1">{page.description}</p>
@@ -55,7 +54,7 @@ export const FixedPagesSidebar: React.FC<FixedPagesSidebarProps> = ({
       </div>
 
       {/* Tasks Overview */}
-      {settings.showTasksView && (
+      {showTasksView && (
         <div className="mb-6">
           <button
             onClick={onTasksViewSelect}
@@ -84,7 +83,7 @@ export const FixedPagesSidebar: React.FC<FixedPagesSidebarProps> = ({
       {/* Fixed Pages */}
       <div className="space-y-2">
         <h3 className="text-sm font-medium text-gray-700 mb-3">Pages</h3>
-        {FIXED_PAGES.map(page => (
+        {GTD_PAGES.map(page => (
           <PageItem
             key={page.id}
             page={page}
@@ -94,10 +93,10 @@ export const FixedPagesSidebar: React.FC<FixedPagesSidebarProps> = ({
       </div>
 
       {/* Settings Note */}
-      {!settings.allowNewPageCreation && (
+      {/* settings.isGTDMode && */ false && (
         <div className="mt-8 p-3 bg-gray-50 rounded-lg">
           <p className="text-xs text-gray-600">
-            <span className="font-medium">Fixed pages mode:</span> New page creation is disabled.
+            <span className="font-medium">GTD mode:</span> Using fixed workflow pages.
           </p>
         </div>
       )}
@@ -108,12 +107,12 @@ export const FixedPagesSidebar: React.FC<FixedPagesSidebarProps> = ({
         <div className="space-y-1 text-xs text-gray-600">
           <div className="flex justify-between">
             <span>Active pages:</span>
-            <span>{FIXED_PAGES.length}</span>
+            <span>{GTD_PAGES.length}</span>
           </div>
           <div className="flex justify-between">
-            <span>Page creation:</span>
-            <span className={settings.allowNewPageCreation ? 'text-green-600' : 'text-red-600'}>
-              {settings.allowNewPageCreation ? 'Enabled' : 'Disabled'}
+            <span>Mode:</span>
+            <span className={'text-blue-600'}>
+              {'GTD'}
             </span>
           </div>
         </div>

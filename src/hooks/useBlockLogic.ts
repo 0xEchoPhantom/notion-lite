@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Block, BlockType as BType } from '@/types/index';
 import { useBlocksWithKeyboard } from '@/hooks/useBlocks';
+import { useBlocks } from '@/contexts/BlocksContext';
 import { useGlobalDrag } from '@/contexts/GlobalDragContext';
 import { getMarkdownShortcut, applyTextFormatting } from '@/utils/editor';
 import { parseNotionClipboard, isNotionContent, cleanContent } from '@/utils/clipboard';
@@ -45,12 +46,16 @@ export const useBlockLogic = ({
   onDrop,
 }: UseBlockLogicProps) => {
   const { updateBlockContent, convertBlockType, toggleTodoCheck } = useBlocksWithKeyboard();
+  const { pageId } = useBlocks();
   const { setDraggedBlock } = useGlobalDrag();
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const slashMenuRef = useRef<SlashMenuRef>(null);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashMenuPosition, setSlashMenuPosition] = useState({ x: 0, y: 0 });
   const [slashSearchQuery, setSlashSearchQuery] = useState('');
+  const [showTokenSuggest, setShowTokenSuggest] = useState(false);
+  const [tokenSuggestPosition, setTokenSuggestPosition] = useState({ x: 0, y: 0 });
+  const [tokenSearchQuery, setTokenSearchQuery] = useState('');
   const [isComposing, setIsComposing] = useState(false);
   const [localContent, setLocalContent] = useState(block.content);
   const [isFocused, setIsFocused] = useState(false);
@@ -58,7 +63,7 @@ export const useBlockLogic = ({
 
   // Sync local content with block content
   useEffect(() => {
-    if (!isComposing && localContent !== block.content) {
+    if (!isComposing) {
       setLocalContent(block.content);
     }
   }, [block.content, isComposing]);
@@ -341,7 +346,7 @@ export const useBlockLogic = ({
             onNewBlock('todo-list', block.indentLevel);
           }
         } else {
-          onNewBlock(block.type, block.indentLevel);
+          onNewBlock(block.type === 'paragraph' ? undefined : block.type, block.indentLevel);
         }
         return;
       }
@@ -420,7 +425,7 @@ export const useBlockLogic = ({
       }
     }
   }, [
-    block.type, localContent, block.id, toggleTodoCheck, onMoveUp, onMoveDown, onIndent, onOutdent,
+    block.type, localContent, block.id, block.indentLevel, toggleTodoCheck, onMoveUp, onMoveDown, onIndent, onOutdent,
     onNewBlock, onDeleteBlock, onMergeUp, onDuplicateBlock, onSelect, isComposing, showSlashMenu,
     convertBlockType, updateBlockContent,
   ]);
@@ -499,7 +504,7 @@ export const useBlockLogic = ({
     
     setDraggedBlock({
       blockId: block.id,
-      sourcePageId: '',
+      sourcePageId: pageId,
       type: block.type,
       content: block.content,
       indentLevel: block.indentLevel,
@@ -509,7 +514,7 @@ export const useBlockLogic = ({
     if (onDragStart) {
       onDragStart(block.id);
     }
-  }, [block, onDragStart, setDraggedBlock]);
+  }, [block, pageId, onDragStart, setDraggedBlock]);
 
   const handleDragEnd = useCallback(() => {
     setDraggedBlock(null);

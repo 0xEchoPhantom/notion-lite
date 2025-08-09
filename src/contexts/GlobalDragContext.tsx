@@ -12,6 +12,7 @@ interface DraggedBlockData {
   content: string;
   indentLevel: number;
   isChecked?: boolean;
+  sourcePageTitle?: string; // Để hiển thị trong UI
 }
 
 interface GlobalDragContextType {
@@ -19,6 +20,7 @@ interface GlobalDragContextType {
   setDraggedBlock: (block: DraggedBlockData | null) => void;
   moveBlockToNewPage: (targetPageId: string, order: number) => Promise<string | null>;
   isDragging: boolean;
+  isValidDropTarget: (targetPageId: string) => boolean;
 }
 
 const GlobalDragContext = createContext<GlobalDragContextType | undefined>(undefined);
@@ -65,13 +67,22 @@ export const GlobalDragProvider: React.FC<GlobalDragProviderProps> = ({
     }
   };
 
+  const isValidDropTarget = (targetPageId: string): boolean => {
+    return draggedBlock !== null && draggedBlock.sourcePageId !== targetPageId;
+  };
+
   const value = {
     draggedBlock,
     setDraggedBlock: (block: DraggedBlockData | null) => {
-      setDraggedBlock(block ? { ...block, sourcePageId: currentPageId } : null);
+      // Don't override sourcePageId if it's already set
+      setDraggedBlock(block ? { 
+        ...block, 
+        sourcePageId: block.sourcePageId || currentPageId 
+      } : null);
     },
     moveBlockToNewPage,
     isDragging: !!draggedBlock,
+    isValidDropTarget,
   };
 
   return (

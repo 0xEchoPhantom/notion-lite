@@ -33,7 +33,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthorized }) 
       } else {
         setError(result.error || 'Failed to fetch stats');
       }
-    } catch (err) {
+    } catch {
       setError('Network error while fetching stats');
     } finally {
       setLoading(false);
@@ -57,7 +57,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthorized }) 
       } else {
         setError(result.error || 'Failed to fetch user summary');
       }
-    } catch (err) {
+    } catch {
       setError('Network error while fetching user summary');
     } finally {
       setLoading(false);
@@ -78,7 +78,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthorized }) 
       } else {
         setError(result.error || 'Cleanup failed');
       }
-    } catch (err) {
+    } catch {
       setError('Network error during cleanup');
     } finally {
       setLoading(false);
@@ -114,7 +114,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthorized }) 
       } else {
         setError(result.error || 'Failed to delete user data');
       }
-    } catch (err) {
+    } catch {
       setError('Network error while deleting user data');
     } finally {
       setLoading(false);

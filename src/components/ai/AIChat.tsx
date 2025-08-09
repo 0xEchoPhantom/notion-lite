@@ -3,6 +3,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Task } from '@/types/task';
 import { geminiAssistant, ActionSuggestion, ChatContext } from '@/lib/ai/gemini';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface ChatMessage {
   id: string;
@@ -63,7 +65,8 @@ export function AIChat({ tasks, currentView, selectedTasks }: AIChatProps) {
       timestamp: new Date()
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    const nextMessages = [...messages, userMessage];
+    setMessages(nextMessages);
     setInput('');
     setIsLoading(true);
 
@@ -72,10 +75,16 @@ export function AIChat({ tasks, currentView, selectedTasks }: AIChatProps) {
         tasks,
         currentView,
         selectedTasks,
-        userQuery: input.trim()
+        userQuery: userMessage.content
       };
 
-      const response = await geminiAssistant.chatWithTasks(input.trim(), context);
+      // Build minimal history for model (user/model roles)
+      const history = nextMessages.map(m => ({
+        role: m.type === 'user' ? 'user' : 'model',
+        content: m.content
+      }));
+
+      const response = await geminiAssistant.chatWithHistory(history, context);
 
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
@@ -161,7 +170,11 @@ export function AIChat({ tasks, currentView, selectedTasks }: AIChatProps) {
               }`}
             >
               <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                {message.content}
+                {message.type === 'assistant' ? (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+                ) : (
+                  message.content
+                )}
               </div>
               
               {message.suggestions && message.suggestions.length > 0 && (

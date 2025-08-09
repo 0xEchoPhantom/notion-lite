@@ -55,16 +55,14 @@ const EditorInner: React.FC = () => {
     const newBlockIndent = indentLevel !== undefined ? indentLevel : currentBlock.indentLevel;
     const newBlockId = await createNewBlock(newBlockType, '', blockId, newBlockIndent);
     
-    // Set selection immediately for instant UI feedback
-    setSelectedBlockId(newBlockId);
-    
-    // Focus the new block with minimal delay for DOM update
+    // Focus the new block
     setTimeout(() => {
+      setSelectedBlockId(newBlockId);
       const newBlockElement = document.querySelector(`[data-block-id="${newBlockId}"] textarea`);
       if (newBlockElement) {
         (newBlockElement as HTMLTextAreaElement).focus();
       }
-    }, 10); // Reduced from 50ms to 10ms for better responsiveness
+    }, 50);
   }, [blocks, createNewBlock]);
 
   // Duplicate current block (Notion behavior)
@@ -75,16 +73,14 @@ const EditorInner: React.FC = () => {
     // Create new block with same content, type, and indent level
     const newBlockId = await createNewBlock(currentBlock.type, currentBlock.content, blockId, currentBlock.indentLevel);
     
-    // Set selection immediately for instant UI feedback
-    setSelectedBlockId(newBlockId);
-    
-    // Focus the new block with minimal delay
+    // Focus the new block
     setTimeout(() => {
+      setSelectedBlockId(newBlockId);
       const newBlockElement = document.querySelector(`[data-block-id="${newBlockId}"] textarea`);
       if (newBlockElement) {
         (newBlockElement as HTMLInputElement).focus();
       }
-    }, 10); // Reduced from 50ms to 10ms for better responsiveness
+    }, 50);
   }, [blocks, createNewBlock]);
 
   // Merge current block content up to previous block
@@ -429,17 +425,14 @@ const EditorInner: React.FC = () => {
           clearSelection();
           
           const newBlockId = await createNewBlock('paragraph', '');
-          // Set selection immediately for instant UI feedback
-          setSelectedBlockId(newBlockId);
-          selectBlock(newBlockId, false);
-          
-          // Focus the new block with minimal delay
           setTimeout(() => {
+            setSelectedBlockId(newBlockId);
+            selectBlock(newBlockId, false);
             const newBlockElement = document.querySelector(`[data-block-id="${newBlockId}"] textarea`);
             if (newBlockElement) {
               (newBlockElement as HTMLTextAreaElement).focus();
             }
-          }, 10);
+          }, 50);
         }}
       />
     </div>

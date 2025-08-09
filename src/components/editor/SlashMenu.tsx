@@ -156,35 +156,32 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
     }
   }, [selectedIndex]);
 
-  // Handle keyboard events
-  const handleMenuKeyDown = (key: string): boolean => {
-    if (filteredItems.length === 0) return false;
-    
-    switch (key) {
-      case 'ArrowDown':
-        setSelectedIndex(prev => (prev + 1) % filteredItems.length);
-        return true;
-      case 'ArrowUp':
-        setSelectedIndex(prev => (prev - 1 + filteredItems.length) % filteredItems.length);
-        return true;
-      case 'Enter':
-        if (filteredItems[selectedIndex]) {
-          onSelectType(filteredItems[selectedIndex].id);
-          onClose();
-        }
-        return true;
-      case 'Escape':
-        onClose();
-        return true;
-      default:
-        return false;
-    }
-  };
-
   // Expose keyboard handler to parent
   useImperativeHandle(ref, () => ({
-    handleKeyDown: handleMenuKeyDown
-  }), [handleMenuKeyDown, filteredItems, selectedIndex, onSelectType, onClose]);
+    handleKeyDown: (key: string): boolean => {
+      if (filteredItems.length === 0) return false;
+      
+      switch (key) {
+        case 'ArrowDown':
+          setSelectedIndex(prev => (prev + 1) % filteredItems.length);
+          return true;
+        case 'ArrowUp':
+          setSelectedIndex(prev => (prev - 1 + filteredItems.length) % filteredItems.length);
+          return true;
+        case 'Enter':
+          if (filteredItems[selectedIndex]) {
+            onSelectType(filteredItems[selectedIndex].id);
+            onClose();
+          }
+          return true;
+        case 'Escape':
+          onClose();
+          return true;
+        default:
+          return false;
+      }
+    }
+  }), [filteredItems, selectedIndex, onSelectType, onClose]);
 
   useEffect(() => {
     if (!isOpen) return;

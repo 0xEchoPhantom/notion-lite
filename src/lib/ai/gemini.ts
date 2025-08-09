@@ -59,6 +59,11 @@ export interface TaskUpdate {
   reasoning: string;
 }
 
+export interface AIHistoryMessage {
+  role: 'user' | 'model';
+  content: string;
+}
+
 export class GeminiTaskAssistant {
   private model = model;
 
@@ -99,6 +104,25 @@ Try these steps and retry:
 5) Wait 2-3 minutes and try again`,
         suggestions: []
       };
+    }
+  }
+
+  async chatWithHistory(history: AIHistoryMessage[], context: ChatContext): Promise<AIResponse> {
+    try {
+      // Build structured contents from history (Firebase AI / Vertex AI format)
+      const contents = history.map(m => ({
+        role: m.role,
+        parts: [{ text: m.content }]
+      }));
+
+      const result = await this.model.generateContent({ contents });
+      const text = result.response.text();
+      return this.parseAIResponse(text, context);
+    } catch (error: any) {
+      console.error('Firebase Vertex AI (history) error:', error);
+
+      // Fallback to single-turn behavior if needed
+      return this.chatWithTasks(history[history.length - 1]?.content || '', context);
     }
   }
 

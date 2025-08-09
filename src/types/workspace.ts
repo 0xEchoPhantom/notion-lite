@@ -1,4 +1,4 @@
-import { Timestamp } from 'firebase/firestore';
+// ===== WORKSPACE TYPES =====
 
 export type WorkspaceMode = 'gtd' | 'notes';
 
@@ -6,57 +6,49 @@ export interface Workspace {
   id: string;
   name: string;
   mode: WorkspaceMode;
-  userId: string;
-  isDefault?: boolean;
   createdAt: Date;
   updatedAt: Date;
+  userId: string;
 }
 
 export interface PageReference {
   id: string;
-  originalPageId: string;
-  originalWorkspaceId: string;
-  gtdWorkspaceId: string;
-  gtdPageId: string;
-  createdAt: Date;
-}
-
-// GTD fixed pages configuration
-export interface GTDPageConfig {
-  id: string;
   title: string;
-  emoji: string;
-  order: number;
-  description: string;
+  emoji?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  workspaceId: string;
+  userId: string;
+  isFixed?: boolean;
 }
 
-export const GTD_PAGES: GTDPageConfig[] = [
+// ===== GTD FIXED PAGES CONFIGURATION =====
+
+export const GTD_PAGES = [
   {
     id: 'inbox',
     title: 'Inbox',
-    emoji: '�',
-    order: 1,
-    description: 'Capture everything that needs your attention'
+    emoji: '📥',
+    description: 'Quick capture of thoughts, tasks, and ideas'
   },
   {
-    id: 'actions',
-    title: 'Actions',
-    emoji: '🎯',
-    order: 2,
-    description: 'Next actions you can take now'
+    id: 'next-actions',
+    title: 'Next Actions',
+    emoji: '⚡',
+    description: 'Single concrete actions you can take right now'
   },
   {
-    id: 'waiting',
-    title: 'Waiting',
+    id: 'waiting-for',
+    title: 'Waiting For',
     emoji: '⏳',
-    order: 3,
-    description: 'Tasks waiting on others'
+    description: 'Things delegated to others or pending external events'
   },
   {
-    id: 'someday',
-    title: 'Someday',
-    emoji: '�',
-    order: 4,
-    description: 'Ideas for the future'
+    id: 'someday-maybe',
+    title: 'Someday/Maybe',
+    emoji: '💭',
+    description: 'Ideas and possibilities for potential future action'
   }
-];
+] as const;
+
+export type GTDPageId = typeof GTD_PAGES[number]['id'];

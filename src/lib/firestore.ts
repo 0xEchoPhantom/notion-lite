@@ -11,10 +11,9 @@ import {
   orderBy,
   Timestamp,
   writeBatch,
-  deleteField,
 } from 'firebase/firestore';
 import { db } from '@/firebase/client';
-import { Block, Page, BlockType, ArchivedPage, ArchivedBlock } from '@/types/index';
+import { Block, Page, ArchivedPage, ArchivedBlock } from '@/types/index';
 
 // Page operations
 export const createPage = async (userId: string, title: string): Promise<string> => {
@@ -63,7 +62,7 @@ export const getPages = async (userId: string): Promise<Page[]> => {
         updatedAt: doc.data().updatedAt.toDate(),
       }));
     }
-  } catch (error) {
+  } catch {
     console.log('No pages with order field found, trying legacy query...');
   }
   
@@ -191,7 +190,7 @@ export const createBlock = async (
       ...block,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
-    }).filter(([_, value]) => value !== undefined)
+    }).filter(([, value]) => value !== undefined)
   );
   
   const docRef = await addDoc(blocksRef, cleanBlock);
@@ -211,7 +210,7 @@ export const updateBlock = async (
     Object.entries({
       ...updates,
       updatedAt: Timestamp.now(),
-    }).filter(([_, value]) => value !== undefined)
+    }).filter(([, value]) => value !== undefined)
   );
   
   await updateDoc(blockRef, cleanUpdates);
@@ -576,7 +575,7 @@ export const moveBlockToPage = async (
       ...blockData,
       order: newOrder,
       updatedAt: Timestamp.now(),
-    }).filter(([_, value]) => value !== undefined)
+    }).filter(([, value]) => value !== undefined)
   );
   
   // Use batch to ensure atomicity

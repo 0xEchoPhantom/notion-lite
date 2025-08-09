@@ -56,6 +56,7 @@ const blocksReducer = (state: BlocksState, action: BlocksAction): BlocksState =>
 interface BlocksContextType {
   blocks: Block[];
   loading: boolean;
+  pageId: string;
   addBlock: (block: Omit<Block, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
   updateBlockContent: (id: string, updates: Partial<Block>) => Promise<void>;
   deleteBlockById: (id: string) => Promise<void>;
@@ -131,6 +132,7 @@ export const BlocksProvider: React.FC<BlocksProviderProps> = ({ children, pageId
   const value = {
     blocks: state.blocks,
     loading: state.loading,
+    pageId,
     addBlock,
     updateBlockContent,
     deleteBlockById,
