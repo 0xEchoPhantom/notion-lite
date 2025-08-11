@@ -1,4 +1,31 @@
 @import "tailwindcss";
+@import "../styles/blue-drag-drop.css";
+
+/* Remove default focus outlines - we'll use custom focus states */
+*:focus {
+  outline: none;
+}
+
+/* Remove blue highlight on buttons and interactive elements */
+button:focus,
+div[draggable="true"]:focus,
+.drag-handle:focus,
+textarea:focus,
+input:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Keep a subtle focus indicator for accessibility on text inputs */
+textarea:focus,
+input[type="text"]:focus {
+  border-color: #e5e7eb !important;
+}
+
+/* Remove tap highlight on mobile */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
 
 :root {
   --background: #ffffff;

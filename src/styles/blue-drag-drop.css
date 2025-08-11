@@ -1,0 +1,203 @@
+/* Blue Theme Drag and Drop Styles */
+
+/* Drag Handle Base Styles */
+.drag-handle {
+  transition: all 0.2s ease;
+}
+
+/* Show on hover */
+.group:hover .drag-handle {
+  opacity: 1 !important;
+}
+
+.group:not(:hover) .drag-handle {
+  opacity: 0 !important;
+}
+
+/* Drag handle hover state - Blue theme */
+.drag-handle:hover {
+  background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%) !important;
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.drag-handle:hover svg {
+  color: white !important;
+}
+
+/* Active dragging state */
+.drag-handle:active {
+  cursor: grabbing !important;
+}
+
+.drag-handle.is-dragging {
+  background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%) !important;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+/* Block being dragged */
+[data-block-id].dragging {
+  opacity: 0.4;
+  border: 2px dashed #60a5fa;
+  border-radius: 8px;
+  background: rgba(59, 130, 246, 0.02);
+}
+
+/* Drop indicator lines - Blue theme */
+.drop-indicator-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #3b82f6 0%, #06b6d4 100%);
+  z-index: 50;
+  animation: pulse 1s ease-in-out infinite;
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
+}
+
+.drop-indicator-line.above {
+  top: -1px;
+}
+
+.drop-indicator-line.below {
+  bottom: -1px;
+}
+
+.drop-indicator-line::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: -3px;
+  width: 8px;
+  height: 8px;
+  background: #3b82f6;
+  border-radius: 50%;
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.6);
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.8;
+    transform: scaleX(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleX(1.02);
+  }
+}
+
+/* Sidebar drop zones - Minimal border effect */
+.sidebar-drop-zone {
+  position: relative;
+  transition: all 0.15s ease;
+}
+
+.sidebar-drop-zone.drag-over {
+  background: rgba(59, 130, 246, 0.04);
+  border-radius: 6px;
+}
+
+/* Minimal animated border */
+.sidebar-drop-zone.drag-over::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 2px solid #3b82f6;
+  border-radius: 6px;
+  opacity: 0.5;
+  animation: border-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes border-pulse {
+  0%, 100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+/* Removed drop-zone-indicator - only dash effects remain */
+
+/* Recycle Bin Drop Zone - Red theme for delete */
+.recycle-bin-drop-zone {
+  position: relative;
+  transition: all 0.15s ease;
+}
+
+.recycle-bin-drop-zone.drag-over-delete {
+  background: rgba(239, 68, 68, 0.08);
+  border-radius: 6px;
+}
+
+/* Red pulsing border for delete */
+.recycle-bin-drop-zone.drag-over-delete::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 2px solid #ef4444;
+  border-radius: 6px;
+  opacity: 0.6;
+  animation: delete-pulse 1s ease-in-out infinite;
+}
+
+@keyframes delete-pulse {
+  0%, 100% {
+    opacity: 0.4;
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    opacity: 0.8;
+    box-shadow: 0 0 8px 2px rgba(239, 68, 68, 0.3);
+  }
+}
+
+/* Make the trash icon red when hovering */
+.recycle-bin-drop-zone.drag-over-delete svg {
+  color: #ef4444 !important;
+  animation: shake 0.5s ease-in-out infinite;
+}
+
+@keyframes shake {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-3deg); }
+  75% { transform: rotate(3deg); }
+}
+
+/* Menu styles - Blue theme */
+.drag-menu {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 
+    0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  animation: fadeIn 0.2s ease;
+}
+
+.drag-menu button:hover {
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.05) 0%, rgba(6, 182, 212, 0.05) 100%);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Remove focus outlines */
+.drag-handle:focus {
+  outline: none !important;
+}
+
+/* Page item enhanced hover during drag */
+.sidebar-drop-zone:hover.drag-over {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(6, 182, 212, 0.12) 100%);
+  border-left-width: 4px;
+  box-shadow: inset 0 0 12px rgba(59, 130, 246, 0.1);
+}

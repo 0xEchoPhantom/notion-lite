@@ -3,7 +3,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { DragProvider } from '@/contexts/DragContext';
+import { SimpleDragProvider } from '@/contexts/SimpleDragContext';
 import { ChatWidget } from '@/components/ai/ChatWidget';
 
 export default function AppLayout({
@@ -33,13 +33,13 @@ export default function AppLayout({
   }
 
   return (
-    <DragProvider>
+    <SimpleDragProvider>
       <div className="min-h-screen bg-white">
         {/* Main content with sidebar handled by workspace components */}
         {children}
         {/* AI Chat Widget */}
         <ChatWidget />
       </div>
-    </DragProvider>
+    </SimpleDragProvider>
   );
 }

@@ -78,8 +78,25 @@ export const TASK_RULES = {
   STATUSES: ['now', 'next', 'waiting', 'someday', 'done'] as TaskStatus[],
   COMPANIES: ['AIC', 'WN', 'BXV', 'EA', 'PERSONAL'] as TaskCompany[],
   
-  // Single @ pattern for all tokens
-  TOKEN_PATTERN: /@([\w\.:-]+(?:\s+[\w\.:-]+)*)/gi,
+  // Multi-symbol patterns for different token types
+  TOKEN_PATTERNS: {
+    // @ for people/assignees
+    ASSIGNEE: /@([\w\s]+)/gi,
+    // $ for money/values
+    VALUE: /\$([\d.,]+[kmb]?)/gi,
+    // # for dates/due dates
+    DUE: /#([\w\s\-\/.+]+)/gi,
+    // ~ for effort/time (m=minutes, h=hours, d=days, w=weeks)
+    EFFORT: /~([\d.]+[mhdw])/gi,
+    // & for companies/organizations
+    COMPANY: /&([A-Z]+)/gi,
+    // Legacy @ pattern for backward compatibility
+    LEGACY: /@([\w\.:-]+(?:\s+[\w\.:-]+)*)/gi,
+  },
+  
+  // Single combined pattern to find any token
+  // Matches: @word, $number[KMB], #date-pattern, ~number[mhdw], &CAPS
+  TOKEN_PATTERN: /(?:@[\w]+(?::[\w]+)?|\$[\d.,]+[KMB]?|#[\w\-\/+]+(?:\s+(?:week|month|days?|weeks?|months?|ngày|tuần|tháng))?|~[\d.]+[mhdw]|&[A-Z]+)/gi,
   
   // Conversion factors
   VALUE_MULTIPLIERS: {

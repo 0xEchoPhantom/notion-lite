@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { SimpleBlock } from './SimpleBlock';
-import { BlockDropZone } from './BlockDropZone';
+import { SimpleDropZone } from './SimpleDropZone';
 import { useBlocksWithKeyboard } from '@/hooks/useBlocks';
 import { useBlocks } from '@/contexts/BlocksContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -269,6 +269,52 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId, mode = 'notes' }) => 
   }, [handleKeyboardSelection, selectedBlockIds, blocks, deleteBlockById, clearSelection, handleIndent, handleOutdent]);
 
   // Open GTD move dialog - now used for immediate move to specific page
+  // Handle drag and drop reordering
+  const handleBlockReorder = useCallback(async (draggedBlockId: string, targetBlockId: string, position: 'above' | 'below') => {
+    if (!user || draggedBlockId === targetBlockId) return;
+    
+    console.log(`Reordering: Moving ${draggedBlockId} ${position} ${targetBlockId}`);
+    
+    // Find source and target blocks
+    const sourceBlock = blocks.find(b => b.id === draggedBlockId);
+    const targetBlock = blocks.find(b => b.id === targetBlockId);
+    
+    if (!sourceBlock || !targetBlock) return;
+
+    // Sort blocks by order
+    const sortedBlocks = [...blocks].sort((a, b) => (a.order || 0) - (b.order || 0));
+    
+    // Remove source block from the list
+    const filteredBlocks = sortedBlocks.filter(b => b.id !== sourceBlock.id);
+    
+    // Find target index in filtered list
+    const targetIndex = filteredBlocks.findIndex(b => b.id === targetBlockId);
+    
+    // Calculate new position
+    let insertIndex: number;
+    if (position === 'above') {
+      insertIndex = targetIndex;
+    } else {
+      insertIndex = targetIndex + 1;
+    }
+    
+    // Insert source block at new position
+    filteredBlocks.splice(insertIndex, 0, sourceBlock);
+    
+    // Update orders for all affected blocks
+    const updates: { id: string; order: number }[] = [];
+    filteredBlocks.forEach((block, index) => {
+      const newOrder = index * 1000; // Use larger gaps for easier future insertions
+      if (block.order !== newOrder) {
+        updates.push({ id: block.id, order: newOrder });
+      }
+    });
+    
+    if (updates.length > 0) {
+      await reorderBlocks(updates);
+    }
+  }, [user, blocks, reorderBlocks]);
+
   const handleMoveToGTDPage = useCallback(async (blockId: string, targetPageId: string) => {
     if (!user) return;
 
@@ -335,9 +381,10 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId, mode = 'notes' }) => 
       
       <div className="space-y-1">
         {blocks.map((block) => (
-          <BlockDropZone 
+          <SimpleDropZone 
             key={block.id}
             blockId={block.id}
+            onDrop={handleBlockReorder}
           >
             <div data-block-id={block.id}>
               <SimpleBlock
@@ -360,7 +407,7 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId, mode = 'notes' }) => 
                 mode={mode}
               />
             </div>
-          </BlockDropZone>
+          </SimpleDropZone>
         ))}
       </div>
       

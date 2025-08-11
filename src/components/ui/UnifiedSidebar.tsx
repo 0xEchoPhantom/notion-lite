@@ -7,8 +7,9 @@ import { useRouter } from 'next/navigation';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { WorkspaceMode } from '@/types/workspace';
 import { GTD_PAGES } from '@/types/workspace';
-import { useDrag } from '@/contexts/DragContext';
-import { PageDropZone } from './PageDropZone';
+import { useSimpleDrag } from '@/contexts/SimpleDragContext';
+import { SidebarPageDropZone } from './SidebarPageDropZone';
+import { RecycleBinDropZone } from './RecycleBinDropZone';
 
 interface UnifiedSidebarProps {
   currentPageId?: string;
@@ -29,7 +30,7 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
   const router = useRouter();
   const { currentMode, switchMode, isLoading } = useWorkspace();
   const [isSwitching, setIsSwitching] = React.useState(false);
-  const { isDragging } = useDrag();
+  const { isDragging } = useSimpleDrag();
 
   const handleModeChange = (mode: WorkspaceMode) => {
     if (mode === currentMode) return;
@@ -46,12 +47,10 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
 
   const PageItem: React.FC<{ page: typeof GTD_PAGES[number]; isActive: boolean }> = ({ page, isActive }) => {
     return (
-      <PageDropZone 
+      <SidebarPageDropZone 
         pageId={page.id} 
-        onDrop={(blockId) => {
-          // Navigate to the target page to see the moved block
-          onPageSelect?.(page.id);
-        }}
+        pageTitle={page.title}
+        isCurrentPage={isActive}
       >
         <button
           onClick={() => onPageSelect?.(page.id)}
@@ -66,7 +65,7 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
             <span className="text-sm">{page.title}</span>
           </div>
         </button>
-      </PageDropZone>
+      </SidebarPageDropZone>
     );
   };
 
@@ -95,12 +94,6 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
         </div>
       </div>
 
-      {/* Cross-page drag indicator */}
-      {isDragging && (
-        <div className="mx-4 mb-3 px-3 py-2 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-700">
-          Drag to a page below to move block
-        </div>
-      )}
 
       {/* Workspace Toggle */}
       <div className="px-4 pb-4">
@@ -187,15 +180,17 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
           </svg>
           <span className="text-sm">Settings</span>
         </Link>
-        <Link 
-          href="/recycle-bin" 
-          className="flex items-center space-x-3 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-          <span className="text-sm">Recycle Bin</span>
-        </Link>
+        <RecycleBinDropZone>
+          <Link 
+            href="/recycle-bin" 
+            className="flex items-center space-x-3 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            <span className="text-sm">Recycle Bin</span>
+          </Link>
+        </RecycleBinDropZone>
       </div>
     </div>
   );

@@ -1,0 +1,128 @@
+/* Simple Modern Drag and Drop Styles */
+
+/* Drag Handle Base Styles */
+.drag-handle {
+  transition: all 0.2s ease;
+}
+
+/* Show on hover */
+.group:hover .drag-handle {
+  opacity: 1 !important;
+}
+
+.group:not(:hover) .drag-handle {
+  opacity: 0 !important;
+}
+
+/* Drag handle hover state */
+.drag-handle:hover {
+  background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%) !important;
+  transform: scale(1.05);
+}
+
+.drag-handle:hover svg {
+  color: white !important;
+}
+
+/* Active dragging state */
+.drag-handle:active {
+  cursor: grabbing !important;
+}
+
+.drag-handle.is-dragging {
+  background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%) !important;
+}
+
+/* Block being dragged */
+[data-block-id].dragging {
+  opacity: 0.4;
+  border: 2px dashed #a78bfa;
+  border-radius: 8px;
+}
+
+/* Drop indicator lines */
+.drop-indicator-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #8b5cf6 0%, #ec4899 100%);
+  z-index: 50;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.drop-indicator-line.above {
+  top: -1px;
+}
+
+.drop-indicator-line.below {
+  bottom: -1px;
+}
+
+.drop-indicator-line::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: -3px;
+  width: 8px;
+  height: 8px;
+  background: #8b5cf6;
+  border-radius: 50%;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Sidebar drop zones */
+.sidebar-drop-zone.drag-over {
+  background: rgba(139, 92, 246, 0.1);
+  border: 2px solid #8b5cf6;
+  border-radius: 8px;
+}
+
+.drop-zone-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #8b5cf6;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 100;
+}
+
+/* Menu styles */
+.drag-menu {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Remove focus outlines */
+.drag-handle:focus {
+  outline: none !important;
+}

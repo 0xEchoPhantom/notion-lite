@@ -9,6 +9,7 @@ import { WorkspaceMode } from '@/types/workspace';
 import { EditablePageButton } from '@/components/ui/EditablePageButton';
 import { Page } from '@/types/index';
 import { SettingsModal } from './SettingsModal';
+import { SidebarPageDropZone } from './SidebarPageDropZone';
 
 interface UnifiedNoteSidebarProps {
   notesPages: Page[];
@@ -118,13 +119,19 @@ export const UnifiedNoteSidebar: React.FC<UnifiedNoteSidebarProps> = ({
         <div className="space-y-1">
           {notesPages.length > 0 ? (
             notesPages.map((page) => (
-              <EditablePageButton 
+              <SidebarPageDropZone
                 key={page.id}
-                page={page}
-                isActive={currentPageId === page.id}
-                onClick={() => onPageSelect(page.id)}
-                onTitleUpdate={onTitleUpdate}
-              />
+                pageId={page.id}
+                pageTitle={page.title}
+                isCurrentPage={currentPageId === page.id}
+              >
+                <EditablePageButton 
+                  page={page}
+                  isActive={currentPageId === page.id}
+                  onClick={() => onPageSelect(page.id)}
+                  onTitleUpdate={onTitleUpdate}
+                />
+              </SidebarPageDropZone>
             ))
           ) : (
             <div className="text-xs text-gray-500 px-2 py-2">

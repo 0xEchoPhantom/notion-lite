@@ -1,0 +1,111 @@
+/* Drag and Drop Styles */
+
+/* Only show drag handles on hover (not on focus) */
+@media (hover: hover) {
+  .group:hover .drag-handle {
+    opacity: 1 !important;
+  }
+  
+  /* Hide on focus unless hovering */
+  .group:not(:hover) .drag-handle {
+    opacity: 0 !important;
+  }
+}
+
+/* Touch devices - always slightly visible */
+@media (hover: none) {
+  .drag-handle {
+    opacity: 0.3 !important;
+  }
+}
+
+/* Drag handle hover state */
+.drag-handle:hover {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+  cursor: grab !important;
+}
+
+/* Remove focus outline on drag handle */
+.drag-handle:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.drag-handle:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Dragging state */
+.drag-handle:active {
+  cursor: grabbing !important;
+  background-color: rgba(59, 130, 246, 0.1) !important;
+}
+
+/* Block being dragged */
+[data-block-id].dragging {
+  opacity: 0.4;
+  border: 2px dashed #3b82f6;
+  border-radius: 6px;
+}
+
+/* Drop zone indicators */
+.drop-indicator-above::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #3b82f6;
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
+  z-index: 50;
+}
+
+.drop-indicator-below::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #3b82f6;
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
+  z-index: 50;
+}
+
+/* Animation for drop indicators */
+@keyframes pulse-blue {
+  0% {
+    box-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(59, 130, 246, 0.7);
+  }
+  100% {
+    box-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
+  }
+}
+
+.drop-indicator-active {
+  animation: pulse-blue 1s infinite;
+}
+
+/* Ensure drag handles are visible during development */
+.drag-handle {
+  visibility: visible !important;
+  display: flex !important;
+}
+
+/* Cross-page drag feedback */
+.sidebar-drop-active {
+  background-color: rgba(59, 130, 246, 0.1) !important;
+  border: 2px solid #3b82f6 !important;
+  border-radius: 6px !important;
+}
+
+/* Sidebar page hover during drag */
+.sidebar-page-drag-over {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}

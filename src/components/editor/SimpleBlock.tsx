@@ -6,8 +6,9 @@ import { TaskCompany } from '@/types/task';
 import { SlashMenu } from './SlashMenu';
 import { TokenSuggest } from './TokenSuggest';
 import { useBlockLogic } from '@/hooks/useBlockLogic';
-import { BlockWrapper, BlockIcon, SimpleDragHandle, BlockInput } from './block-parts';
-import { BlockDropZone } from './BlockDropZone';
+import { BlockWrapper, BlockIcon, BlockInput } from './block-parts';
+import { ClientOnlyDragHandle } from './ClientOnlyDragHandle';
+import { useBlocks } from '@/contexts/BlocksContext';
 import { TaskChips } from '@/components/tasks/TaskChips';
 import { parseTaskTokens } from '@/utils/smartTokenParser';
 import { processAllTokens, validateToken, TokenHistory, TokenSnapshot } from '@/utils/tokenProcessor';
@@ -63,6 +64,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
   } = props;
 
   const { updateBlockContent } = useBlocksWithKeyboard();
+  const { convertBlockType } = useBlocks();
   const { user } = useAuth();
   const [showTokenSuggest, setShowTokenSuggest] = useState(false);
   const [tokenSuggestPosition, setTokenSuggestPosition] = useState({ x: 0, y: 0 });
@@ -70,18 +72,35 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
   const [tokenHistory] = useState(new TokenHistory());
   const [processingTokens, setProcessingTokens] = useState(false);
   
-  // Handle @ token detection for todo-list blocks
+  // Handle multi-symbol token detection for todo-list blocks
   const handleTokenTrigger = (input: string, cursorPos: number | null, inputElement: HTMLTextAreaElement) => {
     if (block.type !== 'todo-list') return;
     if (cursorPos === null || cursorPos === undefined) return;
     
     const textBeforeCursor = input.substring(0, cursorPos);
-    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
     
-    if (lastAtIndex !== -1) {
-      const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
-      // Check if we're still in a token (no space after @)
-      if (!textAfterAt.includes(' ') && textAfterAt.length <= 20) {
+    // Check for any token symbol (@, $, #, ~, &)
+    const tokenSymbols = ['@', '$', '#', '~', '&'];
+    let lastTokenIndex = -1;
+    let tokenSymbol = '';
+    
+    // Find the last occurrence of any token symbol
+    for (const symbol of tokenSymbols) {
+      const index = textBeforeCursor.lastIndexOf(symbol);
+      if (index > lastTokenIndex) {
+        lastTokenIndex = index;
+        tokenSymbol = symbol;
+      }
+    }
+    
+    if (lastTokenIndex !== -1) {
+      const textAfterSymbol = textBeforeCursor.substring(lastTokenIndex + 1);
+      // Check if we're still in a token (no space after symbol for most types)
+      // Allow spaces for dates (#) and assignees (@)
+      const allowSpaces = tokenSymbol === '#' || tokenSymbol === '@';
+      const maxLength = tokenSymbol === '#' ? 30 : 20; // Dates can be longer
+      
+      if ((allowSpaces || !textAfterSymbol.includes(' ')) && textAfterSymbol.length <= maxLength) {
         // Calculate approximate position of the @ symbol
         const rect = inputElement.getBoundingClientRect();
         
@@ -91,18 +110,19 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
         measureElement.style.position = 'absolute';
         measureElement.style.visibility = 'hidden';
         measureElement.style.whiteSpace = 'pre';
-        measureElement.textContent = input.substring(0, lastAtIndex);
+        measureElement.textContent = input.substring(0, lastTokenIndex);
         document.body.appendChild(measureElement);
         
         const textWidth = measureElement.offsetWidth;
         document.body.removeChild(measureElement);
         
-        // Position menu near the @ symbol
+        // Position menu near the token symbol
         const scrollLeft = inputElement.scrollLeft;
         const x = rect.left + textWidth - scrollLeft + 10; // Add small offset
         const y = rect.bottom + 4;
         
-        setTokenSearchQuery(textAfterAt);
+        // Pass both symbol and query to the menu
+        setTokenSearchQuery(tokenSymbol + textAfterSymbol);
         setTokenSuggestPosition({ x, y });
         setShowTokenSuggest(true);
       } else {
@@ -114,20 +134,32 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
   };
   
   const handleTokenSelect = async (token: string) => {
-    // Remove the @token from content and update metadata
+    // Remove the token (with any symbol: @, $, #, ~, &) from content and update metadata
     if (inputRef.current) {
       const cursorPos = inputRef.current.selectionStart;
       const content = inputRef.current.value;
       const textBeforeCursor = content.substring(0, cursorPos);
-      const lastAtIndex = textBeforeCursor.lastIndexOf('@');
       
-      if (lastAtIndex !== -1) {
-        // Remove the @ and everything after it up to cursor from content
+      // Find the last occurrence of any token symbol
+      const tokenSymbols = ['@', '$', '#', '~', '&'];
+      let lastTokenIndex = -1;
+      let detectedSymbol = '';
+      
+      for (const symbol of tokenSymbols) {
+        const index = textBeforeCursor.lastIndexOf(symbol);
+        if (index > lastTokenIndex) {
+          lastTokenIndex = index;
+          detectedSymbol = symbol;
+        }
+      }
+      
+      if (lastTokenIndex !== -1) {
+        // Remove the symbol and everything after it up to cursor from content
         const newContent = 
-          content.substring(0, lastAtIndex) + 
+          content.substring(0, lastTokenIndex) + 
           content.substring(cursorPos);
         
-        // Update the input value directly (removing the @token)
+        // Update the input value directly (removing the token)
         inputRef.current.value = newContent;
         
         // Parse the selected token to extract metadata
@@ -148,12 +180,13 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
         // Auto-save new values to Token Manager for "Create new" selections
         // We detect this by checking if the token closely matches what the user typed
         if (user && tokenSearchQuery) {
-          const tokenWithoutAt = token.replace('@', '').toLowerCase();
-          const queryLower = tokenSearchQuery.toLowerCase();
+          // Remove any symbol from the token for comparison
+          const tokenWithoutSymbol = token.replace(/^[@$#~&]/, '').toLowerCase();
+          const queryWithoutSymbol = tokenSearchQuery.replace(/^[@$#~&]/, '').toLowerCase();
           
           // Check if this is a new value (query matches token, indicating "Create new" was selected)
           // Also handle case where user selected a value that's not in Manager but frequently used
-          const isNewCreation = tokenWithoutAt === queryLower || tokenWithoutAt.includes(queryLower);
+          const isNewCreation = tokenWithoutSymbol === queryWithoutSymbol || tokenWithoutSymbol.includes(queryWithoutSymbol);
           
           if (isNewCreation) {
             try {
@@ -218,10 +251,10 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
           handleInput(typedEvent);
         }
         
-        // Move cursor to where the @ was
+        // Move cursor to where the symbol was
         setTimeout(() => {
           if (inputRef.current) {
-            inputRef.current.setSelectionRange(lastAtIndex, lastAtIndex);
+            inputRef.current.setSelectionRange(lastTokenIndex, lastTokenIndex);
             inputRef.current.focus();
           }
         }, 0);
@@ -376,6 +409,14 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
     onMergeUp,
     onDuplicateBlock,
   });
+  
+  const handleConvertToTodo = async () => {
+    try {
+      await convertBlockType(block.id, 'todo-list');
+    } catch (error) {
+      console.error('Error converting block to todo-list:', error);
+    }
+  };
 
   return (
     <>
@@ -385,13 +426,14 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
         isMultiSelected={isMultiSelected}
         onClick={handleBlockClick}
       >
-        <SimpleDragHandle
+        <ClientOnlyDragHandle
           block={block}
           pageId={pageId}
           pageTitle={pageTitle}
           isSelected={isSelected}
           onSelect={() => onSelect()}
           onMoveToGTDPage={onMoveToGTDPage}
+          onConvertToTodo={handleConvertToTodo}
         />
         
         <BlockIcon
@@ -452,16 +494,27 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
                   if (e.key === 'Escape') {
                     e.preventDefault();
                     setShowTokenSuggest(false);
-                    // Remove the incomplete @ token when escaping
+                    // Remove the incomplete token (any symbol) when escaping
                     if (inputRef.current) {
                       const content = inputRef.current.value;
                       const cursorPos = inputRef.current.selectionStart;
                       const textBeforeCursor = content.substring(0, cursorPos);
-                      const lastAtIndex = textBeforeCursor.lastIndexOf('@');
-                      if (lastAtIndex !== -1) {
-                        const newContent = content.substring(0, lastAtIndex) + content.substring(cursorPos);
+                      
+                      // Find the last occurrence of any token symbol
+                      const tokenSymbols = ['@', '$', '#', '~', '&'];
+                      let lastTokenIndex = -1;
+                      
+                      for (const symbol of tokenSymbols) {
+                        const index = textBeforeCursor.lastIndexOf(symbol);
+                        if (index > lastTokenIndex) {
+                          lastTokenIndex = index;
+                        }
+                      }
+                      
+                      if (lastTokenIndex !== -1) {
+                        const newContent = content.substring(0, lastTokenIndex) + content.substring(cursorPos);
                         inputRef.current.value = newContent;
-                        inputRef.current.setSelectionRange(lastAtIndex, lastAtIndex);
+                        inputRef.current.setSelectionRange(lastTokenIndex, lastTokenIndex);
                         // Trigger change event
                         const event = new Event('input', { bubbles: true });
                         if (inputRef.current) {
@@ -479,8 +532,8 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
                 if (block.type === 'todo-list') {
                   const pastedText = e.clipboardData?.getData('text') || '';
                   
-                  // Check if pasted content contains @ tokens
-                  if (pastedText.includes('@')) {
+                  // Check if pasted content contains any tokens (@, $, #, ~, &)
+                  if (/@|\$|#|~|&/.test(pastedText)) {
                     e.preventDefault();
                     
                     // Get current cursor position and content
@@ -542,15 +595,26 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
                 if (inputRef.current && block.type === 'todo-list') {
                   const currentContent = inputRef.current.value;
                   
-                  // Remove incomplete @ token if menu is open
+                  // Remove incomplete token (any symbol) if menu is open
                   let contentToProcess = currentContent;
                   if (showTokenSuggest) {
                     const cursorPos = inputRef.current.selectionStart || 0;
                     const textBeforeCursor = currentContent.substring(0, cursorPos);
-                    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
-                    if (lastAtIndex !== -1) {
+                    
+                    // Find the last occurrence of any token symbol
+                    const tokenSymbols = ['@', '$', '#', '~', '&'];
+                    let lastTokenIndex = -1;
+                    
+                    for (const symbol of tokenSymbols) {
+                      const index = textBeforeCursor.lastIndexOf(symbol);
+                      if (index > lastTokenIndex) {
+                        lastTokenIndex = index;
+                      }
+                    }
+                    
+                    if (lastTokenIndex !== -1) {
                       contentToProcess = 
-                        currentContent.substring(0, lastAtIndex) + 
+                        currentContent.substring(0, lastTokenIndex) + 
                         currentContent.substring(cursorPos);
                     }
                     setShowTokenSuggest(false);

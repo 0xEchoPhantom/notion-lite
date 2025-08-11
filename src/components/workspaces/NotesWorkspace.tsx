@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { GlobalDragProvider } from '@/contexts/GlobalDragContext';
 import { BlocksProvider } from '@/contexts/BlocksContext';
+import { BlockDragProvider } from '@/contexts/BlockDragContext';
 import { Editor } from '@/components/editor/Editor';
 import { getWorkspacePages, createWorkspacePage } from '@/lib/workspaceOperations';
 import { updatePageTitle } from '@/lib/firestore';
@@ -144,7 +145,9 @@ export function NotesWorkspace() {
             {/* Editor */}
             <div className="p-6">
               <BlocksProvider pageId={currentPageId}>
-                <Editor pageId={currentPageId} />
+                <BlockDragProvider>
+                  <Editor pageId={currentPageId} />
+                </BlockDragProvider>
               </BlocksProvider>
             </div>
           </div>

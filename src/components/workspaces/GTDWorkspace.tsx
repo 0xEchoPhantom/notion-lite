@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Page } from '@/types/index';
 import { BlocksProvider } from '@/contexts/BlocksContext';
 import { GlobalDragProvider } from '@/contexts/GlobalDragContext';
+import { BlockDragProvider } from '@/contexts/BlockDragContext';
 import { Editor } from '@/components/editor/Editor';
 import { GTD_PAGES } from '@/types/workspace';
 import { useAuth } from '@/contexts/AuthContext';
@@ -243,7 +244,9 @@ export function GTDWorkspace() {
                 </div>
                 {/* Editor */}
                 <div className="flex-1 overflow-y-auto">
-                  <Editor pageId={currentPageId} mode="gtd" />
+                  <BlockDragProvider>
+                    <Editor pageId={currentPageId} mode="gtd" />
+                  </BlockDragProvider>
                 </div>
               </div>
             </BlocksProvider>

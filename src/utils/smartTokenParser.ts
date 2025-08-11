@@ -14,96 +14,75 @@ export interface ParsedTokens {
   };
 }
 
-// Detect token type based on content
-function detectTokenType(tokenContent: string): {
+// Detect token type based on symbol and content
+function detectTokenType(fullToken: string): {
   type: TaskToken['type'];
   value: number | Date | string | TaskCompany;
 } | null {
-  // Remove @ prefix if present
-  const content = tokenContent.startsWith('@') ? tokenContent.slice(1) : tokenContent;
+  if (!fullToken || fullToken.length < 2) return null;
   
-  // Check for explicit type prefix (e.g., value:15M, effort:3h)
-  if (content.includes(':')) {
-    const [prefix, val] = content.split(':', 2);
-    const lowerPrefix = prefix.toLowerCase();
-    
-    switch (lowerPrefix) {
-      case 'value':
-      case 'v':
-        return { type: 'value', value: parseValue(val) };
-      case 'effort':
-      case 'e':
-        return { type: 'effort', value: parseEffort(val) };
-      case 'due':
-      case 'd': {
-        const d = parseDueDate(val);
-        return d ? { type: 'due', value: d } : null;
+  const symbol = fullToken[0];
+  const content = fullToken.slice(1).trim();
+  
+  if (!content) return null;
+  
+  // Multi-symbol detection - each symbol has clear purpose
+  switch (symbol) {
+    case '$': // Money/Value ONLY - must be valid number format
+      const value = parseValue(content);
+      return value > 0 ? { type: 'value', value } : null;
+      
+    case '#': // Date/Due
+      const date = parseDueDate(content);
+      return date ? { type: 'due', value: date } : null;
+      
+    case '~': // Effort/Time ONLY - must be valid time format
+      const effort = parseEffort(content);
+      return effort > 0 ? { type: 'effort', value: effort } : null;
+      
+    case '&': // Company/Organization
+      if (TASK_RULES.COMPANIES.includes(content.toUpperCase() as TaskCompany)) {
+        return { type: 'company', value: content.toUpperCase() };
       }
-      case 'company':
-      case 'c':
-        return { type: 'company', value: val.toUpperCase() };
-      case 'assignee':
-      case 'a':
-        return { type: 'assignee', value: val };
-      default:
-        return null;
-    }
+      return null;
+      
+    case '@': // Assignee/Person ONLY
+      // @ is strictly for people/assignees - no other type detection
+      return { type: 'assignee', value: content };
+      
+    default:
+      return null;
   }
-  
-  // Smart detection without prefix
-  
-  // Company codes (exact match)
-  if (TASK_RULES.COMPANIES.includes(content.toUpperCase() as TaskCompany)) {
-    return { type: 'company', value: content.toUpperCase() };
-  }
-  
-  // Money values (number with K/M/B or starts with $)
-  if (/^\$?\d+(\.\d+)?[KMB]?$/i.test(content)) {
-    const cleanValue = content.replace('$', '');
-    return { type: 'value', value: parseValue(cleanValue) };
-  }
-  
-  // Time/effort (number with h/d/w/m)
-  if (/^\d+(\.\d+)?[hdwm]$/i.test(content)) {
-    return { type: 'effort', value: parseEffort(content) };
-  }
-  
-  // Dates (ISO format, English, Vietnamese, and shortcuts)
-  if (/^\d{4}-\d{2}-\d{2}$/.test(content) || 
-      /^(today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/i.test(content) ||
-      /^(td|tmr|mon|tue|wed|thu|fri|sat|sun)$/i.test(content) ||
-      /^(hôm\s*nay|ngày\s*mai|thứ\s*[2-8]|chủ\s*nhật)$/i.test(content)) {
-    const date = parseDueDate(content);
-    if (date) {
-      return { type: 'due', value: date };
-    }
-  }
-  
-  // Person names (starts with uppercase or all lowercase)
-  if (/^[A-Z][a-z]+$/.test(content) || /^[a-z]+$/.test(content)) {
-    return { type: 'assignee', value: content };
-  }
-  
-  // Unknown type -> ignore
+}
+
+// Legacy detection for @ tokens - NO LONGER USED
+// Keeping for reference only - all symbols now strictly detect their own type
+// @ = assignee, $ = value, # = date, ~ = effort, & = company
+/*
+function detectLegacyTokenType(content: string): {
+  type: TaskToken['type'];
+  value: number | Date | string | TaskCompany;
+} | null {
+  // This function is deprecated - each symbol now only detects its specific type
   return null;
 }
+*/
 
 export function parseTaskTokens(rawContent: string): ParsedTokens {
   const tokens: TaskToken[] = [];
   const values: ParsedTokens['values'] = {} as ParsedTokens['values'];
   
-  // Find all @ tokens
+  // Find all tokens (multi-symbol: @, $, #, ~, &)
   const matches = Array.from(rawContent.matchAll(TASK_RULES.TOKEN_PATTERN));
   
   // Process each match
   for (const match of matches) {
     if (match.index === undefined) continue;
     
-    const raw = match[0];
-    const tokenContent = match[1];
+    const raw = match[0]; // Full token including symbol
     
-    const detected = detectTokenType(tokenContent);
-  if (!detected) continue;
+    const detected = detectTokenType(raw);
+    if (!detected) continue;
     
     const token: TaskToken = {
       type: detected.type,
@@ -178,30 +157,34 @@ function parseValue(str: string): number {
 
 // Parse effort (time)
 function parseEffort(str: string): number {
-  const match = str.match(/^(\d+(?:\.\d+)?)([hdwm])$/i);
+  const match = str.match(/^(\d+(?:\.\d+)?)([mhdw])$/i);
   if (!match) return 0;
   
   const [, numStr, unit] = match;
   const num = parseFloat(numStr);
   
   const multipliers: Record<string, number> = {
+    m: 1/60,   // minutes (convert to hours)
     h: 1,      // hours
     d: 8,      // 8 hours per day
     w: 40,     // 40 hours per week
-    m: 160     // 160 hours per month
   };
   
   return num * multipliers[unit.toLowerCase()];
 }
 
-// Parse due date
+// Parse due date - Enhanced with Vietnamese and more formats
 function parseDueDate(str: string): Date | null {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   
-  const lowerStr = str.toLowerCase().replace(/\s+/g, '');
+  // Normalize string but preserve spaces for multi-word terms
+  const normalizedStr = str.trim();
+  const lowerStr = normalizedStr.toLowerCase();
+  const noSpaceStr = lowerStr.replace(/\s+/g, '');
   
-  // English shortcuts
+  // === TODAY/YESTERDAY/TOMORROW ===
+  // English
   if (lowerStr === 'today' || lowerStr === 'td') {
     return today;
   }
@@ -212,29 +195,159 @@ function parseDueDate(str: string): Date | null {
     return tomorrow;
   }
   
+  if (lowerStr === 'yesterday' || lowerStr === 'yst') {
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    return yesterday;
+  }
+  
   // Vietnamese
-  if (lowerStr === 'hômnay') {
+  if (noSpaceStr === 'hômnay' || noSpaceStr === 'homnay') {
     return today;
   }
   
-  if (lowerStr === 'ngàymai') {
+  if (noSpaceStr === 'hômqua' || noSpaceStr === 'homqua') {
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    return yesterday;
+  }
+  
+  if (noSpaceStr === 'ngàymai' || noSpaceStr === 'ngaymai' || lowerStr === 'mai') {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
     return tomorrow;
   }
   
-  // English day names and shortcuts
+  // === RELATIVE DAYS (e.g., +3, 3d, +5d) ===
+  const relativeDaysMatch = normalizedStr.match(/^\+?(\d+)d?$/i);
+  if (relativeDaysMatch) {
+    const days = parseInt(relativeDaysMatch[1]);
+    const targetDate = new Date(today);
+    targetDate.setDate(targetDate.getDate() + days);
+    return targetDate;
+  }
+  
+  // === RELATIVE TIME EXPRESSIONS ===
+  // "in X days/weeks/months" or "sau X ngày/tuần/tháng"
+  const relativeMatch = normalizedStr.match(/^(in|sau)\s+(\d+)\s+(ngày|tuần|tháng|days?|weeks?|months?)$/i);
+  if (relativeMatch) {
+    const amount = parseInt(relativeMatch[2]);
+    const unit = relativeMatch[3].toLowerCase();
+    const targetDate = new Date(today);
+    
+    if (unit === 'ngày' || unit === 'day' || unit === 'days') {
+      targetDate.setDate(targetDate.getDate() + amount);
+    } else if (unit === 'tuần' || unit === 'week' || unit === 'weeks') {
+      targetDate.setDate(targetDate.getDate() + (amount * 7));
+    } else if (unit === 'tháng' || unit === 'month' || unit === 'months') {
+      targetDate.setMonth(targetDate.getMonth() + amount);
+    }
+    
+    return targetDate;
+  }
+  
+  // === WEEK RELATIVE DATES ===
+  // Vietnamese
+  if (noSpaceStr === 'tuầnnày' || noSpaceStr === 'tuannay') {
+    // This week (next occurrence of the same weekday)
+    const targetDate = new Date(today);
+    targetDate.setDate(targetDate.getDate() + 7);
+    return targetDate;
+  }
+  
+  if (noSpaceStr === 'tuầntới' || noSpaceStr === 'tuantoi' || 
+      noSpaceStr === 'tuầnsau' || noSpaceStr === 'tuansau') {
+    // Next week (7 days from now)
+    const targetDate = new Date(today);
+    targetDate.setDate(targetDate.getDate() + 7);
+    return targetDate;
+  }
+  
+  if (noSpaceStr === 'cuốituần' || noSpaceStr === 'cuoituan') {
+    // Weekend (next Saturday)
+    const targetDate = new Date(today);
+    const currentDay = today.getDay();
+    const daysUntilSaturday = (6 - currentDay + 7) % 7 || 7;
+    targetDate.setDate(today.getDate() + daysUntilSaturday);
+    return targetDate;
+  }
+  
+  if (noSpaceStr === 'đầutuần' || noSpaceStr === 'dautuan') {
+    // Beginning of week (next Monday)
+    const targetDate = new Date(today);
+    const currentDay = today.getDay();
+    const daysUntilMonday = (1 - currentDay + 7) % 7 || 7;
+    targetDate.setDate(today.getDate() + daysUntilMonday);
+    return targetDate;
+  }
+  
+  // English week terms
+  if (lowerStr === 'next week' || lowerStr === 'nextweek') {
+    const targetDate = new Date(today);
+    targetDate.setDate(targetDate.getDate() + 7);
+    return targetDate;
+  }
+  
+  if (lowerStr === 'this week' || lowerStr === 'thisweek') {
+    // End of this week (Friday)
+    const targetDate = new Date(today);
+    const currentDay = today.getDay();
+    const daysUntilFriday = (5 - currentDay + 7) % 7 || 7;
+    targetDate.setDate(today.getDate() + daysUntilFriday);
+    return targetDate;
+  }
+  
+  if (lowerStr === 'weekend') {
+    // Next Saturday
+    const targetDate = new Date(today);
+    const currentDay = today.getDay();
+    const daysUntilSaturday = (6 - currentDay + 7) % 7 || 7;
+    targetDate.setDate(today.getDate() + daysUntilSaturday);
+    return targetDate;
+  }
+  
+  // Shortcuts
+  if (lowerStr === 'eow') { // End of week
+    const targetDate = new Date(today);
+    const currentDay = today.getDay();
+    const daysUntilFriday = (5 - currentDay + 7) % 7 || 7;
+    targetDate.setDate(today.getDate() + daysUntilFriday);
+    return targetDate;
+  }
+  
+  if (lowerStr === 'eom') { // End of month
+    const targetDate = new Date(today);
+    targetDate.setMonth(targetDate.getMonth() + 1, 0); // Last day of current month
+    return targetDate;
+  }
+  
+  if (lowerStr === 'eonw') { // End of next week
+    const targetDate = new Date(today);
+    targetDate.setDate(targetDate.getDate() + 14 - today.getDay() + 5); // Next Friday
+    return targetDate;
+  }
+  
+  // === WEEKDAY NAMES ===
   const dayMappings: Record<string, number> = {
-    'sunday': 0, 'sun': 0, 'chủnhật': 0,
-    'monday': 1, 'mon': 1, 'thứ2': 1, 'thu2': 1,
-    'tuesday': 2, 'tue': 2, 'thứ3': 2, 'thu3': 2,
-    'wednesday': 3, 'wed': 3, 'thứ4': 3, 'thu4': 3,
-    'thursday': 4, 'thu': 4, 'thứ5': 4, 'thu5': 4,
-    'friday': 5, 'fri': 5, 'thứ6': 5, 'thu6': 5,
-    'saturday': 6, 'sat': 6, 'thứ7': 6, 'thu7': 6
+    // English
+    'sunday': 0, 'sun': 0,
+    'monday': 1, 'mon': 1,
+    'tuesday': 2, 'tue': 2,
+    'wednesday': 3, 'wed': 3,
+    'thursday': 4, 'thu': 4,
+    'friday': 5, 'fri': 5,
+    'saturday': 6, 'sat': 6,
+    // Vietnamese
+    'chủnhật': 0, 'chunhat': 0, 'cn': 0,
+    'thứ2': 1, 'thứhai': 1, 'thu2': 1, 'thuhai': 1, 't2': 1,
+    'thứ3': 2, 'thứba': 2, 'thu3': 2, 'thuba': 2, 't3': 2,
+    'thứ4': 3, 'thứtư': 3, 'thu4': 3, 'thutu': 3, 't4': 3,
+    'thứ5': 4, 'thứnăm': 4, 'thu5': 4, 'thunam': 4, 't5': 4,
+    'thứ6': 5, 'thứsáu': 5, 'thu6': 5, 'thusau': 5, 't6': 5,
+    'thứ7': 6, 'thứbảy': 6, 'thu7': 6, 'thubay': 6, 't7': 6
   };
   
-  const dayIndex = dayMappings[lowerStr];
+  const dayIndex = dayMappings[noSpaceStr];
   if (dayIndex !== undefined) {
     const targetDate = new Date(today);
     const currentDay = today.getDay();
@@ -243,10 +356,56 @@ function parseDueDate(str: string): Date | null {
     return targetDate;
   }
   
-  // ISO date
-  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
-    const date = new Date(str + 'T00:00:00');
+  // === DATE FORMATS ===
+  // ISO date (YYYY-MM-DD)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalizedStr)) {
+    const date = new Date(normalizedStr + 'T00:00:00');
     if (!isNaN(date.getTime())) {
+      return date;
+    }
+  }
+  
+  // DD/MM/YYYY or DD/MM (assumes current year)
+  const slashDateMatch = normalizedStr.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/);
+  if (slashDateMatch) {
+    const day = parseInt(slashDateMatch[1]);
+    const month = parseInt(slashDateMatch[2]);
+    const year = slashDateMatch[3] ? 
+      (slashDateMatch[3].length === 2 ? 2000 + parseInt(slashDateMatch[3]) : parseInt(slashDateMatch[3])) : 
+      today.getFullYear();
+    
+    const date = new Date(year, month - 1, day, 0, 0, 0, 0);
+    if (!isNaN(date.getTime()) && date.getDate() === day) { // Validate date
+      return date;
+    }
+  }
+  
+  // DD-MM-YYYY or DD-MM (assumes current year)
+  const dashDateMatch = normalizedStr.match(/^(\d{1,2})-(\d{1,2})(?:-(\d{2,4}))?$/);
+  if (dashDateMatch) {
+    const day = parseInt(dashDateMatch[1]);
+    const month = parseInt(dashDateMatch[2]);
+    const year = dashDateMatch[3] ? 
+      (dashDateMatch[3].length === 2 ? 2000 + parseInt(dashDateMatch[3]) : parseInt(dashDateMatch[3])) : 
+      today.getFullYear();
+    
+    const date = new Date(year, month - 1, day, 0, 0, 0, 0);
+    if (!isNaN(date.getTime()) && date.getDate() === day) { // Validate date
+      return date;
+    }
+  }
+  
+  // DD.MM.YYYY or DD.MM (assumes current year)
+  const dotDateMatch = normalizedStr.match(/^(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?$/);
+  if (dotDateMatch) {
+    const day = parseInt(dotDateMatch[1]);
+    const month = parseInt(dotDateMatch[2]);
+    const year = dotDateMatch[3] ? 
+      (dotDateMatch[3].length === 2 ? 2000 + parseInt(dotDateMatch[3]) : parseInt(dotDateMatch[3])) : 
+      today.getFullYear();
+    
+    const date = new Date(year, month - 1, day, 0, 0, 0, 0);
+    if (!isNaN(date.getTime()) && date.getDate() === day) { // Validate date
       return date;
     }
   }
@@ -271,16 +430,17 @@ export function formatValue(value: number): string {
 }
 
 export function formatEffort(hours: number): string {
-  if (hours >= 160) {
-    return `${(hours / 160).toFixed(1)}m`;
-  }
   if (hours >= 40) {
     return `${(hours / 40).toFixed(1)}w`;
   }
   if (hours >= 8) {
     return `${(hours / 8).toFixed(1)}d`;
   }
-  return `${hours}h`;
+  if (hours >= 1) {
+    return `${hours}h`;
+  }
+  // For less than 1 hour, show minutes
+  return `${Math.round(hours * 60)}m`;
 }
 
 export function formatDueDate(date: Date | string | number | null | undefined): string {
