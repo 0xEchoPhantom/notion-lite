@@ -53,7 +53,7 @@ export function TokenSuggest({ isOpen, position, searchQuery, onSelect, onClose 
                     label: `@${member.name}`,
                     value: `@${member.name}`,
                     icon: '👤',
-                    description: member.role || 'Team member',
+                    description: 'Team member',
                     count: 1000 // High priority for configured team members
                   });
                 }

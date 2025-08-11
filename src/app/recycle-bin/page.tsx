@@ -86,7 +86,9 @@ export default function RecycleBinPage() {
                   if (!ok) return;
                   setBusyId('flush');
                   try {
-                    await flushAllArchived(userId);
+                    // TODO: Implement flushAllArchived function
+                    // await flushAllArchived(userId);
+                    alert('Empty recycle bin feature coming soon');
                     await load();
                   } finally {
                     setBusyId(null);
@@ -138,7 +140,9 @@ export default function RecycleBinPage() {
                               onClick={async () => {
                                 setBusyId(p.id);
                                 try {
-                                  await restoreArchivedPage(userId, p.id);
+                                  // TODO: Implement restoreArchivedPage
+                                  // await restoreArchivedPage(userId, p.id);
+                                  alert('Restore feature coming soon');
                                   await load();
                                 } finally { 
                                   setBusyId(null); 
@@ -155,7 +159,9 @@ export default function RecycleBinPage() {
                                 if (!ok) return;
                                 setBusyId(p.id);
                                 try {
-                                  await permanentlyDeleteArchivedPage(userId, p.id);
+                                  // TODO: Implement permanentlyDeleteArchivedPage
+                                  // await permanentlyDeleteArchivedPage(userId, p.id);
+                                  alert('Delete feature coming soon');
                                   await load();
                                 } finally { 
                                   setBusyId(null); 
@@ -205,7 +211,9 @@ export default function RecycleBinPage() {
                                 setBusyId(b.id);
                                 try {
                                   const targetPageId = b.pageId;
-                                  await restoreArchivedBlock(userId, b.id, targetPageId);
+                                  // TODO: Implement restoreArchivedBlock
+                                  // await restoreArchivedBlock(userId, b.id, targetPageId);
+                                  alert('Restore feature coming soon');
                                   await load();
                                 } finally { 
                                   setBusyId(null); 
@@ -222,7 +230,9 @@ export default function RecycleBinPage() {
                                 if (!ok) return;
                                 setBusyId(b.id);
                                 try {
-                                  await permanentlyDeleteArchivedBlock(userId, b.id);
+                                  // TODO: Implement permanentlyDeleteArchivedBlock
+                                  // await permanentlyDeleteArchivedBlock(userId, b.id);
+                                  alert('Delete feature coming soon');
                                   await load();
                                 } finally { 
                                   setBusyId(null); 

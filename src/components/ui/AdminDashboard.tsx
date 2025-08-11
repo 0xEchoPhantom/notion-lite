@@ -18,6 +18,7 @@ interface DashboardStats {
   totalDocuments: number;
   totalBlocks: number;
   totalPages: number;
+  totalTasks?: number;
   activeUsers: User[];
 }
 

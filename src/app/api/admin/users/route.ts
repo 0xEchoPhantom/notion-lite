@@ -37,22 +37,24 @@ export async function GET(request: NextRequest) {
       listUsersResult.users.map(async (user) => {
         // Count documents for each user
         let documentsCount = 0;
-        try {
-          const userRef = adminDb.collection('users').doc(user.uid);
-          
-          // Count blocks
-          const blocksSnapshot = await userRef.collection('blocks').get();
-          documentsCount += blocksSnapshot.size;
-          
-          // Count pages
-          const pagesSnapshot = await userRef.collection('pages').get();
-          documentsCount += pagesSnapshot.size;
-          
-          // Count tasks
-          const tasksSnapshot = await userRef.collection('tasks').get();
-          documentsCount += tasksSnapshot.size;
-        } catch (error) {
-          console.error(`Error counting documents for ${user.email}:`, error);
+        if (adminDb) {
+          try {
+            const userRef = adminDb.collection('users').doc(user.uid);
+            
+            // Count blocks
+            const blocksSnapshot = await userRef.collection('blocks').get();
+            documentsCount += blocksSnapshot.size;
+            
+            // Count pages
+            const pagesSnapshot = await userRef.collection('pages').get();
+            documentsCount += pagesSnapshot.size;
+            
+            // Count tasks
+            const tasksSnapshot = await userRef.collection('tasks').get();
+            documentsCount += tasksSnapshot.size;
+          } catch (error) {
+            console.error(`Error counting documents for ${user.email}:`, error);
+          }
         }
         
         return {

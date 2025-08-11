@@ -36,7 +36,9 @@
       "Bash(start http://localhost:3002/app)",
       "Bash(start http://localhost:3002/admin)",
       "Bash(git push:*)",
-      "Bash(npx next:*)"
+      "Bash(npx next:*)",
+      "Bash(vercel build:*)",
+      "Bash(vercel pull:*)"
     ],
     "deny": []
   }

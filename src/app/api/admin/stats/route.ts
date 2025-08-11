@@ -38,15 +38,16 @@ export async function GET(request: NextRequest) {
       console.log(`Found ${totalUsers} users in Firebase Auth`);
       
       // Now count documents for each user
-      for (const user of listUsersResult.users) {
-        const userId = user.uid;
-        const userRef = adminDb.collection('users').doc(userId);
-        console.log(`\nCounting documents for user: ${user.email} (${userId})`);
-        
-        let userDocCount = 0;
-        
-        // Count blocks
-        const blocksSnapshot = await userRef.collection('blocks').get();
+      if (adminDb) {
+        for (const user of listUsersResult.users) {
+          const userId = user.uid;
+          const userRef = adminDb.collection('users').doc(userId);
+          console.log(`\nCounting documents for user: ${user.email} (${userId})`);
+          
+          let userDocCount = 0;
+          
+          // Count blocks
+          const blocksSnapshot = await userRef.collection('blocks').get();
         console.log(`  - blocks: ${blocksSnapshot.size}`);
         totalBlocks += blocksSnapshot.size;
         totalDocuments += blocksSnapshot.size;
@@ -104,7 +105,8 @@ export async function GET(request: NextRequest) {
           }
         }
         
-        console.log(`  Total for ${user.email}: ${userDocCount} documents`);
+          console.log(`  Total for ${user.email}: ${userDocCount} documents`);
+        }
       }
     } catch (error) {
       console.error('Error counting user data:', error);

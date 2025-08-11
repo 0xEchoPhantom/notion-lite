@@ -5,7 +5,7 @@ import { Block } from '@/types/index';
 import { formatValue, formatEffort, formatDueDate } from '@/utils/smartTokenParser';
 import { useAuth } from '@/contexts/AuthContext';
 import { getTodoBlocks } from '@/lib/firestore';
-import { AIChat } from '@/components/ai/AIChat';
+// import { AIChat } from '@/components/ai/AIChat'; // TODO: Update to work with Block[]
 
 type ViewMode = 'board' | 'table' | 'priority' | 'roi';
 
@@ -85,7 +85,7 @@ export function SmartView() {
 
   const renderBoardView = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-      {(['now', 'next', 'waiting', 'someday', 'done']).map((status) => (
+      {(['now', 'next', 'waiting', 'someday', 'done'] as TaskStatus[]).map((status) => (
         <TaskColumn
           key={status}
           status={status}
@@ -147,11 +147,15 @@ export function SmartView() {
   );
 
   const renderAIChat = () => (
-    <AIChat 
-      tasks={tasks}
-      currentView={viewMode}
-      selectedTasks={[]}
-    />
+    // TODO: Update AIChat to work with Block[] instead of Task[]
+    // <AIChat 
+    //   tasks={tasks}
+    //   currentView={viewMode}
+    //   selectedTasks={[]}
+    // />
+    <div className="p-8 text-center text-gray-500">
+      AI Chat feature coming soon
+    </div>
   );
 
   return (
@@ -215,9 +219,11 @@ export function SmartView() {
 }
 
 // Helper Components
+type TaskStatus = 'now' | 'next' | 'waiting' | 'someday' | 'done';
+
 function TaskColumn({ status, tasks, dragEnabled = true }: {
   status: TaskStatus;
-  tasks: Task[];
+  tasks: Block[];
   dragEnabled?: boolean;
 }) {
   const statusConfig: Record<TaskStatus, { title: string; color: string }> = {
@@ -293,7 +299,7 @@ function TaskCard({ task, dragEnabled = true }: {
   );
 }
 
-function TaskTableRow({ task }: { task: Task }) {
+function TaskTableRow({ task }: { task: Block }) {
   const statusColors: Record<TaskStatus, string> = {
     now: 'bg-blue-100 text-blue-700',
     next: 'bg-green-100 text-green-700',
