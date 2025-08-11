@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb, isAdminSDKAvailable } from '@/lib/firebaseAdmin';
-import { getServerSession } from 'next-auth/next';
-import { cookies } from 'next/headers';
 
 async function verifyAdmin(request: NextRequest): Promise<string | null> {
   // For now, we'll check the cookie or header for user email
   // In production, you'd verify the session properly
-  const cookieStore = await cookies();
   const userEmail = request.headers.get('x-user-email');
   
   if (userEmail === 'admin@dev.vn') {

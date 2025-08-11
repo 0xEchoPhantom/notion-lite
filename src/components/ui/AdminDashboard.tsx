@@ -13,9 +13,17 @@ interface AdminDashboardProps {
   userEmail?: string;
 }
 
+interface DashboardStats {
+  totalUsers: number;
+  totalDocuments: number;
+  totalBlocks: number;
+  totalPages: number;
+  activeUsers: User[];
+}
+
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthorized, userEmail }) => {
   const [users, setUsers] = useState<User[]>([]);
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
