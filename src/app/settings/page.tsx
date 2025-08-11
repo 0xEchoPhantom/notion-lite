@@ -42,6 +42,7 @@ export default function SettingsPage() {
   const [newAssignee, setNewAssignee] = useState('');
   const [newValue, setNewValue] = useState('');
   const [newEffort, setNewEffort] = useState('');
+  const [newCompany, setNewCompany] = useState('');
 
   // Admin dashboard state
   const [stats, setStats] = useState({
@@ -234,6 +235,24 @@ export default function SettingsPage() {
     setTokenSettings(prev => ({
       ...prev,
       commonEfforts: prev.commonEfforts.filter(e => e !== effort)
+    }));
+  };
+
+  const addCompany = () => {
+    const company = newCompany.trim().toUpperCase();
+    if (company && !tokenSettings.companies.includes(company as TaskCompany)) {
+      setTokenSettings(prev => ({
+        ...prev,
+        companies: [...prev.companies, company as TaskCompany].sort()
+      }));
+      setNewCompany('');
+    }
+  };
+
+  const removeCompany = (company: string) => {
+    setTokenSettings(prev => ({
+      ...prev,
+      companies: prev.companies.filter(c => c !== company)
     }));
   };
 
@@ -475,6 +494,48 @@ export default function SettingsPage() {
                         </button>
                       </span>
                     ))}
+                  </div>
+                </div>
+
+                {/* Companies/Organizations */}
+                <div className="bg-white shadow rounded-lg p-6">
+                  <h2 className="text-lg font-medium text-gray-900 mb-4">🏢 Organizations</h2>
+                  <p className="text-sm text-gray-600 mb-4">Company codes for task categorization</p>
+                  
+                  <div className="flex gap-2 mb-4">
+                    <input
+                      className="flex-1 border rounded-lg px-3 py-2"
+                      placeholder="Enter company code (e.g., ACME, IBM)"
+                      value={newCompany}
+                      onChange={(e) => setNewCompany(e.target.value.toUpperCase())}
+                      onKeyDown={(e) => e.key === 'Enter' && addCompany()}
+                    />
+                    <button
+                      onClick={addCompany}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                      Add
+                    </button>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-2">
+                    {tokenSettings.companies.map(company => (
+                      <span
+                        key={company}
+                        className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm"
+                      >
+                        {company}
+                        <button
+                          onClick={() => removeCompany(company)}
+                          className="text-purple-500 hover:text-purple-700"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                    {tokenSettings.companies.length === 0 && (
+                      <span className="text-gray-400 text-sm">No organizations added yet</span>
+                    )}
                   </div>
                 </div>
 
