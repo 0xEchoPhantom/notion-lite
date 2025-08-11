@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import { doc, getDoc, setDoc, serverTimestamp, collection, query, getDocs, orderBy, limit, deleteDoc, where } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, collection, query, getDocs, deleteDoc } from 'firebase/firestore';
 import { db } from '@/firebase/client';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/firebase/client';
