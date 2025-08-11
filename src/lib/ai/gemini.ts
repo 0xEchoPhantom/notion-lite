@@ -73,11 +73,11 @@ export class GeminiTaskAssistant {
       const result = await this.model.generateContent(prompt);
       const text = result.response.text();
       return this.parseAIResponse(text, context);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Firebase Vertex AI error:', error);
 
       // Retry once with fallback model if model is not found or access denied
-      const msg = String(error?.message || '');
+  const msg = error instanceof Error ? String(error.message || '') : '';
       const shouldRetry = msg.includes('404') || msg.includes('was not found') || msg.toLowerCase().includes('permission') || msg.includes('403');
       if (shouldRetry) {
         try {
@@ -86,7 +86,7 @@ export class GeminiTaskAssistant {
           const result = await altModel.generateContent(prompt);
           const text = result.response.text();
           return this.parseAIResponse(text, context);
-        } catch (e) {
+  } catch (e) {
           // Fall through to guidance message
           console.warn('Fallback model also failed:', e);
         }
@@ -109,16 +109,31 @@ Try these steps and retry:
 
   async chatWithHistory(history: AIHistoryMessage[], context: ChatContext): Promise<AIResponse> {
     try {
-      // Build structured contents from history (Firebase AI / Vertex AI format)
-      const contents = history.map(m => ({
+      // Get the last user message
+      const lastUserMessage = history[history.length - 1];
+      if (!lastUserMessage || lastUserMessage.role !== 'user') {
+        return this.chatWithTasks('', context);
+      }
+
+      // Build task context for the current message
+      const taskContext = this.buildTaskAnalysisPrompt(lastUserMessage.content, context);
+      
+      // Build structured contents from history, replacing last user message with context-enriched version
+      const contents = history.slice(0, -1).map(m => ({
         role: m.role,
         parts: [{ text: m.content }]
       }));
+      
+      // Add the last user message with task context
+      contents.push({
+        role: 'user',
+        parts: [{ text: taskContext }]
+      });
 
       const result = await this.model.generateContent({ contents });
       const text = result.response.text();
       return this.parseAIResponse(text, context);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Firebase Vertex AI (history) error:', error);
 
       // Fallback to single-turn behavior if needed
@@ -257,6 +272,7 @@ ${tasks
   }
 
   private parseAIResponse(text: string, context: ChatContext): AIResponse {
+    void context; // Unused but required for interface
     // Simple parsing - could be enhanced with structured output
     const suggestions: ActionSuggestion[] = [];
     
@@ -351,6 +367,7 @@ ${tasks
   }
 
   private getFallbackBreakdown(task: Task): string[] {
+    void task; // Unused but needed for fallback
     return [
       'Research and planning phase',
       'Initial setup and preparation',

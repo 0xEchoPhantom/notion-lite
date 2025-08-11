@@ -9,17 +9,15 @@ export interface ParsedTokens {
     value?: number;
     effort?: number;
     dueDate?: Date;
-    probability?: number;
     assignee?: string;
     company?: TaskCompany;
-    tags?: string[];
   };
 }
 
 // Detect token type based on content
 function detectTokenType(tokenContent: string): {
   type: TaskToken['type'];
-  value: any;
+  value: number | Date | string | TaskCompany;
 } | null {
   // Remove @ prefix if present
   const content = tokenContent.startsWith('@') ? tokenContent.slice(1) : tokenContent;
@@ -37,12 +35,10 @@ function detectTokenType(tokenContent: string): {
       case 'e':
         return { type: 'effort', value: parseEffort(val) };
       case 'due':
-      case 'd':
-        return { type: 'due', value: parseDueDate(val) };
-      case 'prob':
-      case 'probability':
-      case 'p':
-        return { type: 'probability', value: parseProbability(val) };
+      case 'd': {
+        const d = parseDueDate(val);
+        return d ? { type: 'due', value: d } : null;
+      }
       case 'company':
       case 'c':
         return { type: 'company', value: val.toUpperCase() };
@@ -50,7 +46,7 @@ function detectTokenType(tokenContent: string): {
       case 'a':
         return { type: 'assignee', value: val };
       default:
-        return { type: 'tag', value: content };
+        return null;
     }
   }
   
@@ -83,23 +79,18 @@ function detectTokenType(tokenContent: string): {
     }
   }
   
-  // Probability (decimal between 0 and 1, or percentage)
-  if (/^(0?\.\d+|1\.0|1|100|\d{1,2})%?$/.test(content)) {
-    return { type: 'probability', value: parseProbability(content) };
-  }
-  
   // Person names (starts with uppercase or all lowercase)
   if (/^[A-Z][a-z]+$/.test(content) || /^[a-z]+$/.test(content)) {
     return { type: 'assignee', value: content };
   }
   
-  // Default to tag
-  return { type: 'tag', value: content };
+  // Unknown type -> ignore
+  return null;
 }
 
 export function parseTaskTokens(rawContent: string): ParsedTokens {
   const tokens: TaskToken[] = [];
-  const values: ParsedTokens['values'] = { tags: [] };
+  const values: ParsedTokens['values'] = {} as ParsedTokens['values'];
   
   // Find all @ tokens
   const matches = Array.from(rawContent.matchAll(TASK_RULES.TOKEN_PATTERN));
@@ -112,7 +103,7 @@ export function parseTaskTokens(rawContent: string): ParsedTokens {
     const tokenContent = match[1];
     
     const detected = detectTokenType(tokenContent);
-    if (!detected) continue;
+  if (!detected) continue;
     
     const token: TaskToken = {
       type: detected.type,
@@ -129,25 +120,19 @@ export function parseTaskTokens(rawContent: string): ParsedTokens {
     // Store parsed values
     switch (detected.type) {
       case 'value':
-        values.value = detected.value;
+        values.value = typeof detected.value === 'number' ? detected.value : undefined;
         break;
       case 'effort':
-        values.effort = detected.value;
+        values.effort = typeof detected.value === 'number' ? detected.value : undefined;
         break;
       case 'due':
-        values.dueDate = detected.value;
-        break;
-      case 'probability':
-        values.probability = detected.value;
+        values.dueDate = detected.value instanceof Date ? detected.value : undefined;
         break;
       case 'company':
-        values.company = detected.value;
+        values.company = (typeof detected.value === 'string' ? detected.value : undefined) as TaskCompany | undefined;
         break;
       case 'assignee':
-        values.assignee = detected.value;
-        break;
-      case 'tag':
-        values.tags!.push(detected.value);
+        values.assignee = typeof detected.value === 'string' ? detected.value : undefined;
         break;
     }
   }
@@ -269,19 +254,7 @@ function parseDueDate(str: string): Date | null {
   return null;
 }
 
-// Parse probability
-function parseProbability(str: string): number {
-  // Remove % if present
-  const cleanStr = str.replace('%', '');
-  const num = parseFloat(cleanStr);
-  
-  // If it's greater than 1, assume it's a percentage
-  if (num > 1) {
-    return num / 100;
-  }
-  
-  return num;
-}
+// probability removed
 
 // Format helpers
 export function formatValue(value: number): string {

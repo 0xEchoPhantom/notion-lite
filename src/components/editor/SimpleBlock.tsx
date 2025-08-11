@@ -7,9 +7,6 @@ import { TokenSuggest } from './TokenSuggest';
 import { useBlockLogic } from '@/hooks/useBlockLogic';
 import { BlockWrapper, BlockIcon, DragHandle, BlockInput } from './block-parts';
 import { TaskChips } from '@/components/tasks/TaskChips';
-import { Task } from '@/types/task';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from '@/firebase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface SimpleBlockProps {
@@ -60,29 +57,9 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
   } = props;
 
   const { user } = useAuth();
-  const [task, setTask] = useState<Task | null>(null);
   const [showTokenSuggest, setShowTokenSuggest] = useState(false);
   const [tokenSuggestPosition, setTokenSuggestPosition] = useState({ x: 0, y: 0 });
   const [tokenSearchQuery, setTokenSearchQuery] = useState('');
-
-  // Subscribe to task data for todo-list blocks
-  useEffect(() => {
-    if (!user || block.type !== 'todo-list') return;
-
-    const taskRef = doc(db, 'users', user.uid, 'tasks', block.id);
-    const unsubscribe = onSnapshot(taskRef, (snapshot) => {
-      if (snapshot.exists()) {
-        setTask({ id: snapshot.id, ...snapshot.data() } as Task);
-      } else {
-        setTask(null);
-      }
-    }, (error) => {
-      console.error('Error fetching task:', error);
-      setTask(null);
-    });
-
-    return unsubscribe;
-  }, [user, block.id, block.type]);
   
   // Handle @ token detection for todo-list blocks
   const handleTokenTrigger = (input: string, cursorPos: number, inputElement: HTMLTextAreaElement) => {
@@ -138,7 +115,8 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
         
         // Manually trigger the input handler
         if (handleInput) {
-          handleInput(inputEvent as any);
+          const typedEvent = inputEvent as unknown as React.FormEvent<HTMLTextAreaElement>;
+          handleInput(typedEvent);
         }
         
         // Move cursor
@@ -217,6 +195,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
           isSelected={isSelected}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
+          onSelect={() => onSelect()}
         />
         
         <BlockIcon
@@ -231,19 +210,26 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
               localContent={localContent}
               isFocused={isFocused}
               inputRef={inputRef}
-              onInput={(e) => {
-                handleInput(e);
+              onChange={(e) => {
+                handleChange(e);
                 // Check for @ trigger
                 const target = e.target as HTMLTextAreaElement;
                 handleTokenTrigger(target.value, target.selectionStart, target);
               }}
-              onChange={handleChange}
               onKeyDown={(e) => {
-                // Close token suggest on Escape
-                if (e.key === 'Escape' && showTokenSuggest) {
-                  e.preventDefault();
-                  setShowTokenSuggest(false);
-                  return;
+                // While the token suggest menu is open, keep navigation scoped to the menu
+                if (showTokenSuggest) {
+                  if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === 'Tab') {
+                    // Prevent textarea caret movement or block-level shortcuts,
+                    // but allow the native event to bubble to the menu's window listener
+                    e.preventDefault();
+                    return;
+                  }
+                  if (e.key === 'Escape') {
+                    e.preventDefault();
+                    setShowTokenSuggest(false);
+                    return;
+                  }
                 }
                 handleKeyDown(e);
               }}
@@ -253,9 +239,9 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
               onCompositionStart={handleCompositionStart}
               onCompositionEnd={handleCompositionEnd}
             />
-            {block.type === 'todo-list' && task && (
+            {block.type === 'todo-list' && block.taskMetadata && (
               <div className="flex-shrink-0 mt-1">
-                <TaskChips task={task} />
+                <TaskChips taskMetadata={block.taskMetadata} blockId={block.id} />
               </div>
             )}
           </div>

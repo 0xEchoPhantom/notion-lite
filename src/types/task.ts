@@ -17,15 +17,14 @@ export interface Task {
   // Decision metrics
   value?: number; // Dollar value (e.g., 15000000 for $15M)
   effort?: number; // Hours (e.g., 3 for 3h)
-  probability?: number; // 0-1 (e.g., 0.6 for 60%)
-  roi?: number; // Server-computed: (value * probability) / effort
+  roi?: number; // Server-computed: value / effort
   
   // Task metadata
   status: TaskStatus;
   company?: TaskCompany;
   dueDate?: Date;
   assignee?: string;
-  tags?: string[]; // Additional tags
+  // tags removed
   
   // Hierarchy
   parentTaskId?: string;
@@ -42,9 +41,9 @@ export interface Task {
 }
 
 export interface TaskToken {
-  type: 'value' | 'effort' | 'due' | 'probability' | 'assignee' | 'company' | 'tag';
+  type: 'value' | 'effort' | 'due' | 'assignee' | 'company';
   raw: string; // Original token string (e.g., '@15M', '@3h')
-  value: any; // Parsed value
+  value: number | Date | string | TaskCompany; // Parsed value
   position: {
     start: number;
     end: number;
@@ -59,7 +58,7 @@ export interface TaskEvent {
   fromStatus?: TaskStatus;
   toStatus?: TaskStatus;
   timestamp: Date;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface TaskStats {
@@ -124,9 +123,7 @@ export function canMoveToNext(task: Task, currentWipCount: number): {
 
 export function calculateROI(task: Task): number | null {
   if (!task.value || !task.effort) return null;
-  
-  const probability = task.probability ?? 1;
-  return (task.value * probability) / task.effort;
+  return task.value / task.effort;
 }
 
 export function isHighROITask(task: Task): boolean {

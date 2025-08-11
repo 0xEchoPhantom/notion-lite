@@ -1,18 +1,13 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback } from 'react';
 
 interface SelectionContextType {
   selectedBlockIds: Set<string>;
-  isSelecting: boolean;
+  isSelecting: boolean; // reserved, but drag-to-select is disabled
   isMultiSelectMode: boolean;
   selectionStartId: string | null;
-  selectionBox: {
-    startX: number;
-    startY: number;
-    currentX: number;
-    currentY: number;
-  } | null;
+  selectionBox: null;
   
   // Selection methods
   selectBlock: (blockId: string, addToSelection?: boolean) => void;
@@ -22,7 +17,7 @@ interface SelectionContextType {
   isBlockSelected: (blockId: string) => boolean;
   selectAllBlocks: () => void;
   
-  // Mouse selection methods
+  // Mouse drag selection disabled
   startMouseSelection: (e: React.MouseEvent) => void;
   updateMouseSelection: (e: React.MouseEvent) => void;
   endMouseSelection: () => void;
@@ -48,19 +43,8 @@ interface SelectionProviderProps {
 
 export const SelectionProvider: React.FC<SelectionProviderProps> = ({ children, getAllBlocks }) => {
   const [selectedBlockIds, setSelectedBlockIds] = useState<Set<string>>(new Set());
-  const [isSelecting, setIsSelecting] = useState(false);
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
   const [selectionStartId, setSelectionStartId] = useState<string | null>(null);
-  const [selectionBox, setSelectionBox] = useState<{
-    startX: number;
-    startY: number;
-    currentX: number;
-    currentY: number;
-  } | null>(null);
-  
-  const isMouseDownRef = useRef(false);
-  const startElementRef = useRef<Element | null>(null);
-  const ctrlSelectModeRef = useRef(false);
 
   // Single block selection
   const selectBlock = useCallback((blockId: string, addToSelection = false) => {
@@ -114,135 +98,18 @@ export const SelectionProvider: React.FC<SelectionProviderProps> = ({ children, 
   }, [getAllBlocks]);
 
   // Start mouse selection
-  const startMouseSelection = useCallback((e: React.MouseEvent) => {
-    // Only start selection if not clicking on an input/textarea
-    const target = e.target as HTMLElement;
-    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.contentEditable === 'true') {
-      return;
-    }
-
-    // Don't start mouse selection if clicking on a block or its children
-    const blockElement = target.closest('[data-block-id]');
-    if (blockElement) {
-      return;
-    }
-
-    // Check if Ctrl/Cmd is held for additive selection
-    ctrlSelectModeRef.current = e.ctrlKey || e.metaKey;
-    
-    if (!ctrlSelectModeRef.current) {
-      clearSelection();
-    }
-
-    setIsSelecting(true);
-    isMouseDownRef.current = true;
-    startElementRef.current = e.currentTarget as Element;
-    
-    const rect = (e.currentTarget as Element).getBoundingClientRect();
-    const startX = e.clientX - rect.left;
-    const startY = e.clientY - rect.top;
-    
-    setSelectionBox({
-      startX,
-      startY,
-      currentX: startX,
-      currentY: startY,
-    });
-  }, [clearSelection]);
-
-  // Get blocks within selection box
-  const getBlocksInSelectionBox = useCallback((box: {
-    startX: number;
-    startY: number;
-    currentX: number;
-    currentY: number;
-  }) => {
-    const selectedIds: string[] = [];
-    
-    // Calculate selection rectangle
-    const left = Math.min(box.startX, box.currentX);
-    const right = Math.max(box.startX, box.currentX);
-    const top = Math.min(box.startY, box.currentY);
-    const bottom = Math.max(box.startY, box.currentY);
-
-    // Find all block elements
-    const blockElements = document.querySelectorAll('[data-block-id]');
-    const containerRect = startElementRef.current?.getBoundingClientRect();
-    
-    if (!containerRect) return selectedIds;
-
-    blockElements.forEach(element => {
-      const blockRect = element.getBoundingClientRect();
-      const blockId = element.getAttribute('data-block-id');
-      
-      if (!blockId) return;
-
-      // Convert block position to container-relative coordinates
-      const blockLeft = blockRect.left - containerRect.left;
-      const blockRight = blockRect.right - containerRect.left;
-      const blockTop = blockRect.top - containerRect.top;
-      const blockBottom = blockRect.bottom - containerRect.top;
-
-      // Check if block intersects with selection box
-      const intersects = !(
-        blockRight < left || 
-        blockLeft > right || 
-        blockBottom < top || 
-        blockTop > bottom
-      );
-
-      if (intersects) {
-        selectedIds.push(blockId);
-      }
-    });
-
-    return selectedIds;
+  const startMouseSelection = useCallback(() => {
+    // Drag-to-select disabled
   }, []);
 
   // Update mouse selection
-  const updateMouseSelection = useCallback((e: React.MouseEvent) => {
-    if (!isSelecting || !isMouseDownRef.current || !startElementRef.current) return;
-
-    const rect = startElementRef.current.getBoundingClientRect();
-    const currentX = e.clientX - rect.left;
-    const currentY = e.clientY - rect.top;
-
-    setSelectionBox(prev => prev ? {
-      ...prev,
-      currentX,
-      currentY,
-    } : null);
-
-    // Find blocks within selection box
-    const selectedIds = getBlocksInSelectionBox({
-      startX: selectionBox?.startX || 0,
-      startY: selectionBox?.startY || 0,
-      currentX,
-      currentY,
-    });
-
-    if (ctrlSelectModeRef.current) {
-      // Add to existing selection
-      setSelectedBlockIds(prev => {
-        const newSelection = new Set(prev);
-        selectedIds.forEach(id => newSelection.add(id));
-        return newSelection;
-      });
-    } else {
-      // Replace selection
-      setSelectedBlockIds(new Set(selectedIds));
-    }
-    
-    setIsMultiSelectMode(selectedIds.length > 1);
-  }, [isSelecting, selectionBox, getBlocksInSelectionBox]);
+  const updateMouseSelection = useCallback(() => {
+    // Drag-to-select disabled
+  }, []);
 
   // End mouse selection
   const endMouseSelection = useCallback(() => {
-    setIsSelecting(false);
-    isMouseDownRef.current = false;
-    startElementRef.current = null;
-    setSelectionBox(null);
-    ctrlSelectModeRef.current = false;
+    // Drag-to-select disabled
   }, []);
 
   // Handle keyboard selection (Ctrl+A behavior)
@@ -286,44 +153,14 @@ export const SelectionProvider: React.FC<SelectionProviderProps> = ({ children, 
     return false;
   }, [selectAllBlocks, clearSelection, selectedBlockIds.size]);
 
-  // Global mouse events for selection
-  useEffect(() => {
-    const handleGlobalMouseMove = (e: MouseEvent) => {
-      if (isSelecting && isMouseDownRef.current) {
-        // Create a synthetic React mouse event
-        const syntheticEvent = {
-          clientX: e.clientX,
-          clientY: e.clientY,
-          ctrlKey: e.ctrlKey,
-          metaKey: e.metaKey,
-        } as React.MouseEvent;
-        updateMouseSelection(syntheticEvent);
-      }
-    };
-
-    const handleGlobalMouseUp = () => {
-      if (isMouseDownRef.current) {
-        endMouseSelection();
-      }
-    };
-
-    if (isSelecting) {
-      document.addEventListener('mousemove', handleGlobalMouseMove);
-      document.addEventListener('mouseup', handleGlobalMouseUp);
-    }
-
-    return () => {
-      document.removeEventListener('mousemove', handleGlobalMouseMove);
-      document.removeEventListener('mouseup', handleGlobalMouseUp);
-    };
-  }, [isSelecting, updateMouseSelection, endMouseSelection]);
+  // Global listeners removed; drag-to-select disabled
 
   const value: SelectionContextType = {
     selectedBlockIds,
-    isSelecting,
+  isSelecting: false,
     isMultiSelectMode,
     selectionStartId,
-    selectionBox,
+  selectionBox: null,
     selectBlock,
     selectMultipleBlocks,
     clearSelection,
@@ -339,18 +176,6 @@ export const SelectionProvider: React.FC<SelectionProviderProps> = ({ children, 
   return (
     <SelectionContext.Provider value={value}>
       {children}
-      {/* Selection overlay box */}
-      {selectionBox && isSelecting && (
-        <div
-          className="absolute pointer-events-none border-2 border-blue-500 bg-blue-500/10 z-10"
-          style={{
-            left: Math.min(selectionBox.startX, selectionBox.currentX),
-            top: Math.min(selectionBox.startY, selectionBox.currentY),
-            width: Math.abs(selectionBox.currentX - selectionBox.startX),
-            height: Math.abs(selectionBox.currentY - selectionBox.startY),
-          }}
-        />
-      )}
     </SelectionContext.Provider>
   );
 };

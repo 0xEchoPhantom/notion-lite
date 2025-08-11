@@ -1,103 +1,102 @@
+/**
+ * Firestore v3.0 - Unified Schema Implementation
+ * 
+ * This is the final, clean implementation with:
+ * - Single unified blocks collection at /users/{userId}/blocks
+ * - taskMetadata embedded in blocks (no separate tasks collection)
+ * - No fallback logic for old schema
+ * - Clean, consistent API
+ */
+
 import {
   collection,
   doc,
   addDoc,
+  setDoc,
   updateDoc,
   deleteDoc,
   getDocs,
   getDoc,
   onSnapshot,
   query,
+  where,
   orderBy,
+  limit,
+  startAfter,
   Timestamp,
   writeBatch,
+  QueryConstraint,
+  DocumentSnapshot,
 } from 'firebase/firestore';
 import { db } from '@/firebase/client';
-import { Block, Page, ArchivedPage, ArchivedBlock } from '@/types/index';
+import { Block, Page, ArchivedPage, ArchivedBlock, TaskMetadata } from '@/types/index';
 
-// Page operations
+// ===== CONSTANTS =====
+const GTD_PAGES = ['inbox', 'next-actions', 'waiting-for', 'someday-maybe'];
+const DEFAULT_PAGE_SIZE = 50;
+
+// ===== HELPER FUNCTIONS =====
+
+/**
+ * Normalizes pageId to include workspace prefix for GTD pages
+ */
+export const normalizePageId = (pageId: string): string => {
+  if (GTD_PAGES.includes(pageId)) {
+    return `gtd-${pageId}`;
+  }
+  return pageId;
+};
+
+/**
+ * Gets the workspace ID for a page
+ */
+export const getWorkspaceId = (pageId: string): string => {
+  if (pageId.startsWith('gtd-')) {
+    return 'gtd';
+  }
+  return 'notes';
+};
+
+// ===== PAGE OPERATIONS =====
+
 export const createPage = async (userId: string, title: string): Promise<string> => {
-  if (!userId) {
-    throw new Error('User ID is required to create a page');
-  }
-  if (!title) {
-    throw new Error('Title is required to create a page');
-  }
-  
-  // Get the current highest order to append the new page at the end
   const pagesRef = collection(db, 'users', userId, 'pages');
+  
+  // Get max order
   const snapshot = await getDocs(pagesRef);
-  const maxOrder = snapshot.docs.reduce((max, doc) => {
-    const order = doc.data().order || 0;
-    return Math.max(max, order);
-  }, 0);
+  const maxOrder = snapshot.docs.reduce((max, doc) => 
+    Math.max(max, doc.data().order || 0), 0
+  );
   
   const docRef = await addDoc(pagesRef, {
     title,
     order: maxOrder + 1,
+    workspaceId: 'notes',
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
   });
+  
   return docRef.id;
 };
 
 export const getPages = async (userId: string): Promise<Page[]> => {
-  if (!userId) {
-    throw new Error('User ID is required to fetch pages');
-  }
-  
   const pagesRef = collection(db, 'users', userId, 'pages');
+  const q = query(pagesRef, orderBy('order', 'asc'));
+  const snapshot = await getDocs(q);
   
-  // First try to get pages ordered by 'order' field
-  try {
-    const q = query(pagesRef, orderBy('order', 'asc'));
-    const snapshot = await getDocs(q);
-    
-    if (snapshot.docs.length > 0) {
-      return snapshot.docs.map(doc => ({
-        id: doc.id,
-        title: doc.data().title,
-        order: doc.data().order || 0,
-        createdAt: doc.data().createdAt.toDate(),
-        updatedAt: doc.data().updatedAt.toDate(),
-      }));
-    }
-  } catch {
-    console.log('No pages with order field found, trying legacy query...');
-  }
-  
-  // Fallback: get all pages and migrate them
-  const snapshot = await getDocs(pagesRef);
-  const pages = snapshot.docs.map(doc => {
-    const data = doc.data();
-    return {
-      id: doc.id,
-      title: data.title,
-      order: data.order || 0,
-      createdAt: data.createdAt.toDate(),
-      updatedAt: data.updatedAt.toDate(),
-    };
-  });
-  
-  // If we found pages without order, migrate them
-  if (pages.length > 0 && pages.some(p => !p.order)) {
-    await migratePages(userId, pages);
-    // Re-fetch with proper ordering
-    const q = query(pagesRef, orderBy('order', 'asc'));
-    const newSnapshot = await getDocs(q);
-    return newSnapshot.docs.map(doc => ({
-      id: doc.id,
-      title: doc.data().title,
-      order: doc.data().order || 0,
-      createdAt: doc.data().createdAt.toDate(),
-      updatedAt: doc.data().updatedAt.toDate(),
-    }));
-  }
-  
-  return pages.sort((a, b) => a.order - b.order);
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+    createdAt: doc.data().createdAt?.toDate() || new Date(),
+    updatedAt: doc.data().updatedAt?.toDate() || new Date(),
+  })) as Page[];
 };
 
-export const updatePageTitle = async (userId: string, pageId: string, title: string) => {
+export const updatePageTitle = async (
+  userId: string, 
+  pageId: string, 
+  title: string
+): Promise<void> => {
   const pageRef = doc(db, 'users', userId, 'pages', pageId);
   await updateDoc(pageRef, {
     title,
@@ -105,20 +104,188 @@ export const updatePageTitle = async (userId: string, pageId: string, title: str
   });
 };
 
-export const updatePageOrder = async (userId: string, pageId: string, order: number) => {
+export const deletePage = async (userId: string, pageId: string): Promise<void> => {
+  // Delete all blocks for this page
+  const blocksRef = collection(db, 'users', userId, 'blocks');
+  const q = query(blocksRef, where('pageId', '==', normalizePageId(pageId)));
+  const snapshot = await getDocs(q);
+  
+  const batch = writeBatch(db);
+  snapshot.docs.forEach(doc => batch.delete(doc.ref));
+  
+  // Delete the page
   const pageRef = doc(db, 'users', userId, 'pages', pageId);
-  await updateDoc(pageRef, {
-    order,
+  batch.delete(pageRef);
+  
+  await batch.commit();
+};
+
+// ===== BLOCK OPERATIONS =====
+
+export const createBlock = async (
+  userId: string,
+  pageId: string,
+  block: Omit<Block, 'id' | 'createdAt' | 'updatedAt' | 'pageId' | 'workspaceId'>
+): Promise<string> => {
+  const normalizedPageId = normalizePageId(pageId);
+  const workspaceId = getWorkspaceId(normalizedPageId);
+  
+  const blocksRef = collection(db, 'users', userId, 'blocks');
+  
+  const blockData = {
+    ...block,
+    pageId: normalizedPageId,
+    workspaceId,
+    createdAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
+  };
+  
+  // Clean undefined values
+  const cleanBlock = Object.fromEntries(
+    Object.entries(blockData).filter(([_, v]) => v !== undefined)
+  );
+  
+  const docRef = await addDoc(blocksRef, cleanBlock);
+  return docRef.id;
+};
+
+// Main updateBlock function
+export const updateBlockById = async (
+  userId: string,
+  blockId: string,
+  updates: Partial<Block>
+): Promise<void> => {
+  const blockRef = doc(db, 'users', userId, 'blocks', blockId);
+  
+  const cleanUpdates = Object.fromEntries(
+    Object.entries({
+      ...updates,
+      updatedAt: Timestamp.now(),
+    }).filter(([_, v]) => v !== undefined)
+  );
+  
+  await updateDoc(blockRef, cleanUpdates);
+};
+
+// Backward compatibility with old signature (pageId was ignored anyway)
+export const updateBlock = async (
+  userId: string,
+  pageId: string,
+  blockId: string,
+  updates: Partial<Block>
+): Promise<void> => {
+  return updateBlockById(userId, blockId, updates);
+};
+
+// Main deleteBlock function
+export const deleteBlockById = async (
+  userId: string,
+  blockId: string
+): Promise<void> => {
+  const blockRef = doc(db, 'users', userId, 'blocks', blockId);
+  await deleteDoc(blockRef);
+};
+
+// Backward compatibility with old signature
+export const deleteBlock = async (
+  userId: string,
+  pageId: string,
+  blockId: string
+): Promise<void> => {
+  return deleteBlockById(userId, blockId);
+};
+
+// Main getBlocks function with pagination support
+export const getBlocksPaginated = async (
+  userId: string,
+  pageId: string,
+  pageSize: number = DEFAULT_PAGE_SIZE,
+  lastDoc?: DocumentSnapshot
+): Promise<{ blocks: Block[]; lastDoc?: DocumentSnapshot }> => {
+  const normalizedPageId = normalizePageId(pageId);
+  const blocksRef = collection(db, 'users', userId, 'blocks');
+  
+  const constraints: QueryConstraint[] = [
+    where('pageId', '==', normalizedPageId),
+    orderBy('order', 'asc'),
+    limit(pageSize)
+  ];
+  
+  if (lastDoc) {
+    constraints.push(startAfter(lastDoc));
+  }
+  
+  const q = query(blocksRef, ...constraints);
+  const snapshot = await getDocs(q);
+  
+  const blocks = snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+    createdAt: doc.data().createdAt?.toDate() || new Date(),
+    updatedAt: doc.data().updatedAt?.toDate() || new Date(),
+    taskMetadata: doc.data().taskMetadata ? {
+      ...doc.data().taskMetadata,
+      dueDate: doc.data().taskMetadata.dueDate?.toDate(),
+      completedAt: doc.data().taskMetadata.completedAt?.toDate(),
+      promotedToNextAt: doc.data().taskMetadata.promotedToNextAt?.toDate(),
+    } : undefined,
+  })) as Block[];
+  
+  return {
+    blocks,
+    lastDoc: snapshot.docs[snapshot.docs.length - 1]
+  };
+};
+
+// Simplified getBlocks for backward compatibility
+export const getBlocks = async (
+  userId: string,
+  pageId: string
+): Promise<Block[]> => {
+  const result = await getBlocksPaginated(userId, pageId);
+  return result.blocks;
+};
+
+export const subscribeToBlocks = (
+  userId: string,
+  pageId: string,
+  callback: (blocks: Block[]) => void
+): (() => void) => {
+  const normalizedPageId = normalizePageId(pageId);
+  const blocksRef = collection(db, 'users', userId, 'blocks');
+  const q = query(
+    blocksRef,
+    where('pageId', '==', normalizedPageId),
+    orderBy('order', 'asc')
+  );
+  
+  return onSnapshot(q, (snapshot) => {
+    const blocks = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      createdAt: doc.data().createdAt?.toDate() || new Date(),
+      updatedAt: doc.data().updatedAt?.toDate() || new Date(),
+      taskMetadata: doc.data().taskMetadata ? {
+        ...doc.data().taskMetadata,
+        dueDate: doc.data().taskMetadata.dueDate?.toDate(),
+        completedAt: doc.data().taskMetadata.completedAt?.toDate(),
+        promotedToNextAt: doc.data().taskMetadata.promotedToNextAt?.toDate(),
+      } : undefined,
+    })) as Block[];
+    
+    callback(blocks);
   });
 };
 
-export const reorderPages = async (userId: string, pageUpdates: { id: string; order: number }[]) => {
+export const reorderBlocks = async (
+  userId: string,
+  updates: { id: string; order: number }[]
+): Promise<void> => {
   const batch = writeBatch(db);
   
-  pageUpdates.forEach(({ id, order }) => {
-    const pageRef = doc(db, 'users', userId, 'pages', id);
-    batch.update(pageRef, {
+  updates.forEach(({ id, order }) => {
+    const blockRef = doc(db, 'users', userId, 'blocks', id);
+    batch.update(blockRef, {
       order,
       updatedAt: Timestamp.now(),
     });
@@ -127,217 +294,219 @@ export const reorderPages = async (userId: string, pageUpdates: { id: string; or
   await batch.commit();
 };
 
-// Migration function to add order field to existing pages
-export const migratePages = async (userId: string, pages: Page[]) => {
-  console.log('🔄 Migrating pages to add order field...');
-  const batch = writeBatch(db);
+// ===== TASK OPERATIONS (using blocks with taskMetadata) =====
+
+export const getTodoBlocks = async (
+  userId: string,
+  filters?: {
+    status?: string;
+    assignee?: string;
+    hasValue?: boolean;
+    pageId?: string;
+  }
+): Promise<Block[]> => {
+  const blocksRef = collection(db, 'users', userId, 'blocks');
+  const constraints: QueryConstraint[] = [
+    where('type', '==', 'todo-list')
+  ];
   
-  pages.forEach((page, index) => {
-    if (!page.order) {
-      const pageRef = doc(db, 'users', userId, 'pages', page.id);
-      batch.update(pageRef, {
-        order: index + 1,
-        updatedAt: Timestamp.now(),
-      });
-    }
+  if (filters?.pageId) {
+    constraints.push(where('pageId', '==', normalizePageId(filters.pageId)));
+  }
+  
+  const q = query(blocksRef, ...constraints);
+  const snapshot = await getDocs(q);
+  
+  let blocks = snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+    createdAt: doc.data().createdAt?.toDate() || new Date(),
+    updatedAt: doc.data().updatedAt?.toDate() || new Date(),
+    taskMetadata: doc.data().taskMetadata ? {
+      ...doc.data().taskMetadata,
+      dueDate: doc.data().taskMetadata.dueDate?.toDate(),
+      completedAt: doc.data().taskMetadata.completedAt?.toDate(),
+      promotedToNextAt: doc.data().taskMetadata.promotedToNextAt?.toDate(),
+    } : undefined,
+  })) as Block[];
+  
+  // Client-side filtering for complex queries
+  if (filters?.status) {
+    blocks = blocks.filter(b => b.taskMetadata?.status === filters.status);
+  }
+  if (filters?.assignee) {
+    blocks = blocks.filter(b => b.taskMetadata?.assignee === filters.assignee);
+  }
+  if (filters?.hasValue) {
+    blocks = blocks.filter(b => (b.taskMetadata?.value || 0) > 0);
+  }
+  
+  // Sort by ROI if value is present
+  blocks.sort((a, b) => {
+    const roiA = (a.taskMetadata?.value || 0) / (a.taskMetadata?.effort || 1);
+    const roiB = (b.taskMetadata?.value || 0) / (b.taskMetadata?.effort || 1);
+    return roiB - roiA;
   });
   
-  await batch.commit();
-  console.log('✅ Pages migration completed');
+  return blocks;
 };
 
-export const deletePage = async (userId: string, pageId: string): Promise<void> => {
-  if (!userId || !pageId) {
-    throw new Error('User ID and Page ID are required to delete a page');
-  }
-
-  try {
-    // First delete all blocks in the page
-    const blocksRef = collection(db, 'users', userId, 'pages', pageId, 'blocks');
-    const blocksSnapshot = await getDocs(blocksRef);
-    
-    // Delete all blocks
-    const deletePromises = blocksSnapshot.docs.map(blockDoc => deleteDoc(blockDoc.ref));
-    await Promise.all(deletePromises);
-    
-    // Then delete the page itself
-    const pageRef = doc(db, 'users', userId, 'pages', pageId);
-    await deleteDoc(pageRef);
-  } catch (error) {
-    console.error('Error deleting page:', error);
-    throw error;
-  }
-};
-
-// Block operations
-export const createBlock = async (
+export const updateTaskMetadata = async (
   userId: string,
-  pageId: string,
-  block: Omit<Block, 'id' | 'createdAt' | 'updatedAt'>
-): Promise<string> => {
-  if (!userId) {
-    throw new Error('User ID is required to create a block');
-  }
-  if (!pageId) {
-    throw new Error('Page ID is required to create a block');
-  }
-  
-  const blocksRef = collection(db, 'users', userId, 'pages', pageId, 'blocks');
-  
-  // Filter out undefined values to avoid Firebase errors
-  const cleanBlock = Object.fromEntries(
-    Object.entries({
-      ...block,
-      createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now(),
-    }).filter(([, value]) => value !== undefined)
-  );
-  
-  const docRef = await addDoc(blocksRef, cleanBlock);
-  return docRef.id;
-};
-
-export const updateBlock = async (
-  userId: string,
-  pageId: string,
   blockId: string,
-  updates: Partial<Block>
-) => {
-  const blockRef = doc(db, 'users', userId, 'pages', pageId, 'blocks', blockId);
+  taskMetadata: Partial<TaskMetadata>
+): Promise<void> => {
+  const blockRef = doc(db, 'users', userId, 'blocks', blockId);
   
-  // Filter out undefined values to avoid Firebase errors
-  const cleanUpdates = Object.fromEntries(
-    Object.entries({
-      ...updates,
-      updatedAt: Timestamp.now(),
-    }).filter(([, value]) => value !== undefined)
-  );
+  // Get current block to merge metadata
+  const blockDoc = await getDoc(blockRef);
+  if (!blockDoc.exists()) {
+    throw new Error('Block not found');
+  }
   
-  await updateDoc(blockRef, cleanUpdates);
+  const currentMetadata = blockDoc.data().taskMetadata || {};
+  const updatedMetadata = {
+    ...currentMetadata,
+    ...taskMetadata,
+    // Calculate ROI if value or effort changed
+    roi: taskMetadata.value !== undefined || taskMetadata.effort !== undefined
+      ? ((taskMetadata.value ?? currentMetadata.value ?? 0) / 
+         (taskMetadata.effort ?? currentMetadata.effort ?? 1))
+      : currentMetadata.roi
+  };
+  
+  await updateDoc(blockRef, {
+    taskMetadata: updatedMetadata,
+    // Update isChecked if status changes to done
+    ...(taskMetadata.status === 'done' ? { isChecked: true } : {}),
+    ...(taskMetadata.status && taskMetadata.status !== 'done' ? { isChecked: false } : {}),
+    updatedAt: Timestamp.now(),
+  });
 };
 
-export const archivePage = async (userId: string, pageId: string) => {
-  if (!userId || !pageId) {
-    throw new Error('Missing required parameters: userId or pageId');
-  }
+// ===== ARCHIVE OPERATIONS =====
 
-  try {
-    const pageRef = doc(db, 'users', userId, 'pages', pageId);
-    const pageDoc = await getDoc(pageRef);
-    
-    if (!pageDoc.exists()) {
-      throw new Error('Page not found');
-    }
-    
-    const pageData = pageDoc.data() as Page;
-    
-    // Create archived page with simplified structure
-    const archivedPagesRef = collection(db, 'users', userId, 'archivedPages');
-    const archivedPage = {
-      originalId: pageId,
-      title: pageData.title || 'Untitled Page',
-      order: pageData.order || 0,
-      archivedAt: Timestamp.now(),
-      originalCreatedAt: pageData.createdAt,
-      originalUpdatedAt: pageData.updatedAt,
+// Main archiveBlock function
+export const archiveBlockById = async (
+  userId: string,
+  blockId: string
+): Promise<void> => {
+  const blockRef = doc(db, 'users', userId, 'blocks', blockId);
+  const blockDoc = await getDoc(blockRef);
+  
+  if (!blockDoc.exists()) {
+    throw new Error('Block not found');
+  }
+  
+  const blockData = blockDoc.data() as Block;
+  
+  // Get page title
+  let pageTitle = 'Unknown Page';
+  if (blockData.pageId?.startsWith('gtd-')) {
+    const gtdTitles: Record<string, string> = {
+      'gtd-inbox': '📥 Inbox',
+      'gtd-next-actions': '⚡ Next Actions',
+      'gtd-waiting-for': '⏳ Waiting For',
+      'gtd-someday-maybe': '💭 Someday/Maybe'
     };
-    
-    // Create the archived page first
-    await addDoc(archivedPagesRef, archivedPage);
-    
-    // Archive all blocks from this page
-    const blocksRef = collection(db, 'users', userId, 'pages', pageId, 'blocks');
-    const blocksSnapshot = await getDocs(blocksRef);
-    
-    const archivedBlocksRef = collection(db, 'users', userId, 'archivedBlocks');
-    
-    // Archive blocks and delete them individually (Firestore doesn't cascade delete subcollections)
-    for (const blockDoc of blocksSnapshot.docs) {
-      const blockData = blockDoc.data() as Block;
-      const archivedBlock = {
-        originalId: blockDoc.id,
-        pageId: pageId,
-        pageTitle: pageData.title || 'Untitled Page',
-        type: blockData.type,
-        content: blockData.content || '',
-        indentLevel: blockData.indentLevel || 0,
-        isChecked: blockData.isChecked || false,
-        order: blockData.order || 0,
-        archivedAt: Timestamp.now(),
-        originalCreatedAt: blockData.createdAt,
-        originalUpdatedAt: blockData.updatedAt,
-      };
-      
-      // Archive the block
-      await addDoc(archivedBlocksRef, archivedBlock);
-      
-      // Delete the original block
-      await deleteDoc(blockDoc.ref);
+    pageTitle = gtdTitles[blockData.pageId] || blockData.pageId;
+  } else if (blockData.pageId) {
+    const pageRef = doc(db, 'users', userId, 'pages', blockData.pageId);
+    const pageDoc = await getDoc(pageRef);
+    if (pageDoc.exists()) {
+      pageTitle = pageDoc.data().title || 'Unknown Page';
     }
-    
-    // Finally delete the original page
-    await deleteDoc(pageRef);
-    
-  } catch (error) {
-    console.error('Error in archivePage:', error);
-    throw error;
   }
+  
+  // Create archived block
+  const archivedBlocksRef = collection(db, 'users', userId, 'archivedBlocks');
+  await addDoc(archivedBlocksRef, {
+    originalId: blockId,
+    pageId: blockData.pageId,
+    pageTitle,
+    type: blockData.type,
+    content: blockData.content || '',
+    indentLevel: blockData.indentLevel || 0,
+    isChecked: blockData.isChecked || false,
+    order: blockData.order || 0,
+    taskMetadata: blockData.taskMetadata || null,
+    archivedAt: Timestamp.now(),
+    originalCreatedAt: blockData.createdAt,
+    originalUpdatedAt: blockData.updatedAt,
+  });
+  
+  // Delete original
+  await deleteDoc(blockRef);
 };
 
-export const archiveBlock = async (userId: string, pageId: string, blockId: string) => {
-  if (!userId || !pageId || !blockId) {
-    throw new Error('Missing required parameters: userId, pageId, or blockId');
+// Backward compatibility with old signature
+export const archiveBlock = async (
+  userId: string,
+  pageId: string,
+  blockId: string
+): Promise<void> => {
+  return archiveBlockById(userId, blockId);
+};
+
+export const archivePage = async (
+  userId: string,
+  pageId: string
+): Promise<void> => {
+  const pageRef = doc(db, 'users', userId, 'pages', pageId);
+  const pageDoc = await getDoc(pageRef);
+  
+  if (!pageDoc.exists()) {
+    throw new Error('Page not found');
   }
-
-  try {
-    const blockRef = doc(db, 'users', userId, 'pages', pageId, 'blocks', blockId);
-    const blockDoc = await getDoc(blockRef);
-    
-    if (!blockDoc.exists()) {
-      throw new Error('Block not found');
-    }
-
+  
+  const pageData = pageDoc.data() as Page;
+  
+  // Archive all blocks first
+  const blocksRef = collection(db, 'users', userId, 'blocks');
+  const q = query(blocksRef, where('pageId', '==', pageId));
+  const snapshot = await getDocs(q);
+  
+  const batch = writeBatch(db);
+  
+  // Archive each block
+  for (const blockDoc of snapshot.docs) {
     const blockData = blockDoc.data() as Block;
-    
-    // Get page title for reference
-    const pageRef = doc(db, 'users', userId, 'pages', pageId);
-    const pageDoc = await getDoc(pageRef);
-    const pageTitle = pageDoc.exists() ? (pageDoc.data()?.title || 'Unknown Page') : 'Unknown Page';
-    
-    // Create archived block with simplified structure
-    const archivedBlocksRef = collection(db, 'users', userId, 'archivedBlocks');
-    const archivedBlock = {
-      originalId: blockId,
+    const archivedBlockRef = doc(collection(db, 'users', userId, 'archivedBlocks'));
+    batch.set(archivedBlockRef, {
+      originalId: blockDoc.id,
       pageId: pageId,
-      pageTitle: pageTitle,
+      pageTitle: pageData.title,
       type: blockData.type,
       content: blockData.content || '',
       indentLevel: blockData.indentLevel || 0,
       isChecked: blockData.isChecked || false,
       order: blockData.order || 0,
+      taskMetadata: blockData.taskMetadata || null,
       archivedAt: Timestamp.now(),
       originalCreatedAt: blockData.createdAt,
       originalUpdatedAt: blockData.updatedAt,
-    };
-    
-    // Create the archived block first
-    await addDoc(archivedBlocksRef, archivedBlock);
-    
-    // Then delete the original block
-    await deleteDoc(blockRef);
-    
-  } catch (error) {
-    console.error('Error in archiveBlock:', error);
-    throw error;
+    });
+    batch.delete(blockDoc.ref);
   }
+  
+  // Archive the page
+  const archivedPageRef = doc(collection(db, 'users', userId, 'archivedPages'));
+  batch.set(archivedPageRef, {
+    originalId: pageId,
+    title: pageData.title,
+    order: pageData.order,
+    workspaceId: pageData.workspaceId || 'notes',
+    archivedAt: Timestamp.now(),
+    originalCreatedAt: pageData.createdAt,
+    originalUpdatedAt: pageData.updatedAt,
+  });
+  
+  // Delete the page
+  batch.delete(pageRef);
+  
+  await batch.commit();
 };
 
-export const deleteBlock = async (userId: string, pageId: string, blockId: string) => {
-  const blockRef = doc(db, 'users', userId, 'pages', pageId, 'blocks', blockId);
-  await deleteDoc(blockRef);
-};
-
-// Archive management functions
 export const getArchivedPages = async (userId: string): Promise<ArchivedPage[]> => {
   const archivedPagesRef = collection(db, 'users', userId, 'archivedPages');
   const q = query(archivedPagesRef, orderBy('archivedAt', 'desc'));
@@ -346,9 +515,9 @@ export const getArchivedPages = async (userId: string): Promise<ArchivedPage[]> 
   return snapshot.docs.map(doc => ({
     id: doc.id,
     ...doc.data(),
-    archivedAt: doc.data().archivedAt.toDate(),
-    originalCreatedAt: doc.data().originalCreatedAt.toDate(),
-    originalUpdatedAt: doc.data().originalUpdatedAt.toDate(),
+    archivedAt: doc.data().archivedAt?.toDate() || new Date(),
+    originalCreatedAt: doc.data().originalCreatedAt?.toDate() || new Date(),
+    originalUpdatedAt: doc.data().originalUpdatedAt?.toDate() || new Date(),
   })) as ArchivedPage[];
 };
 
@@ -360,196 +529,13 @@ export const getArchivedBlocks = async (userId: string): Promise<ArchivedBlock[]
   return snapshot.docs.map(doc => ({
     id: doc.id,
     ...doc.data(),
-    archivedAt: doc.data().archivedAt.toDate(),
-    originalCreatedAt: doc.data().originalCreatedAt.toDate(),
-    originalUpdatedAt: doc.data().originalUpdatedAt.toDate(),
+    archivedAt: doc.data().archivedAt?.toDate() || new Date(),
+    originalCreatedAt: doc.data().originalCreatedAt?.toDate() || new Date(),
+    originalUpdatedAt: doc.data().originalUpdatedAt?.toDate() || new Date(),
   })) as ArchivedBlock[];
 };
 
-export const restoreArchivedPage = async (userId: string, archivedPageId: string) => {
-  const archivedPageRef = doc(db, 'users', userId, 'archivedPages', archivedPageId);
-  const archivedPageDoc = await getDoc(archivedPageRef);
-  
-  if (!archivedPageDoc.exists()) {
-    throw new Error('Archived page not found');
-  }
-  
-  const archivedPageData = archivedPageDoc.data() as ArchivedPage;
-  
-  // Create the restored page
-  const pagesRef = collection(db, 'users', userId, 'pages');
-  const restoredPage: Omit<Page, 'id'> = {
-    title: archivedPageData.title,
-    order: archivedPageData.order,
-    createdAt: archivedPageData.originalCreatedAt,
-    updatedAt: Timestamp.now() as unknown as Date,
-  };
-  
-  const pageDocRef = await addDoc(pagesRef, restoredPage);
-  const newPageId = pageDocRef.id;
-  
-  // Restore all blocks that belonged to this page
-  const archivedBlocksRef = collection(db, 'users', userId, 'archivedBlocks');
-  const blocksQuery = query(archivedBlocksRef, orderBy('order', 'asc'));
-  const blocksSnapshot = await getDocs(blocksQuery);
-  
-  const blocksRef = collection(db, 'users', userId, 'pages', newPageId, 'blocks');
-  
-  for (const blockDoc of blocksSnapshot.docs) {
-    const blockData = blockDoc.data() as ArchivedBlock;
-    
-    if (blockData.pageId === archivedPageData.originalId) {
-      const restoredBlock: Omit<Block, 'id'> = {
-        type: blockData.type,
-        content: blockData.content,
-        indentLevel: blockData.indentLevel,
-        isChecked: blockData.isChecked,
-        order: blockData.order,
-        createdAt: blockData.originalCreatedAt,
-        updatedAt: Timestamp.now() as unknown as Date,
-      };
-      
-      await addDoc(blocksRef, restoredBlock);
-      
-      // Delete the archived block
-      await deleteDoc(blockDoc.ref);
-    }
-  }
-  
-  // Delete the archived page
-  await deleteDoc(archivedPageRef);
-  
-  return newPageId;
-};
-
-export const restoreArchivedBlock = async (userId: string, archivedBlockId: string, targetPageId: string) => {
-  const archivedBlockRef = doc(db, 'users', userId, 'archivedBlocks', archivedBlockId);
-  const archivedBlockDoc = await getDoc(archivedBlockRef);
-  
-  if (!archivedBlockDoc.exists()) {
-    throw new Error('Archived block not found');
-  }
-  
-  const archivedBlockData = archivedBlockDoc.data() as ArchivedBlock;
-  
-  // Create the restored block in the target page
-  const blocksRef = collection(db, 'users', userId, 'pages', targetPageId, 'blocks');
-  const restoredBlock: Omit<Block, 'id'> = {
-    type: archivedBlockData.type,
-    content: archivedBlockData.content,
-    indentLevel: archivedBlockData.indentLevel,
-    isChecked: archivedBlockData.isChecked,
-    order: archivedBlockData.order,
-    createdAt: archivedBlockData.originalCreatedAt,
-    updatedAt: Timestamp.now() as unknown as Date,
-  };
-  
-  const blockDocRef = await addDoc(blocksRef, restoredBlock);
-  
-  // Delete the archived block
-  await deleteDoc(archivedBlockRef);
-  
-  return blockDocRef.id;
-};
-
-export const permanentlyDeleteArchivedPage = async (userId: string, archivedPageId: string) => {
-  const archivedPageRef = doc(db, 'users', userId, 'archivedPages', archivedPageId);
-  const archivedPageDoc = await getDoc(archivedPageRef);
-  
-  if (!archivedPageDoc.exists()) {
-    throw new Error('Archived page not found');
-  }
-  
-  const archivedPageData = archivedPageDoc.data() as ArchivedPage;
-  
-  // Delete all archived blocks that belonged to this page
-  const archivedBlocksRef = collection(db, 'users', userId, 'archivedBlocks');
-  const blocksSnapshot = await getDocs(archivedBlocksRef);
-  
-  for (const blockDoc of blocksSnapshot.docs) {
-    const blockData = blockDoc.data() as ArchivedBlock;
-    if (blockData.pageId === archivedPageData.originalId) {
-      await deleteDoc(blockDoc.ref);
-    }
-  }
-  
-  // Delete the archived page
-  await deleteDoc(archivedPageRef);
-};
-
-export const permanentlyDeleteArchivedBlock = async (userId: string, archivedBlockId: string) => {
-  const archivedBlockRef = doc(db, 'users', userId, 'archivedBlocks', archivedBlockId);
-  await deleteDoc(archivedBlockRef);
-};
-
-export const flushAllArchived = async (userId: string) => {
-  // Delete all archived pages
-  const archivedPagesRef = collection(db, 'users', userId, 'archivedPages');
-  const pagesSnapshot = await getDocs(archivedPagesRef);
-  
-  // Delete all archived blocks
-  const archivedBlocksRef = collection(db, 'users', userId, 'archivedBlocks');
-  const blocksSnapshot = await getDocs(archivedBlocksRef);
-  
-  const batch = writeBatch(db);
-  
-  pagesSnapshot.docs.forEach(doc => {
-    batch.delete(doc.ref);
-  });
-  
-  blocksSnapshot.docs.forEach(doc => {
-    batch.delete(doc.ref);
-  });
-  
-  await batch.commit();
-};
-
-export const getBlocks = async (userId: string, pageId: string): Promise<Block[]> => {
-  const blocksRef = collection(db, 'users', userId, 'pages', pageId, 'blocks');
-  const q = query(blocksRef, orderBy('order', 'asc'));
-  const snapshot = await getDocs(q);
-  
-  return snapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data(),
-    createdAt: doc.data().createdAt.toDate(),
-    updatedAt: doc.data().updatedAt.toDate(),
-  })) as Block[];
-};
-
-export const subscribeToBlocks = (
-  userId: string,
-  pageId: string,
-  callback: (blocks: Block[]) => void
-) => {
-  const blocksRef = collection(db, 'users', userId, 'pages', pageId, 'blocks');
-  const q = query(blocksRef, orderBy('order', 'asc'));
-  
-  return onSnapshot(q, (snapshot) => {
-    const blocks = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      createdAt: doc.data().createdAt.toDate(),
-      updatedAt: doc.data().updatedAt.toDate(),
-    })) as Block[];
-    callback(blocks);
-  });
-};
-
-export const reorderBlocks = async (
-  userId: string,
-  pageId: string,
-  blockUpdates: { id: string; order: number }[]
-) => {
-  const batch = writeBatch(db);
-  
-  blockUpdates.forEach(({ id, order }) => {
-    const blockRef = doc(db, 'users', userId, 'pages', pageId, 'blocks', id);
-    batch.update(blockRef, { order, updatedAt: Timestamp.now() });
-  });
-  
-  await batch.commit();
-};
+// ===== CROSS-PAGE OPERATIONS =====
 
 export const moveBlockToPage = async (
   userId: string,
@@ -557,38 +543,64 @@ export const moveBlockToPage = async (
   toPageId: string,
   blockId: string,
   newOrder: number
-) => {
-  // Get the block data from the source page
-  const sourceBlockRef = doc(db, 'users', userId, 'pages', fromPageId, 'blocks', blockId);
-  const sourceSnapshot = await getDoc(sourceBlockRef);
+): Promise<Block | null> => {
+  const blockRef = doc(db, 'users', userId, 'blocks', blockId);
+  const blockDoc = await getDoc(blockRef);
   
-  if (!sourceSnapshot.exists()) {
-    throw new Error('Block not found');
+  if (!blockDoc.exists()) {
+    console.warn(`Block ${blockId} not found`);
+    return null;
   }
   
-  const blockData = sourceSnapshot.data();
+  const normalizedToPageId = normalizePageId(toPageId);
+  const workspaceId = getWorkspaceId(normalizedToPageId);
   
-  // Create the block in the destination page
-  const destBlocksRef = collection(db, 'users', userId, 'pages', toPageId, 'blocks');
-  const cleanBlockData = Object.fromEntries(
-    Object.entries({
-      ...blockData,
-      order: newOrder,
-      updatedAt: Timestamp.now(),
-    }).filter(([, value]) => value !== undefined)
-  );
+  await updateDoc(blockRef, {
+    pageId: normalizedToPageId,
+    workspaceId,
+    order: newOrder,
+    updatedAt: Timestamp.now(),
+  });
   
-  // Use batch to ensure atomicity
-  const batch = writeBatch(db);
+  const updatedDoc = await getDoc(blockRef);
+  return {
+    id: updatedDoc.id,
+    ...updatedDoc.data(),
+    createdAt: updatedDoc.data()?.createdAt?.toDate() || new Date(),
+    updatedAt: updatedDoc.data()?.updatedAt?.toDate() || new Date(),
+  } as Block;
+};
+
+// ===== EXPORT ALL FUNCTIONS =====
+export default {
+  // Helpers
+  normalizePageId,
+  getWorkspaceId,
   
-  // Add to destination page
-  const newBlockRef = doc(destBlocksRef);
-  batch.set(newBlockRef, cleanBlockData);
+  // Pages
+  createPage,
+  getPages,
+  updatePageTitle,
+  deletePage,
   
-  // Delete from source page
-  batch.delete(sourceBlockRef);
+  // Blocks
+  createBlock,
+  updateBlock,
+  deleteBlock,
+  getBlocks,
+  subscribeToBlocks,
+  reorderBlocks,
   
-  await batch.commit();
+  // Tasks (using blocks)
+  getTodoBlocks,
+  updateTaskMetadata,
   
-  return newBlockRef.id;
+  // Archive
+  archiveBlock,
+  archivePage,
+  getArchivedPages,
+  getArchivedBlocks,
+  
+  // Cross-page
+  moveBlockToPage,
 };

@@ -139,9 +139,9 @@ export const EditablePageButton: React.FC<EditablePageButtonProps> = ({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onDoubleClick={handleDoubleClick}
-        className={`w-full text-left px-2 py-1 rounded text-sm transition-colors ${
+        className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
           isActive
-            ? 'bg-gray-100 text-gray-900'
+            ? 'bg-gray-200/70 text-gray-900'
             : isHovered && isDragging
             ? 'bg-green-100 text-green-900 border-2 border-green-300'
             : isDraggingPage

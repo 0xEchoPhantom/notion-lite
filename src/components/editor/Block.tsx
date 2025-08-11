@@ -8,6 +8,7 @@ import { Block as BlockType, BlockType as BType } from '@/types/index';
 import { useBlocksWithKeyboard } from '@/hooks/useBlocks';
 import { SlashMenu } from './SlashMenu';
 import clsx from 'clsx';
+import { TokenChips } from './block-parts/TokenChips';
 
 interface BlockProps {
   block: BlockType;
@@ -41,6 +42,8 @@ export const Block: React.FC<BlockProps> = ({
   const [slashMenuPosition, setSlashMenuPosition] = useState({ x: 0, y: 0 });
   const blockRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<ReturnType<typeof useEditor>>(null);
+  // Track the last text we know the editor had, to avoid resetting content during local typing
+  const lastEditorTextRef = useRef<string>(block.content);
 
   const debouncedUpdate = useCallback((content: string) => {
     if (debounceTimer) {
@@ -72,21 +75,24 @@ export const Block: React.FC<BlockProps> = ({
     immediatelyRender: false,
     onUpdate: ({ editor }) => {
       const content = editor.getText();
+      // Remember what the user just typed so incoming state sync won't clobber it
+      lastEditorTextRef.current = content;
       debouncedUpdate(content);
       
       // Handle markdown shortcuts at the start of line
-      const isAtStart = editor.state.selection.from === content.length && editor.state.selection.from > 1;
+      const text = editor.getText();
+      const isAtStart = editor.state.selection.from === text.length && editor.state.selection.from > 1;
       
-      if (isAtStart && content === '- ') {
+      if (isAtStart && text === '- ') {
         convertBlockType(block.id, 'bulleted-list');
         editor.commands.clearContent();
-      } else if (isAtStart && content === '[] ') {
+      } else if (isAtStart && text === '[] ') {
         convertBlockType(block.id, 'todo-list');
         editor.commands.clearContent();
       }
       
       // Handle slash command
-      if (content.endsWith('/')) {
+      if (text.endsWith('/')) {
         const rect = blockRef.current?.getBoundingClientRect();
         if (rect) {
           setSlashMenuPosition({
@@ -95,7 +101,7 @@ export const Block: React.FC<BlockProps> = ({
           });
           setShowSlashMenu(true);
         }
-      } else if (showSlashMenu && !content.endsWith('/')) {
+      } else if (showSlashMenu && !text.endsWith('/')) {
         setShowSlashMenu(false);
       }
     },
@@ -103,8 +109,12 @@ export const Block: React.FC<BlockProps> = ({
   });
 
   useEffect(() => {
-    if (editor && editor.getText() !== block.content) {
-      editor.commands.setContent(block.content);
+    if (!editor) return;
+    // Only update the editor if content changed externally (not from this editor's recent typing)
+    if (block.content !== lastEditorTextRef.current) {
+      // Avoid emitting another update to prevent loops
+      editor.commands.setContent(block.content, { emitUpdate: false });
+      lastEditorTextRef.current = block.content;
     }
   }, [block.content, editor]);
 
@@ -296,6 +306,8 @@ export const Block: React.FC<BlockProps> = ({
               block.isChecked && 'line-through text-gray-500'
             )}
           />
+          {/* Parsed @-chips */}
+          <TokenChips content={block.content} />
         </div>
       </div>
       

@@ -1,0 +1,276 @@
+'use client';
+
+import React, { useState } from 'react';
+import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
+import { WorkspaceMode } from '@/types/workspace';
+import { GTD_PAGES } from '@/types/workspace';
+import { SettingsModal } from './SettingsModal';
+import { useCrossPageDrag } from '@/contexts/CrossPageDragContext';
+import { moveBlockToPage } from '@/lib/firestore';
+import { isAdminAccount } from '@/lib/auth-guard';
+
+interface UnifiedSidebarProps {
+  currentPageId?: string;
+  onPageSelect?: (pageId: string) => void;
+  onTasksViewSelect?: () => void;
+  isSmartViewActive?: boolean;
+  mode: 'gtd' | 'notes';
+}
+
+export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
+  currentPageId,
+  onPageSelect,
+  onTasksViewSelect,
+  isSmartViewActive = false,
+  mode
+}) => {
+  const { user, logout } = useAuth();
+  const router = useRouter();
+  const { currentMode, switchMode, isLoading } = useWorkspace();
+  const [isSwitching, setIsSwitching] = React.useState(false);
+  const [showSettings, setShowSettings] = React.useState(false);
+  const { draggedBlock, isDraggingCrossPage, isValidDropTarget, endCrossPageDrag } = useCrossPageDrag();
+  const [dragOverPageId, setDragOverPageId] = useState<string | null>(null);
+
+  const handleModeChange = (mode: WorkspaceMode) => {
+    if (mode === currentMode) return;
+    setIsSwitching(true);
+    switchMode(mode);
+    setTimeout(() => setIsSwitching(false), 300);
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    router.push('/login');
+  };
+
+  const handleDragOver = (e: React.DragEvent, pageId: string) => {
+    if (!isDraggingCrossPage || !isValidDropTarget(pageId)) return;
+    
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverPageId(pageId);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverPageId(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetPageId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverPageId(null);
+
+    if (!isDraggingCrossPage || !draggedBlock || !isValidDropTarget(targetPageId) || !user) {
+      return;
+    }
+
+    try {
+      // Move block to the target page
+      const result = await moveBlockToPage(
+        user.uid,
+        draggedBlock.sourcePageId,
+        targetPageId,
+        draggedBlock.block.id,
+        0 // Add at the top of the target page
+      );
+
+      if (result) {
+        // Navigate to the target page to see the moved block
+        onPageSelect?.(targetPageId);
+      } else {
+        console.warn('Block could not be moved - it may have been deleted');
+      }
+    } catch (error) {
+      console.error('Error moving block to page:', error);
+    } finally {
+      endCrossPageDrag();
+    }
+  };
+
+  const PageItem: React.FC<{ page: typeof GTD_PAGES[number]; isActive: boolean }> = ({ page, isActive }) => {
+    const canDrop = isDraggingCrossPage && isValidDropTarget(page.id);
+    const isDraggedOver = dragOverPageId === page.id;
+
+    return (
+      <button
+        onClick={() => onPageSelect?.(page.id)}
+        onDragOver={(e) => handleDragOver(e, page.id)}
+        onDragLeave={handleDragLeave}
+        onDrop={(e) => handleDrop(e, page.id)}
+        className={`w-full text-left px-3 py-2 rounded-md transition-all duration-150 relative ${
+          isDraggedOver
+            ? 'bg-blue-100 ring-2 ring-blue-400 ring-opacity-50'
+            : isActive 
+            ? 'bg-gray-200/70 text-gray-900' 
+            : 'hover:bg-gray-100 text-gray-700'
+        } ${
+          canDrop ? 'cursor-copy' : ''
+        }`}
+      >
+        <div className="flex items-center space-x-3">
+          <span className="text-base">{page.emoji}</span>
+          <span className="text-sm">{page.title}</span>
+        </div>
+        {isDraggedOver && (
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute inset-x-0 top-0 h-0.5 bg-blue-500"></div>
+          </div>
+        )}
+      </button>
+    );
+  };
+
+  return (
+    <div className="w-72 bg-[#FBFBFA] border-r border-gray-200/80 h-screen flex flex-col">
+      {/* User Section */}
+      <div className="px-4 pt-4 pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3 min-w-0">
+            <div className="w-7 h-7 rounded bg-gradient-to-br from-gray-400 to-gray-500 flex items-center justify-center text-xs font-semibold text-white flex-shrink-0">
+              {user?.email?.[0]?.toUpperCase() || 'U'}
+            </div>
+            <span className="text-sm font-medium text-gray-800 truncate">
+              {user?.email?.split('@')[0] || 'User'}
+            </span>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="text-gray-400 hover:text-gray-600 transition-colors p-1 hover:bg-gray-100 rounded"
+            title="Sign out"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Workspace Toggle */}
+      <div className="px-4 pb-4">
+        <div className="flex rounded-md bg-gray-100/50 p-0.5">
+          <button
+            onClick={() => handleModeChange('gtd')}
+            className={`flex-1 px-3 py-1.5 text-xs font-medium rounded transition-all flex items-center justify-center gap-1 ${
+              currentMode === 'gtd'
+                ? 'bg-white shadow-sm text-gray-900'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+            disabled={isLoading || isSwitching}
+          >
+            🎯 GTD
+          </button>
+          <button
+            onClick={() => handleModeChange('notes')}
+            className={`flex-1 px-3 py-1.5 text-xs font-medium rounded transition-all flex items-center justify-center gap-1 ${
+              currentMode === 'notes'
+                ? 'bg-white shadow-sm text-gray-900'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+            disabled={isLoading || isSwitching}
+          >
+            📝 Notes
+          </button>
+        </div>
+      </div>
+
+      {/* Main Navigation */}
+      <div className="flex-1 overflow-y-auto px-3">
+        {mode === 'gtd' && (
+          <>
+            {/* Drag Indicator */}
+            {isDraggingCrossPage && draggedBlock && (
+              <div className="mb-3 px-3 py-2 bg-blue-50 border border-blue-200 rounded-md">
+                <div className="text-xs font-medium text-blue-700">Dragging block</div>
+                <div className="text-xs text-blue-600 mt-1 truncate">
+                  From: {draggedBlock.sourcePageTitle || 'Unknown page'}
+                </div>
+                <div className="text-xs text-blue-500 mt-1">Drop on a page below</div>
+              </div>
+            )}
+
+            {/* Smart View Button */}
+            <div className="mb-3">
+              <button
+                onClick={onTasksViewSelect}
+                className={`w-full text-left px-3 py-2 rounded-md transition-all duration-150 ${
+                  isSmartViewActive
+                    ? 'bg-gray-200/70 text-gray-900'
+                    : 'hover:bg-gray-100 text-gray-700'
+                }`}
+                disabled={isDraggingCrossPage}
+              >
+                <div className="flex items-center space-x-3">
+                  <span className="text-base">🧠</span>
+                  <span className="text-sm font-medium">Smart View</span>
+                </div>
+              </button>
+            </div>
+
+            {/* GTD Pages */}
+            <div className="space-y-1">
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 py-2 mt-1">
+                Workflow
+              </div>
+              {GTD_PAGES.map(page => (
+                <PageItem
+                  key={page.id}
+                  page={page}
+                  isActive={currentPageId === page.id}
+                />
+              ))}
+            </div>
+          </>
+        )}
+
+        {mode === 'notes' && (
+          <div className="text-sm text-gray-600 px-3">
+            Notes workspace
+          </div>
+        )}
+      </div>
+
+      {/* Bottom Section */}
+      <div className="px-3 py-3 border-t border-gray-200/50 space-y-1">
+        {isAdminAccount(user?.email) && (
+          <Link 
+            href="/admin" 
+            className="flex items-center space-x-3 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+            <span className="text-sm font-medium text-red-600">Admin Dashboard</span>
+          </Link>
+        )}
+        <button 
+          onClick={() => setShowSettings(true)}
+          className="w-full flex items-center space-x-3 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          <span className="text-sm">Settings</span>
+        </button>
+        <Link 
+          href="/recycle-bin" 
+          className="flex items-center space-x-3 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+          <span className="text-sm">Recycle Bin</span>
+        </Link>
+      </div>
+
+      {/* Settings Modal */}
+      <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
+    </div>
+  );
+};

@@ -1,27 +1,36 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 import { AdminDashboard } from '@/components/ui/AdminDashboard';
 
 export default function AdminPage() {
   const { user } = useAuth();
+  const router = useRouter();
 
-  // In a real app, you'd check if the user has admin privileges
-  // For now, we'll just check if they're logged in
-  const isAdmin = user?.email?.includes('admin') || user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL;
+  // Only admin@dev.vn can access this page
+  const isAdmin = user?.email === 'admin@dev.vn';
 
-  if (!user) {
+  useEffect(() => {
+    if (user && !isAdmin) {
+      router.push('/app');
+    }
+  }, [user, isAdmin, router]);
+
+  if (!user || !isAdmin) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="bg-white p-8 rounded-lg shadow-md">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Admin Access</h1>
-          <p className="text-gray-600 mb-4">Please log in to access the admin dashboard.</p>
+          <p className="text-gray-600 mb-4">
+            {!user ? 'Please log in to access the admin dashboard.' : 'Access denied. This page is only for admin@dev.vn'}
+          </p>
           <a
-            href="/login"
+            href={user ? '/app' : '/login'}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
-            Go to Login
+            {user ? 'Back to App' : 'Go to Login'}
           </a>
         </div>
       </div>
@@ -48,7 +57,7 @@ export default function AdminPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <AdminDashboard isAuthorized={!!isAdmin} />
+        <AdminDashboard isAuthorized={isAdmin} userEmail={user.email || ''} />
       </main>
 
       <footer className="bg-white border-t mt-12">

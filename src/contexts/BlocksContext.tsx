@@ -5,7 +5,7 @@ import { Block, BlockType } from '@/types/index';
 import {
   createBlock,
   updateBlock,
-  deleteBlock,
+  archiveBlock,
   subscribeToBlocks,
   reorderBlocks,
 } from '@/lib/firestore';
@@ -100,6 +100,10 @@ export const BlocksProvider: React.FC<BlocksProviderProps> = ({ children, pageId
 
   const addBlock = async (block: Omit<Block, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!user) throw new Error('User not authenticated');
+    if (!pageId || pageId === '') {
+      console.error('Invalid pageId for addBlock:', pageId);
+      throw new Error('Invalid page ID');
+    }
     
     const blockId = await createBlock(user.uid, pageId, block);
     return blockId;
@@ -107,24 +111,37 @@ export const BlocksProvider: React.FC<BlocksProviderProps> = ({ children, pageId
 
   const updateBlockContent = async (id: string, updates: Partial<Block>) => {
     if (!user) throw new Error('User not authenticated');
+    if (!pageId || pageId === '') {
+      console.error('Invalid pageId for updateBlockContent:', pageId);
+      throw new Error('Invalid page ID');
+    }
     
     await updateBlock(user.uid, pageId, id, updates);
   };
 
   const deleteBlockById = async (id: string) => {
     if (!user) throw new Error('User not authenticated');
+    if (!pageId || pageId === '') {
+      console.error('Invalid pageId for deleteBlockById:', pageId);
+      throw new Error('Invalid page ID');
+    }
     
-    await deleteBlock(user.uid, pageId, id);
+    // Recycle Bin: archive block instead of permanent delete
+    await archiveBlock(user.uid, pageId, id);
   };
 
   const reorderBlocksList = async (blockUpdates: { id: string; order: number }[]) => {
     if (!user) throw new Error('User not authenticated');
     
-    await reorderBlocks(user.uid, pageId, blockUpdates);
+    await reorderBlocks(user.uid, blockUpdates);
   };
 
   const convertBlockType = async (id: string, newType: BlockType) => {
     if (!user) throw new Error('User not authenticated');
+    if (!pageId || pageId === '') {
+      console.error('Invalid pageId for convertBlockType:', pageId);
+      throw new Error('Invalid page ID');
+    }
     
     await updateBlock(user.uid, pageId, id, { type: newType });
   };

@@ -3,14 +3,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Page } from '@/types/index';
 import { BlocksProvider } from '@/contexts/BlocksContext';
-import { GlobalDragProvider, useGlobalDrag } from '@/contexts/GlobalDragContext';
+import { GlobalDragProvider } from '@/contexts/GlobalDragContext';
 import { Editor } from '@/components/editor/Editor';
 import { GTD_PAGES } from '@/types/workspace';
-import { db } from '@/firebase/client';
-import { collection, addDoc, query, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 import { SmartView } from '@/components/tasks/SmartView';
-import { getTaskMirrorService } from '@/lib/taskMirror';
+// TaskMirrorService removed - using taskMetadata in blocks instead
+import { getBlocks } from '@/lib/firestore';
+import { getWorkspacePages } from '@/lib/workspaceOperations';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
+import { UnifiedSidebar } from '@/components/ui/UnifiedSidebar';
 
 // Extended Page interface for GTD pages with emoji and description
 interface GTDPage extends Page {
@@ -20,21 +22,14 @@ interface GTDPage extends Page {
 
 export function GTDWorkspace() {
   const { user } = useAuth();
+  const { notesWorkspace } = useWorkspace();
   const [gtdPages, setGtdPages] = useState<GTDPage[]>([]);
   const [currentPageId, setCurrentPageId] = useState<string | null>(null);
-  const [showTaskOverview, setShowTaskOverview] = useState(false);
   const [activeView, setActiveView] = useState<'editor' | 'smart'>('editor');
   const [isLoading, setIsLoading] = useState(true);
+  const [taggedNotes, setTaggedNotes] = useState<Array<{ id: string; title: string; count: number }>>([]);
 
-  // Initialize task mirror service
-  useEffect(() => {
-    if (!user || !currentPageId) return;
-    
-    const mirrorService = getTaskMirrorService(user.uid);
-    const unsubscribe = mirrorService.subscribeToPageBlocks(currentPageId);
-    
-    return () => unsubscribe();
-  }, [user, currentPageId]);
+  // TaskMirrorService removed - taskMetadata is now stored directly in blocks
 
   // Listen to GTD pages from Firestore
   useEffect(() => {
@@ -44,64 +39,119 @@ export function GTDWorkspace() {
       return;
     }
 
-    const gtdPagesRef = collection(db, 'users', user.uid, 'workspaces', 'gtd', 'pages');
-    const gtdPagesQuery = query(gtdPagesRef, orderBy('createdAt', 'asc'));
+    // For now, use the static GTD_PAGES configuration
+    // Map them to match the expected structure
+    const staticPages: GTDPage[] = GTD_PAGES.map(page => ({
+      ...page,
+      order: GTD_PAGES.indexOf(page),
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }));
+    
+    setGtdPages(staticPages);
+    setIsLoading(false);
 
-    const unsubscribe = onSnapshot(gtdPagesQuery, (snapshot) => {
-      const pages: GTDPage[] = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as GTDPage));
-      
-      setGtdPages(pages);
-      setIsLoading(false);
-
-      // Auto-select first page if none selected
-      if (pages.length > 0 && !currentPageId) {
-        setCurrentPageId(pages[0].id);
-      }
-    }, (error) => {
-      console.error('Error fetching GTD pages:', error);
-      setIsLoading(false);
-    });
-
-    return unsubscribe;
-  }, [user, currentPageId, setCurrentPageId]);
-
-  // Create GTD pages based on config
-  const handleCreateGTDPages = useCallback(async () => {
-    if (!user) return;
-
-    try {
-      const gtdPagesRef = collection(db, 'users', user.uid, 'workspaces', 'gtd', 'pages');
-      
-      for (const pageConfig of GTD_PAGES) {
-        await addDoc(gtdPagesRef, {
-          title: pageConfig.title,
-          emoji: pageConfig.emoji,
-          description: pageConfig.description,
-          order: 0,
-          isFixed: true,
-          createdAt: Timestamp.now(),
-          updatedAt: Timestamp.now(),
-        });
-      }
-    } catch (error) {
-      console.error('Error creating GTD pages:', error);
+    // Auto-select first page if none selected
+    if (staticPages.length > 0 && !currentPageId) {
+      console.log('Auto-selecting first GTD page:', staticPages[0].id, staticPages[0].title);
+      setCurrentPageId(staticPages[0].id);
     }
-  }, [user]);
+  }, [user, currentPageId]);
+
+  // Compute Tagged Notes: pages in Notes workspace mentioned with @ in any GTD page content
+  useEffect(() => {
+    if (!user || !notesWorkspace || gtdPages.length === 0) return;
+
+    const loadTaggedNotes = async () => {
+      try {
+        // Load all Notes pages
+        const notes = (await getWorkspacePages(user.uid, notesWorkspace.id)) as Page[];
+        if (!notes || notes.length === 0) {
+          setTaggedNotes([]);
+          return;
+        }
+
+        // Build normalized title map
+        const normalize = (s: string) => s
+          .toLowerCase()
+          .replace(/[\p{Emoji_Presentation}\p{Emoji}\p{Extended_Pictographic}]/gu, '')
+          .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        const titleMap = new Map<string, { id: string; title: string }>();
+        for (const p of notes) {
+          const key = normalize(p.title || '');
+          if (key) titleMap.set(key, { id: p.id, title: p.title });
+        }
+
+        const counts = new Map<string, number>();
+
+        // Scan blocks from each GTD page
+        for (const gp of gtdPages) {
+          try {
+            const blocks = await getBlocks(user.uid, gp.id);
+            for (const b of blocks) {
+              const content = (b.content || '').toString();
+              if (!content.includes('@')) continue;
+              // Extract possible mentions: @Title or @[Title]
+              const matches = Array.from(content.matchAll(/@\[([^\]]+)\]|@([A-Za-z0-9][A-Za-z0-9\s]{0,80})/g));
+              if (matches.length === 0) continue;
+              for (const m of matches) {
+                const raw = (m[1] || m[2] || '').trim();
+                if (!raw) continue;
+                const key = normalize(raw);
+                const found = titleMap.get(key);
+                if (found) {
+                  counts.set(found.id, (counts.get(found.id) || 0) + 1);
+                }
+              }
+            }
+          } catch (e) {
+            console.warn('Failed scanning blocks for page', gp.id, e);
+          }
+        }
+
+        const result: Array<{ id: string; title: string; count: number }> = [];
+        for (const [id, count] of counts.entries()) {
+          const info = notes.find(n => n.id === id);
+          if (info) result.push({ id, title: info.title, count });
+        }
+        result.sort((a, b) => b.count - a.count || a.title.localeCompare(b.title));
+        setTaggedNotes(result);
+      } catch (err) {
+        console.error('Error computing tagged notes:', err);
+        setTaggedNotes([]);
+      }
+    };
+
+    loadTaggedNotes();
+  }, [user, notesWorkspace, gtdPages]);
+
 
   const handlePageClick = useCallback((pageId: string) => {
+    console.log('Switching to GTD page:', pageId);
     setCurrentPageId(pageId);
-    setShowTaskOverview(false); // Close task overview when selecting a page
-  }, [setCurrentPageId]);
+    setActiveView('editor');
+  }, []);
 
   if (isLoading) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-2xl mb-2">⏳</div>
-          <div className="text-gray-600">Loading GTD workspace...</div>
+      <div className="flex h-screen w-full">
+        <div className="w-72 bg-[#FBFBFA] border-r border-gray-200/80 h-screen flex items-center justify-center">
+          <div className="animate-pulse">
+            <div className="h-8 w-32 bg-gray-200 rounded mb-4"></div>
+            <div className="space-y-2">
+              <div className="h-10 w-48 bg-gray-200 rounded"></div>
+              <div className="h-10 w-48 bg-gray-200 rounded"></div>
+            </div>
+          </div>
+        </div>
+        <div className="flex-1 bg-white flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading GTD workspace...</p>
+          </div>
         </div>
       </div>
     );
@@ -119,250 +169,81 @@ export function GTDWorkspace() {
     );
   }
 
-  if (gtdPages.length === 0) {
+
+  // Don't render with GlobalDragProvider until we have a valid page
+  if (!currentPageId && activeView !== 'smart') {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center max-w-md">
-          <div className="text-6xl mb-4">🎯</div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Welcome to GTD</h1>
-          <p className="text-gray-600 mb-6">
-            Get started with the Getting Things Done methodology by creating your workflow pages.
-          </p>
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <h3 className="font-medium text-blue-900 mb-2">GTD Pages Include:</h3>
-            <ul className="text-sm text-blue-800 space-y-1 text-left">
-              <li>📥 <strong>Inbox:</strong> Quick capture of thoughts, tasks, and ideas</li>
-              <li>⚡ <strong>Next Actions:</strong> Single concrete actions you can take right now</li>
-              <li>⏳ <strong>Waiting For:</strong> Things delegated to others or pending external events</li>
-              <li>� <strong>Someday/Maybe:</strong> Ideas and possibilities for potential future action</li>
-            </ul>
+      <div className="flex h-screen w-full">
+        {/* Unified Sidebar */}
+        <UnifiedSidebar 
+          currentPageId={currentPageId}
+          onPageSelect={handlePageClick}
+          onTasksViewSelect={() => setActiveView('smart')}
+          isSmartViewActive={activeView === 'smart'}
+          mode="gtd"
+        />
+        
+        {/* Main Content */}
+        <div className="flex-1 bg-white overflow-y-auto">
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Select a GTD page</h3>
+              <p className="text-gray-500">Choose a page from the sidebar to start organizing your tasks.</p>
+            </div>
           </div>
-          <button
-            onClick={handleCreateGTDPages}
-            className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-          >
-            Create GTD Pages
-          </button>
         </div>
       </div>
     );
   }
 
+  const currentPage = gtdPages.find(p => p.id === currentPageId);
+
   return (
     <GlobalDragProvider currentPageId={currentPageId || ''}>
-      <div className="flex flex-1">
-        {/* GTD Sidebar with Drop Zones */}
-        <GTDSidebar 
-          gtdPages={gtdPages}
+      <div className="flex h-screen w-full">
+        {/* Unified Sidebar */}
+        <UnifiedSidebar 
           currentPageId={currentPageId}
-          activeView={activeView}
-          onPageClick={handlePageClick}
-          onViewChange={setActiveView}
+          onPageSelect={handlePageClick}
+          onTasksViewSelect={() => setActiveView('smart')}
+          isSmartViewActive={activeView === 'smart'}
+          mode="gtd"
         />
         
         {/* Main Content */}
-        <div className="flex-1 min-h-screen bg-white">
+        <div className="flex-1 bg-white overflow-y-auto">
           {activeView === 'smart' ? (
             <SmartView />
-          ) : currentPageId ? (
+          ) : currentPageId && currentPage ? (
             <BlocksProvider pageId={currentPageId}>
-              <Editor pageId={currentPageId} />
-            </BlocksProvider>
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Select a GTD page</h3>
-                <p className="text-gray-500">Choose a page from the sidebar to start organizing your tasks.</p>
+              <div className="flex flex-col h-full">
+                {/* Page Title Header */}
+                <div className="px-8 py-6 border-b border-gray-200 bg-white">
+                  <div className="flex items-center gap-3">
+                    {currentPage.emoji && (
+                      <span className="text-3xl">{currentPage.emoji}</span>
+                    )}
+                    <h1 className="text-3xl font-bold text-gray-900">
+                      {currentPage.title || 'Untitled'}
+                    </h1>
+                  </div>
+                  {currentPage.description && (
+                    <p className="text-gray-600 mt-2 ml-12">
+                      {currentPage.description}
+                    </p>
+                  )}
+                </div>
+                {/* Editor */}
+                <div className="flex-1 overflow-y-auto">
+                  <Editor pageId={currentPageId} />
+                </div>
               </div>
-            </div>
-          )}
+            </BlocksProvider>
+          ) : null}
         </div>
       </div>
     </GlobalDragProvider>
   );
 }
 
-// GTD Sidebar Component with Drop Zones
-interface GTDSidebarProps {
-  gtdPages: GTDPage[];
-  currentPageId: string | null;
-  activeView: 'editor' | 'smart';
-  onPageClick: (pageId: string) => void;
-  onViewChange: (view: 'editor' | 'smart') => void;
-}
 
-function GTDSidebar({ gtdPages, currentPageId, activeView, onPageClick, onViewChange }: GTDSidebarProps) {
-  return (
-    <div className="w-64 bg-white border-r border-gray-200 h-screen overflow-y-auto">
-      <div className="p-4">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">🎯 GTD Workflow</h2>
-        
-        {/* View Toggles */}
-        <div className="mb-4 space-y-2">
-          <button
-            onClick={() => onViewChange('smart')}
-            className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-all ${
-              activeView === 'smart' 
-                ? 'bg-blue-50 border-blue-200 text-blue-700' 
-                : 'border-gray-200 hover:bg-gray-50'
-            }`}
-          >
-            <span className="text-lg">🧠</span>
-            <div className="flex-1 text-left">
-              <div className="font-medium">Smart View</div>
-              <div className="text-xs text-gray-500">Board, table, priority & AI chat</div>
-            </div>
-          </button>
-        </div>
-        
-        {/* GTD Pages from Firestore */}
-        <div className="space-y-1">
-          {gtdPages.length > 0 ? (
-            gtdPages.map((page) => (
-              <GTDPageItem
-                key={page.id}
-                page={page}
-                isActive={currentPageId === page.id && activeView === 'editor'}
-                onClick={() => {
-                  onPageClick(page.id);
-                  onViewChange('editor');
-                }}
-              />
-            ))
-          ) : (
-            <div className="text-center py-4 text-gray-500 text-sm">
-              No GTD pages found
-            </div>
-          )}
-        </div>
-
-        {/* Tagged Notes Section */}
-        <div className="mt-8">
-          <h3 className="text-sm font-medium text-gray-500 mb-3">📎 Tagged Notes</h3>
-          <div className="text-sm text-gray-400">
-            Notes from your workspace will appear here when tagged
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// GTD Page Item with Drop Zone
-interface GTDPageItemProps {
-  page: GTDPage;
-  isActive: boolean;
-  onClick: () => void;
-}
-
-function GTDPageItem({ page, isActive, onClick }: GTDPageItemProps) {
-  const { draggedBlock, isDragging, isValidDropTarget, moveBlockToNewPage } = useGlobalDrag();
-  const [isDraggedOver, setIsDraggedOver] = useState(false);
-  
-  const canDrop = isDragging && isValidDropTarget(page.id);
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    if (canDrop) {
-      setIsDraggedOver(true);
-    }
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    // Only remove drag over if we're actually leaving the element
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX;
-    const y = e.clientY;
-    
-    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
-      setIsDraggedOver(false);
-    }
-  };
-
-  const handleDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDraggedOver(false);
-    
-    if (canDrop && draggedBlock) {
-      console.log(`Moving block from ${draggedBlock.sourcePageId} to ${page.id}`);
-      const success = await moveBlockToNewPage(page.id, 0);
-      if (success) {
-        console.log(`Successfully moved block to ${page.title}`);
-      }
-    }
-  };
-
-  return (
-    <div
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-      className={`w-full transition-all ${
-        isDraggedOver && canDrop
-          ? 'ring-2 ring-blue-500 ring-opacity-50 bg-blue-50'
-          : ''
-      }`}
-    >
-      <button
-        onClick={onClick}
-        className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-all text-left ${
-          isActive 
-            ? 'bg-blue-50 border-blue-200 text-blue-700' 
-            : isDraggedOver && canDrop
-            ? 'border-blue-300 bg-blue-25'
-            : 'border-gray-200 hover:bg-gray-50'
-        }`}
-      >
-        <span className="text-lg">{page.emoji}</span>
-        <div className="flex-1">
-          <div className="font-medium">{page.title}</div>
-          {page.description && (
-            <div className="text-xs text-gray-500">{page.description}</div>
-          )}
-          {isDraggedOver && canDrop && (
-            <div className="text-xs text-blue-600 font-medium mt-1">
-              Drop to move block here
-            </div>
-          )}
-        </div>
-      </button>
-    </div>
-  );
-}
-
-// Task Overview Component
-interface TaskOverviewViewProps {
-  gtdPages: GTDPage[];
-}
-
-function TaskOverviewView({ gtdPages }: TaskOverviewViewProps) {
-  return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">📊 Task Overview</h1>
-        <p className="text-gray-600">View and manage tasks across all your GTD pages</p>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {gtdPages.map((page) => (
-          <div key={page.id} className="bg-white border border-gray-200 rounded-lg p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-lg">{page.emoji}</span>
-              <h3 className="font-medium text-gray-900">{page.title}</h3>
-            </div>
-            
-            <div className="text-sm text-gray-500 mb-4">
-              {page.description}
-            </div>
-            
-            {/* TODO: Add task summary/preview here */}
-            <div className="text-xs text-gray-400">
-              Task summary coming soon...
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}

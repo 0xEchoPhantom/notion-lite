@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { TASK_RULES, TaskCompany } from '@/types/task';
-import { collection, query, limit, getDocs, orderBy } from 'firebase/firestore';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { TaskCompany } from '@/types/task';
+import { collection, query, limit, getDocs, orderBy, doc, getDoc, where } from 'firebase/firestore';
 import { db } from '@/firebase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -30,169 +30,126 @@ export function TokenSuggest({ isOpen, position, searchQuery, onSelect, onClose 
   const menuRef = useRef<HTMLDivElement>(null);
   const queryLower = searchQuery.toLowerCase();
 
-  // Load suggestions based on query
-  useEffect(() => {
-    if (!isOpen) return;
-    
-    loadSuggestions();
-  }, [searchQuery, isOpen, user]);
-
-  const loadSuggestions = async () => {
-    const allSuggestions: Suggestion[] = [];
-    
-    // Templates and common values based on what user is typing
-    if (queryLower === '' || 'value'.startsWith(queryLower) || queryLower.match(/^\d/) || 
-        'giá trị'.includes(queryLower) || 'tiền'.includes(queryLower)) {
-      // Value suggestions with Vietnamese
-      allSuggestions.push(
-        { type: 'template', label: '@10K', value: '@10K', icon: '💰', description: '10 nghìn USD ($10,000)' },
-        { type: 'template', label: '@50K', value: '@50K', icon: '💰', description: '50 nghìn USD ($50,000)' },
-        { type: 'template', label: '@100K', value: '@100K', icon: '💵', description: '100 nghìn USD ($100,000)' },
-        { type: 'template', label: '@500K', value: '@500K', icon: '💵', description: '500 nghìn USD ($500,000)' },
-        { type: 'template', label: '@1M', value: '@1M', icon: '💎', description: '1 triệu USD ($1 million)' },
-        { type: 'template', label: '@5M', value: '@5M', icon: '💎', description: '5 triệu USD ($5 million)' },
-        { type: 'template', label: '@10M', value: '@10M', icon: '🚀', description: '10 triệu USD ($10 million)' },
-      );
-    }
-    
-    if (queryLower === '' || 'effort'.startsWith(queryLower) || queryLower.match(/^\d+[hdwm]?$/)) {
-      // Effort suggestions with Vietnamese
-      allSuggestions.push(
-        { type: 'template', label: '@15m', value: '@0.25h', icon: '⚡', description: '15 phút (15 minutes)' },
-        { type: 'template', label: '@30m', value: '@0.5h', icon: '⏱️', description: '30 phút (30 minutes)' },
-        { type: 'template', label: '@1h', value: '@1h', icon: '⏱️', description: '1 giờ (1 hour)' },
-        { type: 'template', label: '@2h', value: '@2h', icon: '⏱️', description: '2 giờ (2 hours)' },
-        { type: 'template', label: '@4h', value: '@4h', icon: '⏱️', description: '4 giờ (4 hours)' },
-        { type: 'template', label: '@1d', value: '@1d', icon: '📅', description: '1 ngày (8 hours)' },
-        { type: 'template', label: '@1w', value: '@1w', icon: '📆', description: '1 tuần (40 hours)' },
-      );
-    }
-    
-    if (queryLower === '' || 
-        'due'.startsWith(queryLower) || 
-        'today'.startsWith(queryLower) || 'tomorrow'.startsWith(queryLower) ||
-        'hôm nay'.includes(queryLower) || 'ngày mai'.includes(queryLower) ||
-        'tmr'.startsWith(queryLower) || 'td'.startsWith(queryLower)) {
-      // Due date suggestions with Vietnamese and shortcuts
-      allSuggestions.push(
-        { type: 'template', label: '@today (@td)', value: '@today', icon: '📅', description: 'Hôm nay (today)' },
-        { type: 'template', label: '@tomorrow (@tmr)', value: '@tomorrow', icon: '📅', description: 'Ngày mai (tomorrow)' },
-        { type: 'template', label: '@monday (@mon)', value: '@monday', icon: '📅', description: 'Thứ 2 tới (Next Monday)' },
-        { type: 'template', label: '@tuesday (@tue)', value: '@tuesday', icon: '📅', description: 'Thứ 3 tới (Next Tuesday)' },
-        { type: 'template', label: '@wednesday (@wed)', value: '@wednesday', icon: '📅', description: 'Thứ 4 tới (Next Wednesday)' },
-        { type: 'template', label: '@thursday (@thu)', value: '@thursday', icon: '📅', description: 'Thứ 5 tới (Next Thursday)' },
-        { type: 'template', label: '@friday (@fri)', value: '@friday', icon: '📅', description: 'Thứ 6 tới (Next Friday)' },
-        { type: 'template', label: '@saturday (@sat)', value: '@saturday', icon: '📅', description: 'Thứ 7 tới (Next Saturday)' },
-        { type: 'template', label: '@sunday (@sun)', value: '@sunday', icon: '📅', description: 'Chủ nhật tới (Next Sunday)' },
-      );
-    }
-    
-    // Company suggestions with Vietnamese
-    TASK_RULES.COMPANIES.forEach(company => {
-      if (queryLower === '' || company.toLowerCase().includes(queryLower) || 
-          'company'.startsWith(queryLower) || 'công ty'.includes(queryLower)) {
-        allSuggestions.push({
-          type: 'company',
-          label: `@${company}`,
-          value: `@${company}`,
-          icon: getCompanyIcon(company),
-          description: getCompanyDescription(company)
-        });
-      }
-    });
-    
-    // Common Vietnamese names
-    const commonVietnameseNames = ['Nam', 'Linh', 'Minh', 'Anh', 'Huy', 'Duc', 'Mai', 'Lan', 'Thao', 'Tuan'];
-    commonVietnameseNames.forEach(name => {
-      if (queryLower === '' || name.toLowerCase().includes(queryLower)) {
-        allSuggestions.push({
-          type: 'assignee',
-          label: `@${name}`,
-          value: `@${name}`,
-          icon: '👨‍💼',
-          description: 'Thành viên nhóm (Team member)'
-        });
-      }
-    });
+  // Memoize loader to avoid exhaustive-deps warning
+  const loadSuggestions = useCallback(async () => {
+  const allSuggestions: Suggestion[] = [];
+  const intendedType = inferType(queryLower);
     
     // Load historical values from user's tasks
     if (user) {
       try {
-        const tasksRef = collection(db, 'users', user.uid, 'tasks');
-        const recentTasks = await getDocs(query(tasksRef, orderBy('updatedAt', 'desc'), limit(100)));
+        // Load team members from delegation settings
+        const settingsDoc = await getDoc(doc(db, 'users', user.uid, 'settings', 'delegation'));
+        if (settingsDoc.exists()) {
+          const settings = settingsDoc.data();
+          if (settings?.teamMembers && Array.isArray(settings.teamMembers)) {
+            settings.teamMembers.forEach((member: { name: string; email?: string }) => {
+              if (member.name) {
+                const matchesQuery = !queryLower || member.name.toLowerCase().includes(queryLower);
+                const matchesType = !intendedType || intendedType === 'assignee';
+                if (matchesQuery && matchesType) {
+                  allSuggestions.push({
+                    type: 'assignee',
+                    label: `@${member.name}`,
+                    value: `@${member.name}`,
+                    icon: '👤',
+                    description: member.role || 'Team member',
+                    count: 1000 // High priority for configured team members
+                  });
+                }
+              }
+            });
+          }
+        }
+        // Query blocks with taskMetadata instead of tasks collection
+        const blocksRef = collection(db, 'users', user.uid, 'blocks');
+        // Simplified query to avoid index issues - get all blocks and filter client-side
+        const allBlocks = await getDocs(query(
+          blocksRef, 
+          orderBy('updatedAt', 'desc'), 
+          limit(500)
+        ));
         
-        const valueSet = new Set<number>();
-        const effortSet = new Set<number>();
-        const assigneeSet = new Set<string>();
-        
-        recentTasks.forEach(doc => {
+        // Filter for todo-list blocks client-side
+        const todoBlocks = allBlocks.docs.filter(doc => {
           const data = doc.data();
-          if (data.value && !valueSet.has(data.value)) {
-            valueSet.add(data.value);
-          }
-          if (data.effort && !effortSet.has(data.effort)) {
-            effortSet.add(data.effort);
-          }
-          if (data.assignee && !assigneeSet.has(data.assignee)) {
-            assigneeSet.add(data.assignee);
+          return data.type === 'todo-list';
+        });
+
+        const valueCounts = new Map<number, number>();
+        const effortCounts = new Map<number, number>();
+        const assigneeCounts = new Map<string, number>();
+        const dueCounts = new Map<string, number>(); // store token form YYYY-MM-DD
+        const companyCounts = new Map<string, number>();
+
+        todoBlocks.forEach(docSnap => {
+          const blockData = docSnap.data();
+          const data = blockData.taskMetadata || {};
+          
+          if (data.value) valueCounts.set(data.value, (valueCounts.get(data.value) || 0) + 1);
+          if (data.effort) effortCounts.set(data.effort, (effortCounts.get(data.effort) || 0) + 1);
+          if (data.assignee) assigneeCounts.set(String(data.assignee), (assigneeCounts.get(String(data.assignee)) || 0) + 1);
+          if (data.company) companyCounts.set(String(data.company), (companyCounts.get(String(data.company)) || 0) + 1);
+          if (data.dueDate) {
+            try {
+              const d = coerceToDate(data.dueDate);
+              const iso = toISODate(d);
+              dueCounts.set(iso, (dueCounts.get(iso) || 0) + 1);
+            } catch {}
           }
         });
-        
-        // Add recent values
-        Array.from(valueSet).slice(0, 3).forEach(val => {
+
+        // Build suggestions by type, filter and sort by count desc
+        const pushIfMatch = (s: Suggestion) => {
+          const q = queryLower;
+          const matchesQuery = !q || s.label.toLowerCase().includes(q) || s.value.toLowerCase().includes(q);
+          const matchesType = !intendedType || s.type === intendedType;
+          if (matchesQuery && matchesType) allSuggestions.push(s);
+        };
+
+        valueCounts.forEach((count, val) => {
           const formatted = formatValueForDisplay(val);
-          if (queryLower === '' || formatted.toLowerCase().includes(queryLower)) {
-            allSuggestions.push({
-              type: 'value',
-              label: `@${formatted}`,
-              value: `@${formatted}`,
-              icon: '💵',
-              description: 'Recent value'
-            });
-          }
+          pushIfMatch({ type: 'value', label: `@${formatted}`, value: `@${formatted}`, icon: '💵', description: `Used ${count}×`, count });
         });
-        
-        // Add recent efforts
-        Array.from(effortSet).slice(0, 3).forEach(val => {
-          const formatted = formatEffortForDisplay(val);
-          if (queryLower === '' || formatted.toLowerCase().includes(queryLower)) {
-            allSuggestions.push({
-              type: 'effort',
-              label: `@${formatted}`,
-              value: `@${formatted}`,
-              icon: '⏱️',
-              description: 'Recent effort'
-            });
-          }
+        effortCounts.forEach((count, hrs) => {
+          const formatted = formatEffortForDisplay(hrs);
+          pushIfMatch({ type: 'effort', label: `@${formatted}`, value: `@${formatted}`, icon: '⏱️', description: `Used ${count}×`, count });
         });
-        
-        // Add recent assignees
-        Array.from(assigneeSet).slice(0, 5).forEach(assignee => {
-          if (queryLower === '' || assignee.toLowerCase().includes(queryLower)) {
-            allSuggestions.push({
-              type: 'assignee',
-              label: `@${assignee}`,
-              value: `@${assignee}`,
-              icon: '👤',
-              description: 'Team member'
-            });
-          }
+        dueCounts.forEach((count, iso) => {
+          pushIfMatch({ type: 'due', label: `@${iso}`, value: `@${iso}`, icon: '📅', description: `Used ${count}×`, count });
+        });
+        // Only add historical assignees if no team members are configured
+        const hasTeamMembers = allSuggestions.some(s => s.type === 'assignee' && s.count === 1000);
+        if (!hasTeamMembers) {
+          assigneeCounts.forEach((count, name) => {
+            pushIfMatch({ type: 'assignee', label: `@${name}`, value: `@${name}`, icon: '👤', description: `Used ${count}×`, count });
+          });
+        }
+        companyCounts.forEach((count, comp) => {
+          pushIfMatch({ type: 'company', label: `@${comp}`, value: `@${comp}`, icon: getCompanyIcon(comp as TaskCompany), description: `Used ${count}×`, count });
         });
       } catch (error) {
         console.error('Error loading historical suggestions:', error);
       }
     }
     
-    // Filter and dedupe
-    const seen = new Set<string>();
-    const filtered = allSuggestions.filter(s => {
-      if (seen.has(s.value)) return false;
-      seen.add(s.value);
-      return true;
-    });
-    
-    setSuggestions(filtered.slice(0, 8)); // Limit to 8 suggestions
-  };
+    // Dedupe by value and sort by count desc (historical frequency), fallback by label
+    const seen = new Map<string, Suggestion>();
+    for (const s of allSuggestions) {
+      const existing = seen.get(s.value);
+      if (!existing || ((s.count || 0) > (existing.count || 0))) {
+        seen.set(s.value, s);
+      }
+    }
+
+    const sorted = Array.from(seen.values()).sort((a, b) => (b.count || 0) - (a.count || 0) || a.label.localeCompare(b.label));
+    setSuggestions(sorted.slice(0, 8));
+  }, [queryLower, user]);
+  // Load suggestions based on query
+  useEffect(() => {
+    if (!isOpen) return;
+    loadSuggestions();
+  }, [searchQuery, isOpen, loadSuggestions]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -285,6 +242,31 @@ export function TokenSuggest({ isOpen, position, searchQuery, onSelect, onClose 
 }
 
 // Helper functions
+function coerceToDate(input: unknown): Date {
+  if (input instanceof Date) return input;
+  if (typeof input === 'string' || typeof input === 'number') return new Date(input);
+  const maybe = input as { toDate?: () => Date } | undefined;
+  if (maybe && typeof maybe.toDate === 'function') return maybe.toDate();
+  return new Date(NaN);
+}
+function inferType(q: string): Suggestion['type'] | undefined {
+  if (!q) return undefined;
+  // explicit prefixes
+  if (q.startsWith('value:') || q.startsWith('v:')) return 'value';
+  if (q.startsWith('effort:') || q.startsWith('e:')) return 'effort';
+  if (q.startsWith('due:') || q.startsWith('d:')) return 'due';
+  if (q.startsWith('company:') || q.startsWith('c:')) return 'company';
+  if (q.startsWith('assignee:') || q.startsWith('a:')) return 'assignee';
+  // patterns
+  if (/^\d+(?:\.\d+)?[kmb]?$/i.test(q)) return 'value';
+  if (/^\d+(?:\.\d+)?[hdwm]$/i.test(q)) return 'effort';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(q) || /^(today|tomorrow|td|tmr|mon|tue|wed|thu|fri|sat|sun)$/i.test(q)) return 'due';
+  // all uppercase short looks like company, but we only include historical ones anyway
+  if (/^[A-Z]{2,8}$/.test(q)) return 'company';
+  // default leave undefined (assignee/tag-like), but we removed tags
+  return undefined;
+}
+
 function getCompanyIcon(company: TaskCompany): string {
   const icons: Record<TaskCompany, string> = {
     'AIC': '🏢',
@@ -294,17 +276,6 @@ function getCompanyIcon(company: TaskCompany): string {
     'PERSONAL': '👤'
   };
   return icons[company] || '🏢';
-}
-
-function getCompanyDescription(company: TaskCompany): string {
-  const descriptions: Record<TaskCompany, string> = {
-    'AIC': 'Công ty AI (AI Company)',
-    'WN': 'Mạng Web (Web Network)',
-    'BXV': 'Kinh doanh (Business Ventures)',
-    'EA': 'Phần mềm doanh nghiệp (Enterprise Apps)',
-    'PERSONAL': 'Dự án cá nhân (Personal projects)'
-  };
-  return descriptions[company] || company;
 }
 
 function formatValueForDisplay(value: number): string {
@@ -325,4 +296,10 @@ function formatEffortForDisplay(hours: number): string {
     return `${minutes.toFixed(0)}m`;
   }
   return `${hours}h`;
+}
+
+function toISODate(date: Date): string {
+  const d = new Date(date);
+  d.setHours(0,0,0,0);
+  return d.toISOString().split('T')[0];
 }

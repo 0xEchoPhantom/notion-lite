@@ -5,6 +5,7 @@ import { Task } from '@/types/task';
 import { geminiAssistant, ActionSuggestion, ChatContext } from '@/lib/ai/gemini';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import type { AIHistoryMessage } from '@/lib/ai/gemini';
 
 interface ChatMessage {
   id: string;
@@ -79,8 +80,8 @@ export function AIChat({ tasks, currentView, selectedTasks }: AIChatProps) {
       };
 
       // Build minimal history for model (user/model roles)
-      const history = nextMessages.map(m => ({
-        role: m.type === 'user' ? 'user' : 'model',
+      const history: AIHistoryMessage[] = nextMessages.map(m => ({
+        role: m.type === 'user' ? ('user' as const) : ('model' as const),
         content: m.content
       }));
 

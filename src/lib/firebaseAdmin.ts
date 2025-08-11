@@ -92,7 +92,19 @@ export const adminOperations = {
     let operationCount = 0;
     
     try {
-      // Delete user's pages and their blocks
+      // Delete blocks from unified collection
+      const unifiedBlocksSnapshot = await adminDb
+        .collection('users')
+        .doc(userId)
+        .collection('blocks')
+        .get();
+      
+      unifiedBlocksSnapshot.docs.forEach(blockDoc => {
+        batch.delete(blockDoc.ref);
+        operationCount++;
+      });
+      
+      // Delete user's pages
       const pagesSnapshot = await adminDb
         .collection('users')
         .doc(userId)
@@ -100,9 +112,9 @@ export const adminOperations = {
         .get();
       
       for (const pageDoc of pagesSnapshot.docs) {
-        // Delete page blocks first
-        const blocksSnapshot = await pageDoc.ref.collection('blocks').get();
-        blocksSnapshot.docs.forEach(blockDoc => {
+        // Check for blocks in old location (pages/*/blocks)
+        const oldBlocksSnapshot = await pageDoc.ref.collection('blocks').get();
+        oldBlocksSnapshot.docs.forEach(blockDoc => {
           batch.delete(blockDoc.ref);
           operationCount++;
         });
@@ -111,6 +123,34 @@ export const adminOperations = {
         batch.delete(pageDoc.ref);
         operationCount++;
       }
+      
+      // Delete GTD blocks from old location
+      const gtdRef = adminDb.collection('users').doc(userId).collection('gtd');
+      const gtdSnapshot = await gtdRef.get();
+      
+      for (const gtdDoc of gtdSnapshot.docs) {
+        const gtdBlocksSnapshot = await gtdDoc.ref.collection('blocks').get();
+        gtdBlocksSnapshot.docs.forEach(blockDoc => {
+          batch.delete(blockDoc.ref);
+          operationCount++;
+        });
+        
+        // Delete GTD collection document
+        batch.delete(gtdDoc.ref);
+        operationCount++;
+      }
+      
+      // Delete tasks
+      const tasksSnapshot = await adminDb
+        .collection('users')
+        .doc(userId)
+        .collection('tasks')
+        .get();
+      
+      tasksSnapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+        operationCount++;
+      });
       
       // Delete archived pages
       const archivedPagesSnapshot = await adminDb
@@ -132,6 +172,18 @@ export const adminOperations = {
         .get();
       
       archivedBlocksSnapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+        operationCount++;
+      });
+      
+      // Delete workspaces
+      const workspacesSnapshot = await adminDb
+        .collection('users')
+        .doc(userId)
+        .collection('workspaces')
+        .get();
+      
+      workspacesSnapshot.docs.forEach(doc => {
         batch.delete(doc.ref);
         operationCount++;
       });
@@ -203,10 +255,21 @@ export const adminOperations = {
       const pagesSnapshot = await userDoc.ref.collection('pages').get();
       totalPages += pagesSnapshot.size;
       
-      // Count blocks
+      // Count blocks from unified collection
+      const unifiedBlocksSnapshot = await userDoc.ref.collection('blocks').get();
+      totalBlocks += unifiedBlocksSnapshot.size;
+      
+      // Also count blocks from old locations
       for (const pageDoc of pagesSnapshot.docs) {
-        const blocksSnapshot = await pageDoc.ref.collection('blocks').get();
-        totalBlocks += blocksSnapshot.size;
+        const oldBlocksSnapshot = await pageDoc.ref.collection('blocks').get();
+        totalBlocks += oldBlocksSnapshot.size;
+      }
+      
+      // Count GTD blocks from old location
+      const gtdSnapshot = await userDoc.ref.collection('gtd').get();
+      for (const gtdDoc of gtdSnapshot.docs) {
+        const gtdBlocksSnapshot = await gtdDoc.ref.collection('blocks').get();
+        totalBlocks += gtdBlocksSnapshot.size;
       }
       
       // Count archived items
@@ -242,11 +305,21 @@ export const adminOperations = {
     const pagesSnapshot = await userRef.collection('pages').get();
     const pagesCount = pagesSnapshot.size;
     
-    // Count blocks
-    let blocksCount = 0;
+    // Count blocks from unified collection
+    const unifiedBlocksSnapshot = await userRef.collection('blocks').get();
+    let blocksCount = unifiedBlocksSnapshot.size;
+    
+    // Also count blocks from old locations
     for (const pageDoc of pagesSnapshot.docs) {
-      const blocksSnapshot = await pageDoc.ref.collection('blocks').get();
-      blocksCount += blocksSnapshot.size;
+      const oldBlocksSnapshot = await pageDoc.ref.collection('blocks').get();
+      blocksCount += oldBlocksSnapshot.size;
+    }
+    
+    // Count GTD blocks from old location
+    const gtdSnapshot = await userRef.collection('gtd').get();
+    for (const gtdDoc of gtdSnapshot.docs) {
+      const gtdBlocksSnapshot = await gtdDoc.ref.collection('blocks').get();
+      blocksCount += gtdBlocksSnapshot.size;
     }
     
     // Count archived items

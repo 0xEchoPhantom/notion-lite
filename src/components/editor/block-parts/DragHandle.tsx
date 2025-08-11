@@ -1,30 +1,39 @@
 import React from 'react';
 import clsx from 'clsx';
+import { useCrossPageDrag } from '@/contexts/CrossPageDragContext';
 
 interface DragHandleProps {
   isSelected: boolean;
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: (e: React.DragEvent) => void;
+  onSelect?: () => void;
 }
 
-export const DragHandle: React.FC<DragHandleProps> = ({ isSelected, onDragStart, onDragEnd }) => {
+export const DragHandle: React.FC<DragHandleProps> = ({ isSelected, onDragStart, onDragEnd, onSelect }) => {
+  const { isDraggingCrossPage } = useCrossPageDrag();
   return (
     <div
       className={clsx(
         'transition-all cursor-grab active:cursor-grabbing',
-        'flex items-center justify-center w-6 h-6 text-gray-500 hover:text-gray-700',
+        'flex items-center justify-center w-6 h-6',
         'hover:bg-gray-200 rounded flex-shrink-0 mr-1 active:bg-gray-300',
-        isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+        // Show on hover or when selected
+        isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+        isDraggingCrossPage ? 'text-purple-500 hover:text-purple-700' : 'text-gray-500 hover:text-gray-700'
       )}
       draggable
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
-      title="Click and drag to move block"
+      title={isDraggingCrossPage ? "Drag to a page in the sidebar" : "Click to select • Drag to move"}
       onMouseDown={(e) => {
         e.stopPropagation();
       }}
       onClick={(e) => {
         e.stopPropagation();
+        // Select block when clicking on drag handle
+        if (onSelect) {
+          onSelect();
+        }
       }}
     >
       <svg width="14" height="18" viewBox="0 0 14 18" fill="currentColor" className="pointer-events-none">

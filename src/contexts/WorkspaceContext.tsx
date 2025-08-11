@@ -71,6 +71,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
   // Switch workspace mode
   const switchMode = (mode: WorkspaceMode) => {
+    if (mode === currentMode) return; // Prevent unnecessary switches
+    
     console.log('WorkspaceProvider: Switching to mode:', mode);
     setCurrentMode(mode);
     

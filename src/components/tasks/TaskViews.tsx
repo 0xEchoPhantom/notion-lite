@@ -1,12 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Task, TaskStatus, getTaskUrgency, canMoveToNext, TASK_RULES } from '@/types/task';
+import { Task, TaskStatus, getTaskUrgency, canMoveToNext } from '@/types/task';
 import { formatValue, formatEffort, formatDueDate } from '@/utils/smartTokenParser';
 import { useAuth } from '@/contexts/AuthContext';
-import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, serverTimestamp, getDocs, addDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, serverTimestamp, addDoc } from 'firebase/firestore';
 import { db } from '@/firebase/client';
-import { getAuth } from 'firebase/auth';
 
 // Top ROI View Component
 export function TopROIView() {
@@ -28,15 +27,13 @@ export function TopROIView() {
         // Calculate ROI with defaults for missing data
         const value = data.value || 0;
         const effort = data.effort || 1; // Default to 1 hour if no effort specified
-        const probability = data.probability || 1; // Default to 100% probability
-        
         // Calculate ROI even with partial data
         let roi = 0;
         if (value > 0 && effort > 0) {
-          roi = (value * probability) / effort;
+          roi = value / effort;
         } else if (value > 0) {
           // If only value is specified, assume minimal effort (0.1h)
-          roi = (value * probability) / 0.1;
+          roi = value / 0.1;
         }
         
         // Include task if it has any meaningful data
@@ -175,7 +172,7 @@ export function TaskBoardView() {
           id: doc.id,
           ...data,
           roi: data.value && data.effort ? 
-            (data.value * (data.probability || 1)) / data.effort : null
+            data.value / data.effort : null
         } as Task;
         
         if (statuses[task.status]) {
@@ -204,10 +201,6 @@ export function TaskBoardView() {
     setMoveError(null);
   };
 
-  const handleDragEnd = () => {
-    setDraggedTask(null);
-    setDragOverStatus(null);
-  };
 
   const handleDragOver = (e: React.DragEvent, status: TaskStatus) => {
     e.preventDefault();

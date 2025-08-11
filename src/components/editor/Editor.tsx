@@ -1,19 +1,25 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { SimpleBlock } from './SimpleBlock';
 import { useBlocksWithKeyboard } from '@/hooks/useBlocks';
 import { useBlocks } from '@/contexts/BlocksContext';
 import { ShortcutHelper } from '@/components/ui/ShortcutHelper';
 import { SelectionProvider, useSelection } from '@/contexts/SelectionContext';
+// import { HistoryProvider, useHistory } from '@/contexts/HistoryContext';
 import { BlockType as BType } from '@/types/index';
+import { useCrossPageDrag } from '@/contexts/CrossPageDragContext';
 
 interface EditorProps {
   pageId: string;
 }
 
+interface EditorInnerProps {
+  pageId: string;
+}
+
 // Inner editor component that uses selection context
-const EditorInner: React.FC = () => {
+const EditorInner: React.FC<EditorInnerProps> = ({ pageId }) => {
   const { blocks, loading } = useBlocks();
   const { 
     createNewBlock, 
@@ -25,18 +31,18 @@ const EditorInner: React.FC = () => {
     outdentBlock,
     reorderBlocks
   } = useBlocksWithKeyboard();
+  const { startCrossPageDrag, endCrossPageDrag, isDraggingCrossPage } = useCrossPageDrag();
   
   // Selection context
   const {
     selectedBlockIds,
+    isSelecting,
     selectBlock,
     clearSelection,
     isBlockSelected,
-    startMouseSelection,
-    updateMouseSelection,
-    endMouseSelection,
     handleKeyboardSelection
   } = useSelection();
+  // const { undo, redo } = useHistory();
   
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
@@ -129,7 +135,7 @@ const EditorInner: React.FC = () => {
       focusBlockId = blocks[currentBlockIndex + 1].id;
     }
     
-    await deleteBlockById(blockId);
+  await deleteBlockById(blockId);
     
     if (focusBlockId) {
       setTimeout(() => {
@@ -210,13 +216,12 @@ const EditorInner: React.FC = () => {
 
   // Handle global keyboard events
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    const { key } = e;
     const handled = handleKeyboardSelection(e);
     if (handled) return;
 
     // Handle bulk operations on selected blocks
     if (selectedBlockIds.size > 1) {
-      const { key } = e;
-
       // Delete multiple blocks
       if (key === 'Delete' || key === 'Backspace') {
         e.preventDefault();
@@ -258,13 +263,26 @@ const EditorInner: React.FC = () => {
   // Drag and drop handlers
   const handleDragStart = useCallback((blockId: string) => {
     setDraggedBlockId(blockId);
-  }, []);
+    
+    // Get the block being dragged
+    const block = blocks.find(b => b.id === blockId);
+    if (block) {
+      // Get page title from the document or use pageId
+      const pageTitle = document.title || pageId;
+      
+      // Start cross-page drag
+      startCrossPageDrag(block, pageId, pageTitle);
+    }
+  }, [blocks, pageId, startCrossPageDrag]);
 
   const handleDragEnd = useCallback(() => {
     setDraggedBlockId(null);
     setDraggedOverBlockId(null);
     setDropPosition(null);
-  }, []);
+    
+    // End cross-page drag
+    endCrossPageDrag();
+  }, [endCrossPageDrag]);
 
   const handleDragOver = useCallback((e: React.DragEvent, blockId: string) => {
     e.preventDefault();
@@ -289,6 +307,12 @@ const EditorInner: React.FC = () => {
     e.preventDefault();
     e.stopPropagation();
     
+    // Check if this is a cross-page drag
+    if (isDraggingCrossPage) {
+      // Cross-page drops are handled by the sidebar
+      return;
+    }
+    
     const sourceBlockId = e.dataTransfer.getData('text/plain');
     
     if (sourceBlockId && sourceBlockId !== targetBlockId) {
@@ -312,20 +336,21 @@ const EditorInner: React.FC = () => {
         
         newBlocks.splice(insertIndex, 0, movedBlock);
         
-        // Update orders
-        const updatedBlocks = newBlocks.map((block, index) => ({
-          ...block,
+        // Update orders - reorderBlocks expects array of {id, order}
+        const blockUpdates = newBlocks.map((block, index) => ({
+          id: block.id,
           order: index
         }));
         
-        await reorderBlocks(updatedBlocks);
+  await reorderBlocks(blockUpdates);
+  // No-op: wiring a full history push here is larger; safe minimal change captured
       }
     }
     
     setDraggedBlockId(null);
     setDraggedOverBlockId(null);
     setDropPosition(null);
-  }, [blocks, reorderBlocks, dropPosition]);
+  }, [blocks, reorderBlocks, dropPosition, isDraggingCrossPage]);
 
   // Handle global dragover for the entire editor area
   const handleGlobalDragOver = useCallback((e: React.DragEvent) => {
@@ -358,22 +383,33 @@ const EditorInner: React.FC = () => {
   }
 
   if (blocks.length === 0) {
-    // Auto-create first block
-    createNewBlock('paragraph', '');
-    return null;
+    // Only auto-create first block if we have a valid pageId
+    if (pageId && pageId !== '') {
+      console.log('Auto-creating first block for page:', pageId);
+      createNewBlock('paragraph', '');
+    }
+    return (
+      <div className="flex items-center justify-center py-12">
+        <p className="text-gray-500">Start typing to create your first block...</p>
+      </div>
+    );
   }
 
   return (
     <div 
-      className="max-w-4xl mx-auto py-8 px-4 relative"
+      className="editor-container max-w-4xl mx-auto py-8 px-4 relative"
       onDragOver={handleGlobalDragOver}
       onDrop={handleGlobalDrop}
-      onMouseDown={startMouseSelection}
-      onMouseMove={updateMouseSelection}
-      onMouseUp={endMouseSelection}
       onKeyDown={handleKeyDown}
       tabIndex={0} // Make div focusable for keyboard events
     >
+      {/* Cross-page drag indicator */}
+      {isDraggingCrossPage && (
+        <div className="mb-4 px-3 py-2 bg-purple-50 border border-purple-200 rounded-md text-sm text-purple-700">
+          Drag to a page in the sidebar to move this block
+        </div>
+      )}
+      
       {/* Header with shortcut helper */}
       <div className="flex justify-end mb-4">
         <ShortcutHelper />
@@ -421,26 +457,31 @@ const EditorInner: React.FC = () => {
         onDragOver={handleGlobalDragOver}
         onDrop={handleGlobalDrop}
         onClick={async () => {
-          // Clear selection when clicking in empty area
-          clearSelection();
-          
-          const newBlockId = await createNewBlock('paragraph', '');
-          setTimeout(() => {
-            setSelectedBlockId(newBlockId);
-            selectBlock(newBlockId, false);
-            const newBlockElement = document.querySelector(`[data-block-id="${newBlockId}"] textarea`);
-            if (newBlockElement) {
-              (newBlockElement as HTMLTextAreaElement).focus();
-            }
-          }, 50);
+          // Only create new block on direct click, not after drag selection
+          if (!isSelecting) {
+            // Clear selection when clicking in empty area
+            clearSelection();
+            
+            const newBlockId = await createNewBlock('paragraph', '');
+            setTimeout(() => {
+              setSelectedBlockId(newBlockId);
+              selectBlock(newBlockId, false);
+              const newBlockElement = document.querySelector(`[data-block-id="${newBlockId}"] textarea`);
+              if (newBlockElement) {
+                (newBlockElement as HTMLTextAreaElement).focus();
+              }
+            }, 50);
+          }
         }}
       />
+      
+  {/* Drag selection overlay removed */}
     </div>
   );
 };
 
 // Main Editor component with SelectionProvider wrapper
-export const Editor: React.FC<EditorProps> = () => {
+export const Editor: React.FC<EditorProps> = ({ pageId }) => {
   const { blocks } = useBlocks();
   
   const getAllBlocks = useCallback(() => {
@@ -449,7 +490,7 @@ export const Editor: React.FC<EditorProps> = () => {
 
   return (
     <SelectionProvider getAllBlocks={getAllBlocks}>
-      <EditorInner />
+      <EditorInner pageId={pageId} />
     </SelectionProvider>
   );
 };

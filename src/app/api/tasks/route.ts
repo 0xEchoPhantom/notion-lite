@@ -1,16 +1,17 @@
 // API endpoints for task operations with server-side ROI computation
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuth } from 'firebase-admin/auth';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import '@/lib/firebaseAdmin'; // Initialize admin
-import { Task, TaskStatus, TASK_RULES, calculateROI } from '@/types/task';
-
-const auth = getAuth();
-const db = getFirestore();
+import { FieldValue } from 'firebase-admin/firestore';
+import { adminAuth, adminDb, isAdminSDKAvailable } from '@/lib/firebaseAdmin';
+import { Task, TASK_RULES, calculateROI } from '@/types/task';
+import type { firestore as AdminFirestore } from 'firebase-admin';
 
 // Verify auth token
 async function verifyToken(request: NextRequest) {
+  if (!isAdminSDKAvailable() || !adminAuth) {
+    return null;
+  }
+  
   const authHeader = request.headers.get('Authorization');
   if (!authHeader?.startsWith('Bearer ')) {
     return null;
@@ -18,7 +19,7 @@ async function verifyToken(request: NextRequest) {
   
   try {
     const token = authHeader.split('Bearer ')[1];
-    const decodedToken = await auth.verifyIdToken(token);
+    const decodedToken = await adminAuth.verifyIdToken(token);
     return decodedToken;
   } catch (error) {
     console.error('Token verification failed:', error);
@@ -28,6 +29,10 @@ async function verifyToken(request: NextRequest) {
 
 // GET /api/tasks - Get tasks with computed ROI
 export async function GET(request: NextRequest) {
+  if (!isAdminSDKAvailable() || !adminDb) {
+    return NextResponse.json({ error: 'Admin SDK not available' }, { status: 503 });
+  }
+  
   const user = await verifyToken(request);
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -39,8 +44,8 @@ export async function GET(request: NextRequest) {
     const hasROI = searchParams.get('hasROI') === 'true';
     const missingData = searchParams.get('missingData') === 'true';
 
-    let tasksRef = db.collection('users').doc(user.uid).collection('tasks');
-    let query = tasksRef as any;
+  const tasksRef = adminDb.collection('users').doc(user.uid).collection('tasks');
+  let query: AdminFirestore.Query<AdminFirestore.DocumentData> = tasksRef as AdminFirestore.Query<AdminFirestore.DocumentData>;
 
     if (status) {
       query = query.where('status', '==', status);
@@ -49,16 +54,15 @@ export async function GET(request: NextRequest) {
     const snapshot = await query.get();
     const tasks: Task[] = [];
 
-    snapshot.forEach((doc: any) => {
-      const data = doc.data();
+    snapshot.forEach((doc: AdminFirestore.QueryDocumentSnapshot<AdminFirestore.DocumentData>) => {
+      const data = doc.data() as AdminFirestore.DocumentData;
       const task = {
         id: doc.id,
         ...data,
         // Compute ROI server-side
         roi: calculateROI({
           value: data.value,
-          effort: data.effort,
-          probability: data.probability
+          effort: data.effort
         } as Task),
         createdAt: data.createdAt?.toDate(),
         updatedAt: data.updatedAt?.toDate(),
@@ -91,6 +95,10 @@ export async function GET(request: NextRequest) {
 
 // POST /api/tasks/move - Move task to new section with validation
 export async function POST(request: NextRequest) {
+  if (!isAdminSDKAvailable() || !adminDb) {
+    return NextResponse.json({ error: 'Admin SDK not available' }, { status: 503 });
+  }
+  
   const user = await verifyToken(request);
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -107,7 +115,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
     }
 
-    const taskRef = db.collection('users').doc(user.uid).collection('tasks').doc(taskId);
+    const taskRef = adminDb.collection('users').doc(user.uid).collection('tasks').doc(taskId);
     const taskDoc = await taskRef.get();
 
     if (!taskDoc.exists) {
@@ -121,7 +129,7 @@ export async function POST(request: NextRequest) {
       const errors: string[] = [];
 
       // Check WIP limit
-      const wipQuery = await db
+      const wipQuery = await adminDb
         .collection('users')
         .doc(user.uid)
         .collection('tasks')
@@ -159,7 +167,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Log event
-    await db.collection('users').doc(user.uid).collection('taskEvents').add({
+    await adminDb.collection('users').doc(user.uid).collection('taskEvents').add({
       taskId,
       userId: user.uid,
       type: 'promoted',
@@ -177,6 +185,10 @@ export async function POST(request: NextRequest) {
 
 // PATCH /api/tasks/:id - Update task (compute ROI server-side)
 export async function PATCH(request: NextRequest) {
+  if (!isAdminSDKAvailable() || !adminDb) {
+    return NextResponse.json({ error: 'Admin SDK not available' }, { status: 503 });
+  }
+  
   const user = await verifyToken(request);
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -195,7 +207,7 @@ export async function PATCH(request: NextRequest) {
     // Remove ROI from updates (server-computed only)
     delete updates.roi;
     
-    const taskRef = db.collection('users').doc(user.uid).collection('tasks').doc(taskId);
+    const taskRef = adminDb.collection('users').doc(user.uid).collection('tasks').doc(taskId);
     
     // Get current task data
     const taskDoc = await taskRef.get();
@@ -218,8 +230,7 @@ export async function PATCH(request: NextRequest) {
       ...updatedData,
       roi: calculateROI({
         value: updatedData?.value,
-        effort: updatedData?.effort,
-        probability: updatedData?.probability
+        effort: updatedData?.effort
       } as Task),
       createdAt: updatedData?.createdAt?.toDate(),
       updatedAt: updatedData?.updatedAt?.toDate(),

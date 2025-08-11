@@ -11,6 +11,7 @@ import {
 } from 'firebase/auth';
 import { auth, googleProvider } from '@/firebase/client';
 import { User } from '@/types/index';
+import { checkAccountRestrictions } from '@/lib/auth-guard';
 
 interface AuthContextType {
   user: User | null;
@@ -66,15 +67,38 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const signIn = async (email: string, password: string) => {
+    // Check account restrictions
+    const { allowed, message } = checkAccountRestrictions(email);
+    if (!allowed) {
+      throw new Error(message || 'Account not allowed in this environment');
+    }
+    
     await signInWithEmailAndPassword(auth, email, password);
   };
 
   const signUp = async (email: string, password: string) => {
+    // Check account restrictions
+    const { allowed, message } = checkAccountRestrictions(email);
+    if (!allowed) {
+      throw new Error(message || 'Account not allowed in this environment');
+    }
+    
     await createUserWithEmailAndPassword(auth, email, password);
   };
 
   const signInWithGoogle = async () => {
-    await signInWithPopup(auth, googleProvider);
+    // Will check after Google returns the user
+    const result = await signInWithPopup(auth, googleProvider);
+    
+    // Check account restrictions after Google sign-in
+    if (result.user?.email) {
+      const { allowed, message } = checkAccountRestrictions(result.user.email);
+      if (!allowed) {
+        // Sign out immediately if not allowed
+        await signOut(auth);
+        throw new Error(message || 'Account not allowed in this environment');
+      }
+    }
   };
 
   const logout = async () => {

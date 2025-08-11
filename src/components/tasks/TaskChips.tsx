@@ -1,154 +1,171 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Task, TaskCompany, TASK_RULES } from '@/types/task';
+import { TaskCompany, TASK_RULES } from '@/types/task';
+import { TaskMetadata } from '@/types/index';
 import { formatValue, formatEffort, formatDueDate } from '@/utils/smartTokenParser';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/firebase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface TaskChipsProps {
-  task: Task;
-  onUpdate?: (task: Task) => void;
+  taskMetadata: TaskMetadata;
+  blockId?: string;
+  onUpdate?: (taskMetadata: TaskMetadata) => void;
 }
 
-export function TaskChips({ task, onUpdate }: TaskChipsProps) {
+export function TaskChips({ taskMetadata, blockId, onUpdate }: TaskChipsProps) {
   const { user } = useAuth();
   const [editingChip, setEditingChip] = useState<'value' | 'effort' | 'due' | 'company' | null>(null);
+  const hasValue = !!taskMetadata.value;
+  const hasEffort = !!taskMetadata.effort;
+  const hasDue = !!taskMetadata.dueDate;
+  const hasCompany = !!taskMetadata.company;
+  const hasROI = taskMetadata.roi !== undefined && isFinite(taskMetadata.roi);
+
+  // If there's nothing meaningful to show, render nothing
+  if (!hasValue && !hasEffort && !hasDue && !hasCompany && !hasROI) {
+    return null;
+  }
   
   return (
     <div className="inline-flex items-center gap-1">
-      {/* Value Chip */}
-      <ChipEditor
-        type="value"
-        value={task.value}
-        displayValue={task.value ? formatValue(task.value) : '@value'}
-        isEditing={editingChip === 'value'}
-        onEdit={() => setEditingChip('value')}
-        onSave={async (newValue) => {
-          if (user && newValue !== undefined) {
-            const taskRef = doc(db, 'users', user.uid, 'tasks', task.id);
-            await updateDoc(taskRef, {
-              value: newValue,
-              updatedAt: serverTimestamp()
-            });
-            onUpdate?.({ ...task, value: newValue });
-          }
-          setEditingChip(null);
-        }}
-        onCancel={() => setEditingChip(null)}
-        placeholder="@15M"
-        parser={parseValueInput}
-        color="green"
-      />
-      
-      {/* Effort Chip */}
-      <ChipEditor
-        type="effort"
-        value={task.effort}
-        displayValue={task.effort ? formatEffort(task.effort) : '@effort'}
-        isEditing={editingChip === 'effort'}
-        onEdit={() => setEditingChip('effort')}
-        onSave={async (newValue) => {
-          if (user && newValue !== undefined) {
-            const taskRef = doc(db, 'users', user.uid, 'tasks', task.id);
-            await updateDoc(taskRef, {
-              effort: newValue,
-              updatedAt: serverTimestamp()
-            });
-            onUpdate?.({ ...task, effort: newValue });
-          }
-          setEditingChip(null);
-        }}
-        onCancel={() => setEditingChip(null)}
-        placeholder="@3h"
-        parser={parseEffortInput}
-        color="blue"
-      />
-      
-      {/* Due Date Chip */}
-      <ChipEditor
-        type="due"
-        value={task.dueDate}
-        displayValue={task.dueDate ? formatDueDate(task.dueDate) : '@due'}
-        isEditing={editingChip === 'due'}
-        onEdit={() => setEditingChip('due')}
-        onSave={async (newValue) => {
-          if (user) {
-            const taskRef = doc(db, 'users', user.uid, 'tasks', task.id);
-            const updateData: any = {
-              updatedAt: serverTimestamp()
-            };
-            
-            // Only set dueDate if there's a value, otherwise remove it
-            if (newValue !== undefined) {
-              updateData.dueDate = newValue;
+      {/* Value Chip (only when present) */}
+      {hasValue && (
+        <ChipEditor
+          value={taskMetadata.value}
+          displayValue={formatValue(taskMetadata.value!)}
+          isEditing={editingChip === 'value'}
+          onEdit={() => setEditingChip('value')}
+          onSave={async (newValue) => {
+            if (user && blockId && newValue !== undefined) {
+              const blockRef = doc(db, 'users', user.uid, 'blocks', blockId);
+              await updateDoc(blockRef, {
+                'taskMetadata.value': newValue,
+                updatedAt: serverTimestamp()
+              });
+              onUpdate?.({ ...taskMetadata, value: newValue });
             }
-            
-            await updateDoc(taskRef, updateData);
-            onUpdate?.({ ...task, dueDate: newValue });
-          }
-          setEditingChip(null);
-        }}
-        onCancel={() => setEditingChip(null)}
-        placeholder="@tomorrow"
-        parser={parseDueDateInput}
-        color="purple"
-      />
+            setEditingChip(null);
+          }}
+          onCancel={() => setEditingChip(null)}
+          placeholder="@15M"
+          parser={parseValueInput}
+          color="green"
+        />
+      )}
       
-      {/* Company Chip */}
-      <ChipEditor
-        type="company"
-        value={task.company}
-        displayValue={task.company || '@company'}
-        isEditing={editingChip === 'company'}
-        onEdit={() => setEditingChip('company')}
-        onSave={async (newValue) => {
-          if (user && newValue !== undefined) {
-            const taskRef = doc(db, 'users', user.uid, 'tasks', task.id);
-            await updateDoc(taskRef, {
-              company: newValue,
-              updatedAt: serverTimestamp()
-            });
-            onUpdate?.({ ...task, company: newValue });
-          }
-          setEditingChip(null);
-        }}
-        onCancel={() => setEditingChip(null)}
-        placeholder="@AIC"
-        parser={parseCompanyInput}
-        color="indigo"
-      />
+      {/* Effort Chip (only when present) */}
+      {hasEffort && (
+        <ChipEditor
+          value={taskMetadata.effort}
+          displayValue={formatEffort(taskMetadata.effort!)}
+          isEditing={editingChip === 'effort'}
+          onEdit={() => setEditingChip('effort')}
+          onSave={async (newValue) => {
+            if (user && blockId && newValue !== undefined) {
+              const blockRef = doc(db, 'users', user.uid, 'blocks', blockId);
+              await updateDoc(blockRef, {
+                'taskMetadata.effort': newValue,
+                updatedAt: serverTimestamp()
+              });
+              onUpdate?.({ ...taskMetadata, effort: newValue });
+            }
+            setEditingChip(null);
+          }}
+          onCancel={() => setEditingChip(null)}
+          placeholder="@3h"
+          parser={parseEffortInput}
+          color="blue"
+        />
+      )}
+      
+      {/* Due Date Chip (only when present) */}
+      {hasDue && (
+        <ChipEditor
+          value={taskMetadata.dueDate}
+          displayValue={formatDueDate(taskMetadata.dueDate!)}
+          isEditing={editingChip === 'due'}
+          onEdit={() => setEditingChip('due')}
+          onSave={async (newValue) => {
+            if (user && blockId) {
+              const blockRef = doc(db, 'users', user.uid, 'blocks', blockId);
+              const updateData: Record<string, unknown> = {
+                updatedAt: serverTimestamp()
+              };
+              // Only set dueDate if there's a value, otherwise remove it
+              if (newValue !== undefined) {
+                updateData['taskMetadata.dueDate'] = newValue;
+              } else {
+                updateData['taskMetadata.dueDate'] = null;
+              }
+              await updateDoc(blockRef, updateData);
+              onUpdate?.({ ...taskMetadata, dueDate: newValue });
+            }
+            setEditingChip(null);
+          }}
+          onCancel={() => setEditingChip(null)}
+          placeholder="@tomorrow"
+          parser={parseDueDateInput}
+          color="purple"
+        />
+      )}
+      
+      {/* Company Chip (only when present) */}
+      {hasCompany && (
+        <ChipEditor
+          value={taskMetadata.company}
+          displayValue={taskMetadata.company!}
+          isEditing={editingChip === 'company'}
+          onEdit={() => setEditingChip('company')}
+          onSave={async (newValue) => {
+            if (user && blockId && newValue !== undefined) {
+              const blockRef = doc(db, 'users', user.uid, 'blocks', blockId);
+              await updateDoc(blockRef, {
+                'taskMetadata.company': newValue,
+                updatedAt: serverTimestamp()
+              });
+              onUpdate?.({ ...taskMetadata, company: newValue });
+            }
+            setEditingChip(null);
+          }}
+          onCancel={() => setEditingChip(null)}
+          placeholder="@AIC"
+          parser={parseCompanyInput}
+          color="indigo"
+        />
+      )}
       
       {/* ROI Display (read-only) */}
-      {(task.roi !== undefined && isFinite(task.roi)) && (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-          task.roi > 0 
-            ? 'bg-emerald-100 text-emerald-700' 
-            : 'bg-gray-100 text-gray-600'
-        }`}>
-          ROI: {task.roi > 0 ? `$${Math.round(task.roi).toLocaleString()}/h` : 'Incomplete'}
-        </span>
-      )}
+      {hasROI && (() => {
+        const roi = taskMetadata.roi as number;
+        return (
+          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+            roi > 0 
+              ? 'bg-emerald-100 text-emerald-700' 
+              : 'bg-gray-100 text-gray-600'
+          }`}>
+            ROI: {roi > 0 ? `$${Math.round(roi).toLocaleString()}/h` : 'Incomplete'}
+          </span>
+        );
+      })()}
     </div>
   );
 }
 
-interface ChipEditorProps {
-  type: string;
-  value: any;
+interface ChipEditorProps<T> {
+  value: T | undefined;
   displayValue: string;
   isEditing: boolean;
   onEdit: () => void;
-  onSave: (value: any) => void;
+  onSave: (value: T | undefined) => void;
   onCancel: () => void;
   placeholder: string;
-  parser: (input: string) => any;
+  parser: (input: string) => T | undefined;
   color: string;
 }
 
-function ChipEditor({
-  type,
+function ChipEditor<T>({
   value,
   displayValue,
   isEditing,
@@ -158,7 +175,7 @@ function ChipEditor({
   placeholder,
   parser,
   color
-}: ChipEditorProps) {
+}: ChipEditorProps<T>) {
   const [inputValue, setInputValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   

@@ -1,239 +1,279 @@
-import React, { useState } from 'react';
-import { SystemStats, UserDataSummary } from '@/lib/firebaseAdmin';
+import React, { useState, useEffect } from 'react';
+
+interface User {
+  uid: string;
+  email: string;
+  displayName?: string;
+  lastSignInTime?: string;
+  documentsCount?: number;
+}
 
 interface AdminDashboardProps {
   isAuthorized: boolean;
+  userEmail?: string;
 }
 
-export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthorized }) => {
-  const [stats, setStats] = useState<SystemStats | null>(null);
-  const [userSummary, setUserSummary] = useState<UserDataSummary | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [userId, setUserId] = useState('');
+export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthorized, userEmail }) => {
+  const [users, setUsers] = useState<User[]>([]);
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    if (isAuthorized) {
+      loadDashboardData();
+    }
+  }, [isAuthorized]);
+
+  const loadDashboardData = async () => {
+    setLoading(true);
+    try {
+      // Fetch users list
+      const usersRes = await fetch('/api/admin/users', {
+        headers: {
+          'x-user-email': userEmail || ''
+        }
+      });
+      if (usersRes.ok) {
+        const usersData = await usersRes.json();
+        setUsers(usersData.users || []);
+      }
+
+      // Fetch stats
+      const statsRes = await fetch('/api/admin/stats', {
+        headers: {
+          'x-user-email': userEmail || ''
+        }
+      });
+      if (statsRes.ok) {
+        const statsData = await statsRes.json();
+        setStats(statsData);
+      }
+    } catch (error) {
+      console.error('Error loading dashboard:', error);
+      setMessage({ type: 'error', text: 'Failed to load dashboard data' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteUserData = async (userId: string, email: string) => {
+    if (!confirm(`Delete ALL data for ${email}?\n\nThis cannot be undone!`)) return;
+    
+    setActionLoading(true);
+    setMessage(null);
+    
+    try {
+      const res = await fetch(`/api/admin/delete-user-data?userId=${userId}`, {
+        method: 'DELETE',
+        headers: { 'x-user-email': userEmail || '' }
+      });
+      
+      const data = await res.json();
+      if (res.ok) {
+        setMessage({ type: 'success', text: `Deleted ${data.totalDeleted || 0} documents for ${email}` });
+        await loadDashboardData();
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to delete data' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to delete user data' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string, email: string) => {
+    if (!confirm(`DELETE the account ${email}?\n\nThis will remove the account and all data!`)) return;
+    
+    setActionLoading(true);
+    setMessage(null);
+    
+    try {
+      const res = await fetch(`/api/admin/delete-user?userId=${userId}`, {
+        method: 'DELETE',
+        headers: { 'x-user-email': userEmail || '' }
+      });
+      
+      const data = await res.json();
+      if (res.ok) {
+        setMessage({ type: 'success', text: `Deleted account: ${email}` });
+        setUsers(users.filter(u => u.uid !== userId));
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to delete account' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to delete user' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCleanupAll = async () => {
+    if (!confirm('Delete ALL users except admin@dev.vn and quangvust201@gmail.com?')) return;
+    if (!confirm('FINAL WARNING: This CANNOT be undone. Continue?')) return;
+    
+    setActionLoading(true);
+    setMessage(null);
+    
+    try {
+      const res = await fetch('/api/admin/cleanup-users', {
+        method: 'POST',
+        headers: { 'x-user-email': userEmail || '' }
+      });
+      
+      const data = await res.json();
+      if (res.ok) {
+        setMessage({ type: 'success', text: `Deleted ${data.deletedCount || 0} accounts` });
+        await loadDashboardData();
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Cleanup failed' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to cleanup users' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   if (!isAuthorized) {
     return (
       <div className="p-6 bg-red-50 border border-red-200 rounded-lg">
         <h2 className="text-xl font-bold text-red-800 mb-2">Access Denied</h2>
-        <p className="text-red-600">You don&apos;t have permission to access the admin dashboard.</p>
+        <p className="text-red-600">Only admin@dev.vn can access this dashboard.</p>
       </div>
     );
   }
 
-  const fetchStats = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch('/api/admin?operation=stats');
-      const result = await response.json();
-      
-      if (result.success) {
-        setStats(result.data);
-      } else {
-        setError(result.error || 'Failed to fetch stats');
-      }
-    } catch {
-      setError('Network error while fetching stats');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchUserSummary = async () => {
-    if (!userId.trim()) {
-      setError('Please enter a user ID');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch(`/api/admin?operation=user-summary&userId=${encodeURIComponent(userId)}`);
-      const result = await response.json();
-      
-      if (result.success) {
-        setUserSummary(result.data);
-      } else {
-        setError(result.error || 'Failed to fetch user summary');
-      }
-    } catch {
-      setError('Network error while fetching user summary');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const runCleanup = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch('/api/admin?operation=cleanup');
-      const result = await response.json();
-      
-      if (result.success) {
-        alert(result.message);
-        // Refresh stats after cleanup
-        fetchStats();
-      } else {
-        setError(result.error || 'Cleanup failed');
-      }
-    } catch {
-      setError('Network error during cleanup');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const deleteUserData = async () => {
-    if (!userId.trim()) {
-      setError('Please enter a user ID');
-      return;
-    }
-
-    const confirmed = confirm(
-      `Are you sure you want to PERMANENTLY DELETE all data for user ${userId}? This action cannot be undone.`
+  if (loading) {
+    return (
+      <div className="text-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+        <p className="text-gray-600">Loading admin dashboard...</p>
+      </div>
     );
+  }
 
-    if (!confirmed) return;
-
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch(`/api/admin?userId=${encodeURIComponent(userId)}`, {
-        method: 'DELETE',
-      });
-      const result = await response.json();
-      
-      if (result.success) {
-        alert(result.message);
-        setUserSummary(null);
-        setUserId('');
-        // Refresh stats
-        fetchStats();
-      } else {
-        setError(result.error || 'Failed to delete user data');
-      }
-    } catch {
-      setError('Network error while deleting user data');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-4">Admin Dashboard</h1>
-        <p className="text-gray-600 mb-6">
-          System administration tools for Firebase operations. Use with caution.
+    <div className="space-y-6">
+      {/* Stats */}
+      {stats && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="text-2xl font-bold text-gray-900">{stats.totalUsers || 0}</div>
+            <div className="text-sm text-gray-500">Total Users</div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="text-2xl font-bold text-gray-900">{stats.totalDocuments || 0}</div>
+            <div className="text-sm text-gray-500">Total Documents</div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="text-2xl font-bold text-gray-900">{stats.totalBlocks || 0}</div>
+            <div className="text-sm text-gray-500">Total Blocks</div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="text-2xl font-bold text-gray-900">{stats.totalTasks || 0}</div>
+            <div className="text-sm text-gray-500">Total Tasks</div>
+          </div>
+        </div>
+      )}
+
+      {/* Message */}
+      {message && (
+        <div className={`p-4 rounded-lg ${
+          message.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+        }`}>
+          {message.text}
+        </div>
+      )}
+
+      {/* Quick Actions */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h2>
+        <div className="flex flex-wrap gap-4">
+          <button
+            onClick={handleCleanupAll}
+            disabled={actionLoading}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+          >
+            🗑️ Delete All Users Except Protected
+          </button>
+          <button
+            onClick={loadDashboardData}
+            disabled={actionLoading}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+          >
+            🔄 Refresh Data
+          </button>
+        </div>
+        <p className="text-sm text-gray-500 mt-2">
+          Protected: admin@dev.vn, quangvust201@gmail.com
         </p>
+      </div>
 
-        {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-800">{error}</p>
-          </div>
-        )}
-
-        {/* System Stats Section */}
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">System Statistics</h2>
-          <button
-            onClick={fetchStats}
-            disabled={loading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Loading...' : 'Fetch System Stats'}
-          </button>
-
-          {stats && (
-            <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-4">
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="font-medium text-gray-700">Total Users</h3>
-                <p className="text-2xl font-bold text-blue-600">{stats.totalUsers}</p>
-              </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="font-medium text-gray-700">Total Pages</h3>
-                <p className="text-2xl font-bold text-green-600">{stats.totalPages}</p>
-              </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="font-medium text-gray-700">Total Blocks</h3>
-                <p className="text-2xl font-bold text-purple-600">{stats.totalBlocks}</p>
-              </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="font-medium text-gray-700">Archived Pages</h3>
-                <p className="text-2xl font-bold text-orange-600">{stats.totalArchivedPages}</p>
-              </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="font-medium text-gray-700">Archived Blocks</h3>
-                <p className="text-2xl font-bold text-red-600">{stats.totalArchivedBlocks}</p>
-              </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="font-medium text-gray-700">Last Updated</h3>
-                <p className="text-sm text-gray-600">
-                  {new Date(stats.timestamp).toLocaleString()}
-                </p>
-              </div>
-            </div>
-          )}
+      {/* Users Table */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h2 className="text-xl font-bold text-gray-900">Users ({users.length})</h2>
         </div>
-
-        {/* User Operations Section */}
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">User Operations</h2>
-          <div className="flex gap-2 mb-4">
-            <input
-              type="text"
-              value={userId}
-              onChange={(e) => setUserId(e.target.value)}
-              placeholder="Enter User ID"
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <button
-              onClick={fetchUserSummary}
-              disabled={loading}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-            >
-              Get Summary
-            </button>
-          </div>
-
-          {userSummary && (
-            <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-              <h3 className="font-medium text-gray-800 mb-2">User: {userSummary.userId}</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
-                <div>Pages: <span className="font-medium">{userSummary.pagesCount}</span></div>
-                <div>Blocks: <span className="font-medium">{userSummary.blocksCount}</span></div>
-                <div>Archived Pages: <span className="font-medium">{userSummary.archivedPagesCount}</span></div>
-                <div>Archived Blocks: <span className="font-medium">{userSummary.archivedBlocksCount}</span></div>
-              </div>
-              {userSummary.lastActivity && (
-                <div className="mt-2 text-sm text-gray-600">
-                  Last Activity: {userSummary.lastActivity.toLocaleString()}
-                </div>
-              )}
-            </div>
-          )}
-
-          <button
-            onClick={deleteUserData}
-            disabled={loading || !userId.trim()}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            ⚠️ Delete All User Data
-          </button>
-        </div>
-
-        {/* Maintenance Section */}
-        <div>
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">System Maintenance</h2>
-          <button
-            onClick={runCleanup}
-            disabled={loading}
-            className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50"
-          >
-            🧹 Cleanup Orphaned Blocks
-          </button>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">User ID</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Documents</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last Sign In</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {users.map(user => {
+                const isProtected = user.email === 'admin@dev.vn' || user.email === 'quangvust201@gmail.com';
+                return (
+                  <tr key={user.uid} className={isProtected ? 'bg-blue-50' : ''}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {user.email}
+                      {isProtected && (
+                        <span className="ml-2 px-2 py-1 text-xs bg-blue-200 text-blue-800 rounded">
+                          Protected
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">{user.uid}</code>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {user.documentsCount || 0}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {user.lastSignInTime ? new Date(user.lastSignInTime).toLocaleDateString() : 'Never'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <button
+                        onClick={() => handleDeleteUserData(user.uid, user.email)}
+                        disabled={actionLoading}
+                        className="text-yellow-600 hover:text-yellow-900 mr-4 disabled:opacity-50"
+                      >
+                        Clear Data
+                      </button>
+                      {!isProtected && (
+                        <button
+                          onClick={() => handleDeleteUser(user.uid, user.email)}
+                          disabled={actionLoading}
+                          className="text-red-600 hover:text-red-900 disabled:opacity-50"
+                        >
+                          Delete Account
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

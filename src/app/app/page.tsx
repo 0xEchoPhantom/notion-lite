@@ -1,14 +1,28 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
-import { WorkspaceToggle } from '@/components/ui/WorkspaceToggle';
 import { GTDWorkspace } from '@/components/workspaces/GTDWorkspace';
 import { NotesWorkspace } from '@/components/workspaces/NotesWorkspace';
 
 function AppContent() {
   const { currentMode, isLoading, error } = useWorkspace();
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [displayMode, setDisplayMode] = useState(currentMode);
+
+  useEffect(() => {
+    if (currentMode !== displayMode) {
+      setIsTransitioning(true);
+      // Small delay to allow fade out
+      setTimeout(() => {
+        setDisplayMode(currentMode);
+        setTimeout(() => {
+          setIsTransitioning(false);
+        }, 50);
+      }, 150);
+    }
+  }, [currentMode, displayMode]);
 
   if (isLoading) {
     return (
@@ -40,11 +54,8 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <WorkspaceToggle />
-      <div className="flex">
-        {currentMode === 'gtd' ? <GTDWorkspace /> : <NotesWorkspace />}
-      </div>
+    <div className={`transition-opacity duration-150 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
+      {displayMode === 'gtd' ? <GTDWorkspace /> : <NotesWorkspace />}
     </div>
   );
 }

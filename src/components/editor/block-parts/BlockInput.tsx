@@ -8,7 +8,7 @@ interface BlockInputProps {
   localContent: string;
   isFocused: boolean;
   inputRef: React.RefObject<HTMLTextAreaElement | null>;
-  onInput: (e: React.FormEvent<HTMLTextAreaElement>) => void;
+  onInput?: (e: React.FormEvent<HTMLTextAreaElement>) => void;
   onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
   onPaste: (e: React.ClipboardEvent<HTMLTextAreaElement>) => void;

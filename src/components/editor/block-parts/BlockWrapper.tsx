@@ -1,5 +1,6 @@
 import React from 'react';
 import clsx from 'clsx';
+// Drag-to-select removed; normal click behavior retained
 
 interface BlockWrapperProps {
   blockId: string;
@@ -16,6 +17,8 @@ interface BlockWrapperProps {
 
 export const BlockWrapper: React.FC<BlockWrapperProps> = ({
   blockId,
+  isSelected,
+  isMultiSelected,
   isDragging,
   isDraggedOver,
   dropPosition,
@@ -24,6 +27,10 @@ export const BlockWrapper: React.FC<BlockWrapperProps> = ({
   onClick,
   children,
 }) => {
+  const handleMouseUp = (e: React.MouseEvent) => {
+    onClick(e);
+  };
+
   return (
     <>
       {isDraggedOver && dropPosition === 'above' && (
@@ -33,12 +40,17 @@ export const BlockWrapper: React.FC<BlockWrapperProps> = ({
         data-block-id={blockId}
         className={clsx(
           'group relative flex items-start gap-1 py-1 px-2 mx-2 rounded hover:bg-gray-50',
-          'transition-all duration-200 border-l-2 border-transparent cursor-pointer',
-          isDragging && 'opacity-50 transform scale-95'
+          'transition-all duration-200 cursor-pointer',
+          isDragging && 'opacity-50 transform scale-95',
+          isSelected && 'bg-blue-50 hover:bg-blue-100',
+          isMultiSelected && 'bg-blue-100 hover:bg-blue-150'
         )}
+        style={{
+          borderLeft: isSelected || isMultiSelected ? '2px solid #3b82f6' : '2px solid transparent'
+        }}
         onDragOver={onDragOver}
         onDrop={onDrop}
-        onClick={onClick}
+        onMouseUp={handleMouseUp}
       >
         {children}
       </div>

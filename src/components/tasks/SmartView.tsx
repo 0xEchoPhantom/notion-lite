@@ -1,112 +1,62 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Task, TaskStatus, getTaskUrgency, canMoveToNext, TASK_RULES } from '@/types/task';
+import { Block } from '@/types/index';
 import { formatValue, formatEffort, formatDueDate } from '@/utils/smartTokenParser';
 import { useAuth } from '@/contexts/AuthContext';
-import { collection, onSnapshot, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/firebase/client';
+import { getTodoBlocks } from '@/lib/firestore';
 import { AIChat } from '@/components/ai/AIChat';
 
 type ViewMode = 'board' | 'table' | 'priority' | 'roi';
 
 export function SmartView() {
   const { user } = useAuth();
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasks, setTasks] = useState<Block[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>('board');
-  const [draggedTask, setDraggedTask] = useState<Task | null>(null);
-  const [dragOverStatus, setDragOverStatus] = useState<TaskStatus | null>(null);
-  const [moveError, setMoveError] = useState<string | null>(null);
-  const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
 
   useEffect(() => {
     if (!user) return;
 
-    const tasksRef = collection(db, 'users', user.uid, 'tasks');
+    const loadTasks = async () => {
+      try {
+        const todoBlocks = await getTodoBlocks(user.uid);
+        
+        // Add computed ROI to each block
+        const tasksWithROI = todoBlocks.map(block => {
+          const value = block.taskMetadata?.value || 0;
+          const effort = block.taskMetadata?.effort || 1;
+          let roi = 0;
+          if (value > 0 && effort > 0) {
+            roi = value / effort;
+          } else if (value > 0) {
+            roi = value / 0.1;
+          }
+          
+          return {
+            ...block,
+            taskMetadata: {
+              ...block.taskMetadata,
+              roi: isFinite(roi) && roi > 0 ? roi : 0
+            }
+          } as Block;
+        });
+        
+        setTasks(tasksWithROI);
+      } catch (error) {
+        console.error('Error loading tasks:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTasks();
     
-    const unsubscribe = onSnapshot(tasksRef, (snapshot) => {
-      const taskList: Task[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        
-        // Calculate ROI with defaults for missing data
-        const value = data.value || 0;
-        const effort = data.effort || 1;
-        const probability = data.probability || 1;
-        
-        let roi = 0;
-        if (value > 0 && effort > 0) {
-          roi = (value * probability) / effort;
-        } else if (value > 0) {
-          roi = (value * probability) / 0.1;
-        }
-        
-        const task = {
-          id: doc.id,
-          ...data,
-          roi: isFinite(roi) && roi > 0 ? roi : 0
-        } as Task;
-        taskList.push(task);
-      });
-
-      setTasks(taskList);
-      setLoading(false);
-    });
-
-    return unsubscribe;
+    // Refresh every 5 seconds for real-time updates
+    const interval = setInterval(loadTasks, 5000);
+    return () => clearInterval(interval);
   }, [user]);
 
-  const handleDragStart = (task: Task) => {
-    setDraggedTask(task);
-    setMoveError(null);
-  };
-
-  const handleDragEnd = () => {
-    setDraggedTask(null);
-    setDragOverStatus(null);
-  };
-
-  const handleDragOver = (e: React.DragEvent, status: TaskStatus) => {
-    e.preventDefault();
-    setDragOverStatus(status);
-  };
-
-  const handleDrop = async (e: React.DragEvent, newStatus: TaskStatus) => {
-    e.preventDefault();
-    setDragOverStatus(null);
-    
-    if (!draggedTask || !user || draggedTask.status === newStatus) {
-      setDraggedTask(null);
-      return;
-    }
-
-    if (newStatus === 'next') {
-      const currentWipCount = tasks.filter(t => t.status === 'next' && t.id !== draggedTask.id).length;
-      const validation = canMoveToNext(draggedTask, currentWipCount);
-      
-      if (!validation.allowed) {
-        setMoveError(validation.reasons.join(', '));
-        setTimeout(() => setMoveError(null), 3000);
-        setDraggedTask(null);
-        return;
-      }
-    }
-
-    try {
-      const taskRef = doc(db, 'users', user.uid, 'tasks', draggedTask.id);
-      await updateDoc(taskRef, {
-        status: newStatus,
-        updatedAt: serverTimestamp()
-      });
-    } catch (error) {
-      console.error('Error updating task:', error);
-      setMoveError('Failed to move task');
-      setTimeout(() => setMoveError(null), 3000);
-    }
-
-    setDraggedTask(null);
-  };
 
   if (loading) {
     return <div className="p-6 text-gray-500">Loading smart view...</div>;
@@ -114,22 +64,28 @@ export function SmartView() {
 
   // Group tasks by status for board view
   const tasksByStatus = tasks.reduce((acc, task) => {
-    const status = task.status || 'backlog';
+    const status = task.taskMetadata?.status || 'someday';
     if (!acc[status]) acc[status] = [];
     acc[status].push(task);
     return acc;
-  }, {} as Record<TaskStatus, Task[]>);
+  }, { now: [], next: [], waiting: [], someday: [], done: [] } as Record<string, Block[]>);
 
   // Sort tasks by ROI for priority/ROI views
-  const sortedByROI = [...tasks].sort((a, b) => (b.roi || 0) - (a.roi || 0));
+  const sortedByROI = [...tasks].sort((a, b) => 
+    (b.taskMetadata?.roi || 0) - (a.taskMetadata?.roi || 0)
+  );
 
   // Filter high-ROI and missing data tasks
-  const highROITasks = sortedByROI.filter(task => task.roi && task.roi > 0).slice(0, 10);
-  const missingDataTasks = tasks.filter(task => !task.value || !task.effort);
+  const highROITasks = sortedByROI.filter(task => 
+    task.taskMetadata?.roi && task.taskMetadata.roi > 0
+  ).slice(0, 10);
+  const missingDataTasks = tasks.filter(task => 
+    !task.taskMetadata?.value || !task.taskMetadata?.effort
+  );
 
   const renderBoardView = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      {(['backlog', 'next', 'doing', 'done'] as TaskStatus[]).map((status) => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      {(['now', 'next', 'waiting', 'someday', 'done']).map((status) => (
         <TaskColumn
           key={status}
           status={status}
@@ -194,7 +150,7 @@ export function SmartView() {
     <AIChat 
       tasks={tasks}
       currentView={viewMode}
-      selectedTasks={selectedTasks}
+      selectedTasks={[]}
     />
   );
 
@@ -264,11 +220,12 @@ function TaskColumn({ status, tasks, dragEnabled = true }: {
   tasks: Task[];
   dragEnabled?: boolean;
 }) {
-  const statusConfig = {
-    backlog: { title: '📥 Backlog', color: 'bg-gray-50' },
-    next: { title: '⏭️ Next', color: 'bg-blue-50' },
-    doing: { title: '🔄 Doing', color: 'bg-yellow-50' },
-    done: { title: '✅ Done', color: 'bg-green-50' }
+  const statusConfig: Record<TaskStatus, { title: string; color: string }> = {
+    now: { title: '⚡ Now', color: 'bg-blue-50' },
+    next: { title: '⏭️ Next', color: 'bg-green-50' },
+    waiting: { title: '⏳ Waiting', color: 'bg-yellow-50' },
+    someday: { title: '💭 Someday', color: 'bg-gray-50' },
+    done: { title: '✅ Done', color: 'bg-emerald-50' }
   };
 
   const config = statusConfig[status];
@@ -296,7 +253,7 @@ function TaskColumn({ status, tasks, dragEnabled = true }: {
 }
 
 function TaskCard({ task, dragEnabled = true }: {
-  task: Task;
+  task: Block;
   dragEnabled?: boolean;
 }) {
   return (
@@ -308,27 +265,27 @@ function TaskCard({ task, dragEnabled = true }: {
     >
       <div className="text-sm text-gray-900 line-clamp-2 mb-2">{task.content}</div>
       
-      {(task.roi !== undefined && isFinite(task.roi)) && (
+      {(task.taskMetadata?.roi !== undefined && isFinite(task.taskMetadata.roi)) && (
         <div className={`text-xs font-medium mb-2 ${
-          task.roi > 0 ? 'text-green-600' : 'text-gray-500'
+          (task.taskMetadata?.roi || 0) > 0 ? 'text-green-600' : 'text-gray-500'
         }`}>
-          ROI: {task.roi > 0 ? `$${Math.round(task.roi).toLocaleString()}/h` : 'Incomplete'}
+          ROI: {(task.taskMetadata?.roi || 0) > 0 ? `$${Math.round(task.taskMetadata?.roi || 0).toLocaleString()}/h` : 'Incomplete'}
         </div>
       )}
       
       <div className="flex items-center gap-2 text-xs">
-        {task.dueDate && (
+        {task.taskMetadata?.dueDate && (
           <span className={`px-1.5 py-0.5 rounded ${
-            getTaskUrgency(task) === 'urgent' ? 'bg-red-100 text-red-600' :
-            getTaskUrgency(task) === 'soon' ? 'bg-yellow-100 text-yellow-600' :
+            new Date(task.taskMetadata.dueDate) < new Date(Date.now() + 86400000) ? 'bg-red-100 text-red-600' :
+            new Date(task.taskMetadata.dueDate) < new Date(Date.now() + 259200000) ? 'bg-yellow-100 text-yellow-600' :
             'bg-gray-100 text-gray-600'
           }`}>
-            {formatDueDate(task.dueDate)}
+            {formatDueDate(task.taskMetadata.dueDate)}
           </span>
         )}
-        {task.company && (
+        {task.taskMetadata?.company && (
           <span className="px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded">
-            {task.company}
+            {task.taskMetadata.company}
           </span>
         )}
       </div>
@@ -337,11 +294,12 @@ function TaskCard({ task, dragEnabled = true }: {
 }
 
 function TaskTableRow({ task }: { task: Task }) {
-  const statusColors = {
-    backlog: 'bg-gray-100 text-gray-700',
-    next: 'bg-blue-100 text-blue-700',
-    doing: 'bg-yellow-100 text-yellow-700',
-    done: 'bg-green-100 text-green-700'
+  const statusColors: Record<TaskStatus, string> = {
+    now: 'bg-blue-100 text-blue-700',
+    next: 'bg-green-100 text-green-700',
+    waiting: 'bg-purple-100 text-purple-700',
+    someday: 'bg-gray-100 text-gray-700',
+    done: 'bg-emerald-100 text-emerald-700'
   };
 
   return (
@@ -350,28 +308,31 @@ function TaskTableRow({ task }: { task: Task }) {
         <div className="text-sm font-medium text-gray-900 line-clamp-2">{task.content}</div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
-        <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[task.status || 'backlog']}`}>
-          {task.status || 'backlog'}
+        <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[task.taskMetadata?.status || 'someday']}`}>
+          {task.taskMetadata?.status || 'someday'}
         </span>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-        {task.roi && task.roi > 0 ? `$${Math.round(task.roi).toLocaleString()}/h` : '-'}
+        {task.taskMetadata?.roi && task.taskMetadata.roi > 0 ? `$${Math.round(task.taskMetadata.roi).toLocaleString()}/h` : '-'}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-        {task.value ? formatValue(task.value) : '-'}
+        {task.taskMetadata?.value ? formatValue(task.taskMetadata.value) : '-'}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-        {task.effort ? formatEffort(task.effort) : '-'}
+        {task.taskMetadata?.effort ? formatEffort(task.taskMetadata.effort) : '-'}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-        {task.dueDate ? formatDueDate(task.dueDate) : '-'}
+        {task.taskMetadata?.dueDate ? formatDueDate(task.taskMetadata.dueDate) : '-'}
       </td>
     </tr>
   );
 }
 
-function TaskPriorityRow({ task }: { task: Task }) {
-  const urgency = getTaskUrgency(task);
+function TaskPriorityRow({ task }: { task: Block }) {
+  const urgency = task.taskMetadata?.dueDate 
+    ? new Date(task.taskMetadata.dueDate) < new Date(Date.now() + 86400000) ? 'urgent' :
+      new Date(task.taskMetadata.dueDate) < new Date(Date.now() + 259200000) ? 'soon' : null
+    : null;
   
   return (
     <div className="p-4 hover:bg-gray-50">
@@ -391,16 +352,16 @@ function TaskPriorityRow({ task }: { task: Task }) {
           </div>
           
           <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-            {task.value && <span>💰 {formatValue(task.value)}</span>}
-            {task.effort && <span>⏱️ {formatEffort(task.effort)}</span>}
-            {task.dueDate && <span>📅 {formatDueDate(task.dueDate)}</span>}
+            {task.taskMetadata?.value && <span>💰 {formatValue(task.taskMetadata.value)}</span>}
+            {task.taskMetadata?.effort && <span>⏱️ {formatEffort(task.taskMetadata.effort)}</span>}
+            {task.taskMetadata?.dueDate && <span>📅 {formatDueDate(task.taskMetadata.dueDate)}</span>}
           </div>
         </div>
         
-        {task.roi && task.roi > 0 && (
+        {task.taskMetadata?.roi && task.taskMetadata.roi > 0 && (
           <div className="text-right">
             <div className="text-lg font-bold text-green-600">
-              ${Math.round(task.roi).toLocaleString()}/h
+              ${Math.round(task.taskMetadata?.roi || 0).toLocaleString()}/h
             </div>
           </div>
         )}
@@ -409,11 +370,11 @@ function TaskPriorityRow({ task }: { task: Task }) {
   );
 }
 
-function TaskMissingDataRow({ task }: { task: Task }) {
+function TaskMissingDataRow({ task }: { task: Block }) {
   const missingFields = [];
-  if (!task.value) missingFields.push('Value');
-  if (!task.effort) missingFields.push('Effort');
-  if (!task.probability) missingFields.push('Probability');
+  if (!task.taskMetadata?.value) missingFields.push('Value');
+  if (!task.taskMetadata?.effort) missingFields.push('Effort');
+  // probability removed
 
   return (
     <div className="p-4 hover:bg-gray-50">

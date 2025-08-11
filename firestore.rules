@@ -4,19 +4,33 @@ service cloud.firestore {
     // DEVELOPMENT RULES - More permissive for debugging
     // TODO: Tighten security before production
     
-    // User-specific documents
+    // User-specific documents (includes unified blocks)
     match /users/{userId}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
     
-    // Workspaces - allow authenticated users to access any workspace for now
+    // Specific rules for unified blocks collection
+    match /users/{userId}/blocks/{blockId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow querying blocks by pageId
+      allow list: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Workspaces - users can read/write their own workspaces
     match /workspaces/{workspaceId} {
-      allow read, write, create: if request.auth != null;
+      allow read: if request.auth != null && 
+        (resource.data.userId == request.auth.uid || 
+         request.auth.uid != null); // Allow reading during queries
+      allow create: if request.auth != null && 
+        request.auth.uid == request.resource.data.userId;
+      allow update, delete: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
     }
     
     // Page references - allow authenticated users
     match /pageReferences/{referenceId} {
-      allow read, write, create: if request.auth != null;
+      allow read, write: if request.auth != null;
     }
   }
 }
