@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { CrossPageDragProvider } from '@/contexts/CrossPageDragContext';
+import { ChatWidget } from '@/components/ai/ChatWidget';
 
 export default function AppLayout({
   children,
@@ -36,6 +37,8 @@ export default function AppLayout({
       <div className="min-h-screen bg-white">
         {/* Main content with sidebar handled by workspace components */}
         {children}
+        {/* AI Chat Widget */}
+        <ChatWidget />
       </div>
     </CrossPageDragProvider>
   );

@@ -102,7 +102,9 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
         onDrop={(e) => handleDrop(e, page.id)}
         className={`w-full text-left px-3 py-2 rounded-md transition-all duration-150 relative ${
           isDraggedOver
-            ? 'bg-blue-100 ring-2 ring-blue-400 ring-opacity-50'
+            ? 'bg-blue-100 ring-2 ring-blue-400 ring-opacity-50 scale-105 shadow-lg'
+            : canDrop
+            ? 'ring-1 ring-blue-300 ring-opacity-50'
             : isActive 
             ? 'bg-gray-200/70 text-gray-900' 
             : 'hover:bg-gray-100 text-gray-700'
@@ -113,10 +115,14 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
         <div className="flex items-center space-x-3">
           <span className="text-base">{page.emoji}</span>
           <span className="text-sm">{page.title}</span>
+          {canDrop && !isDraggedOver && (
+            <span className="text-xs text-blue-500 ml-auto">Drop here</span>
+          )}
         </div>
         {isDraggedOver && (
           <div className="absolute inset-0 pointer-events-none">
             <div className="absolute inset-x-0 top-0 h-0.5 bg-blue-500"></div>
+            <div className="absolute inset-0 bg-blue-500 opacity-10"></div>
           </div>
         )}
       </button>
@@ -182,12 +188,12 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
           <>
             {/* Drag Indicator */}
             {isDraggingCrossPage && draggedBlock && (
-              <div className="mb-3 px-3 py-2 bg-blue-50 border border-blue-200 rounded-md">
-                <div className="text-xs font-medium text-blue-700">Dragging block</div>
+              <div className="mb-3 px-3 py-2 bg-blue-50 border-2 border-blue-400 rounded-md animate-pulse">
+                <div className="text-xs font-bold text-blue-700">🎯 Dragging block</div>
                 <div className="text-xs text-blue-600 mt-1 truncate">
-                  From: {draggedBlock.sourcePageTitle || 'Unknown page'}
+                  From: {draggedBlock.sourcePageTitle || GTD_PAGES.find(p => p.id === draggedBlock.sourcePageId)?.title || 'Unknown page'}
                 </div>
-                <div className="text-xs text-blue-500 mt-1">Drop on a page below</div>
+                <div className="text-xs text-blue-500 mt-1 font-semibold">📍 Drop on a different page below</div>
               </div>
             )}
 

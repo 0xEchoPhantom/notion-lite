@@ -34,14 +34,14 @@ export const BlockWrapper: React.FC<BlockWrapperProps> = ({
   return (
     <>
       {isDraggedOver && dropPosition === 'above' && (
-        <div className="h-1 bg-blue-500 mx-2 my-1 rounded-full opacity-80 shadow-sm" />
+        <div className="h-1 bg-blue-500 mx-2 my-1 rounded-full shadow-lg animate-pulse" />
       )}
       <div
         data-block-id={blockId}
         className={clsx(
           'group relative flex items-start gap-1 py-1 px-2 mx-2 rounded hover:bg-gray-50',
           'transition-all duration-200',
-          isDragging && 'opacity-50 transform scale-95',
+          isDragging && 'opacity-30 transform scale-95 blur-sm',
           isSelected && 'bg-blue-50 hover:bg-blue-100',
           isMultiSelected && 'bg-blue-100 hover:bg-blue-150'
         )}
@@ -55,7 +55,7 @@ export const BlockWrapper: React.FC<BlockWrapperProps> = ({
         {children}
       </div>
       {isDraggedOver && dropPosition === 'below' && (
-        <div className="h-1 bg-blue-500 mx-2 my-1 rounded-full opacity-80 shadow-sm" />
+        <div className="h-1 bg-blue-500 mx-2 my-1 rounded-full shadow-lg animate-pulse" />
       )}
     </>
   );

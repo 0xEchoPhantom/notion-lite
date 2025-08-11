@@ -19,12 +19,18 @@ export const DragHandle: React.FC<DragHandleProps> = ({ isSelected, onDragStart,
         'flex items-center justify-center w-6 h-6',
         'hover:bg-gray-200 rounded flex-shrink-0 mr-1 active:bg-gray-300',
         // Show on hover or when selected
-        isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
-        isDragging ? 'text-purple-500 hover:text-purple-700' : 'text-gray-500 hover:text-gray-700'
+        isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-60 hover:!opacity-100',
+        isDragging ? 'text-blue-500 scale-110' : 'text-gray-500 hover:text-gray-700'
       )}
-      draggable
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
+      draggable="true"
+      onDragStart={(e) => {
+        e.stopPropagation();
+        onDragStart(e);
+      }}
+      onDragEnd={(e) => {
+        e.stopPropagation();
+        onDragEnd(e);
+      }}
       onClick={(e) => {
         e.stopPropagation();
         if (onSelect) {
