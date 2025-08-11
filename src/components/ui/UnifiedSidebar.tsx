@@ -1,14 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { WorkspaceMode } from '@/types/workspace';
 import { GTD_PAGES } from '@/types/workspace';
-import { useCrossPageDrag } from '@/contexts/CrossPageDragContext';
-import { moveBlockToPage } from '@/lib/firestore';
+import { useDrag } from '@/contexts/DragContext';
+import { PageDropZone } from './PageDropZone';
 
 interface UnifiedSidebarProps {
   currentPageId?: string;
@@ -29,8 +29,7 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
   const router = useRouter();
   const { currentMode, switchMode, isLoading } = useWorkspace();
   const [isSwitching, setIsSwitching] = React.useState(false);
-  const { draggedBlock, isDraggingCrossPage, isValidDropTarget, endCrossPageDrag } = useCrossPageDrag();
-  const [dragOverPageId, setDragOverPageId] = useState<string | null>(null);
+  const { isDragging } = useDrag();
 
   const handleModeChange = (mode: WorkspaceMode) => {
     if (mode === currentMode) return;
@@ -44,88 +43,30 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
     router.push('/login');
   };
 
-  const handleDragOver = (e: React.DragEvent, pageId: string) => {
-    if (!isDraggingCrossPage || !isValidDropTarget(pageId)) return;
-    
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOverPageId(pageId);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOverPageId(null);
-  };
-
-  const handleDrop = async (e: React.DragEvent, targetPageId: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOverPageId(null);
-
-    if (!isDraggingCrossPage || !draggedBlock || !isValidDropTarget(targetPageId) || !user) {
-      return;
-    }
-
-    try {
-      // Move block to the target page
-      const result = await moveBlockToPage(
-        user.uid,
-        draggedBlock.sourcePageId,
-        targetPageId,
-        draggedBlock.block.id,
-        0 // Add at the top of the target page
-      );
-
-      if (result) {
-        // Navigate to the target page to see the moved block
-        onPageSelect?.(targetPageId);
-      } else {
-        console.warn('Block could not be moved - it may have been deleted');
-      }
-    } catch (error) {
-      console.error('Error moving block to page:', error);
-    } finally {
-      endCrossPageDrag();
-    }
-  };
 
   const PageItem: React.FC<{ page: typeof GTD_PAGES[number]; isActive: boolean }> = ({ page, isActive }) => {
-    const canDrop = isDraggingCrossPage && isValidDropTarget(page.id);
-    const isDraggedOver = dragOverPageId === page.id;
-
     return (
-      <button
-        onClick={() => onPageSelect?.(page.id)}
-        onDragOver={(e) => handleDragOver(e, page.id)}
-        onDragLeave={handleDragLeave}
-        onDrop={(e) => handleDrop(e, page.id)}
-        className={`w-full text-left px-3 py-2 rounded-md transition-all duration-150 relative ${
-          isDraggedOver
-            ? 'bg-blue-100 ring-2 ring-blue-400 ring-opacity-50 scale-105 shadow-lg'
-            : canDrop
-            ? 'ring-1 ring-blue-300 ring-opacity-50'
-            : isActive 
+      <PageDropZone 
+        pageId={page.id} 
+        onDrop={(blockId) => {
+          // Navigate to the target page to see the moved block
+          onPageSelect?.(page.id);
+        }}
+      >
+        <button
+          onClick={() => onPageSelect?.(page.id)}
+          className={`w-full text-left px-3 py-2 rounded-md transition-all duration-150 ${
+            isActive 
             ? 'bg-gray-200/70 text-gray-900' 
             : 'hover:bg-gray-100 text-gray-700'
-        } ${
-          canDrop ? 'cursor-copy' : ''
-        }`}
+          }`}
       >
-        <div className="flex items-center space-x-3">
-          <span className="text-base">{page.emoji}</span>
-          <span className="text-sm">{page.title}</span>
-          {canDrop && !isDraggedOver && (
-            <span className="text-xs text-blue-500 ml-auto">Drop here</span>
-          )}
-        </div>
-        {isDraggedOver && (
-          <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute inset-x-0 top-0 h-0.5 bg-blue-500"></div>
-            <div className="absolute inset-0 bg-blue-500 opacity-10"></div>
+          <div className="flex items-center space-x-3">
+            <span className="text-base">{page.emoji}</span>
+            <span className="text-sm">{page.title}</span>
           </div>
-        )}
-      </button>
+        </button>
+      </PageDropZone>
     );
   };
 
@@ -153,6 +94,13 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Cross-page drag indicator */}
+      {isDragging && (
+        <div className="mx-4 mb-3 px-3 py-2 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-700">
+          Drag to a page below to move block
+        </div>
+      )}
 
       {/* Workspace Toggle */}
       <div className="px-4 pb-4">
@@ -186,16 +134,6 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
       <div className="flex-1 overflow-y-auto px-3">
         {mode === 'gtd' && (
           <>
-            {/* Drag Indicator */}
-            {isDraggingCrossPage && draggedBlock && (
-              <div className="mb-3 px-3 py-2 bg-blue-50 border-2 border-blue-400 rounded-md animate-pulse">
-                <div className="text-xs font-bold text-blue-700">🎯 Dragging block</div>
-                <div className="text-xs text-blue-600 mt-1 truncate">
-                  From: {draggedBlock.sourcePageTitle || GTD_PAGES.find(p => p.id === draggedBlock.sourcePageId)?.title || 'Unknown page'}
-                </div>
-                <div className="text-xs text-blue-500 mt-1 font-semibold">📍 Drop on a different page below</div>
-              </div>
-            )}
 
             {/* Smart View Button */}
             <div className="mb-3">
@@ -206,7 +144,6 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
                     ? 'bg-gray-200/70 text-gray-900'
                     : 'hover:bg-gray-100 text-gray-700'
                 }`}
-                disabled={isDraggingCrossPage}
               >
                 <div className="flex items-center space-x-3">
                   <span className="text-base">🧠</span>

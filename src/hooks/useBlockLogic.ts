@@ -42,8 +42,6 @@ import { SlashMenuRef } from '@/components/editor/SlashMenu';
 interface UseBlockLogicProps {
   block: Block;
   isSelected: boolean;
-  onDragStart?: (blockId: string) => void;
-  onDragEnd?: () => void;
   onCreateBlock?: (type: BType, content: string, afterBlockId: string, indentLevel?: number) => Promise<string>;
   onNewBlock: (type?: BType, indentLevel?: number) => void;
   onSelect: (event?: React.MouseEvent) => void;
@@ -54,15 +52,11 @@ interface UseBlockLogicProps {
   onDeleteBlock: () => void;
   onMergeUp: () => void;
   onDuplicateBlock: () => void;
-  onDragOver?: (e: React.DragEvent, blockId: string) => void;
-  onDrop?: (e: React.DragEvent, targetBlockId: string) => void;
 }
 
 export const useBlockLogic = ({
   block,
   isSelected,
-  onDragStart,
-  onDragEnd,
   onCreateBlock,
   onNewBlock,
   onSelect,
@@ -73,8 +67,6 @@ export const useBlockLogic = ({
   onDeleteBlock,
   onMergeUp,
   onDuplicateBlock,
-  onDragOver,
-  onDrop,
 }: UseBlockLogicProps) => {
   const { updateBlockContent, convertBlockType, toggleTodoCheck } = useBlocksWithKeyboard();
   const keystrokeProtection = useKeystrokeProtection(100); // 100ms debounce
@@ -144,6 +136,7 @@ export const useBlockLogic = ({
       // Save any unsaved changes when component unmounts (e.g., when switching pages)
       const currentContent = localContentRef.current;
       if (currentContent && currentContent !== lastSavedContent.current) {
+        lastSavedContent.current = currentContent;
         updateBlockContent(block.id, { content: currentContent });
       }
       isTyping.current = false;
@@ -569,84 +562,29 @@ export const useBlockLogic = ({
 
   const handleSlashMenuSelect = (type: BType) => {
     convertBlockType(block.id, type);
-    if (inputRef.current) {
-      const content = inputRef.current.value;
-      const slashIndex = content.lastIndexOf('/');
-      if (slashIndex !== -1) {
-        const newContent = content.substring(0, slashIndex);
-        updateBlockContent(block.id, { content: newContent });
-        setLocalContent(newContent);
-      }
+    if (type === 'todo-list') {
+      setTimeout(() => updateBlockContent(block.id, { isChecked: false }), 50);
     }
     setShowSlashMenu(false);
-    setSlashSearchQuery('');
   };
 
-  const handleToggleCheck = () => {
-    if (block.type === 'todo-list') {
-      toggleTodoCheck(block.id);
-    }
-  };
+  const handleToggleCheck = useCallback(() => {
+    toggleTodoCheck(block.id);
+  }, [block.id, toggleTodoCheck]);
 
-  const handleFocus = () => {
+  const handleFocus = useCallback(() => {
     setIsFocused(true);
-    if (!isArrowNavigating.current) {
-      onSelect();
-    }
-  };
+  }, []);
 
   const handleBlur = useCallback(() => {
     setIsFocused(false);
-    isTyping.current = false;
-    // Save content on blur to prevent data loss when switching pages
+    // Force save on blur to prevent data loss
     const currentContent = localContentRef.current;
     if (currentContent !== lastSavedContent.current) {
       lastSavedContent.current = currentContent;
       updateBlockContent(block.id, { content: currentContent });
     }
   }, [block.id, updateBlockContent]);
-
-  const handleDragStart = useCallback((e: React.DragEvent) => {
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.dropEffect = 'move';
-    
-    e.dataTransfer.setData('text/plain', block.id);
-    e.dataTransfer.setData('application/json', JSON.stringify({
-      blockId: block.id,
-      type: block.type,
-      content: block.content,
-      indentLevel: block.indentLevel,
-      isChecked: block.isChecked
-    }));
-    
-    // Parent components handle drag state via onDragStart callback
-    if (onDragStart) {
-      onDragStart(block.id);
-    }
-  }, [block, onDragStart]);
-
-  const handleDragEnd = useCallback(() => {
-    // Removed GlobalDragContext setDraggedBlock call
-    if (onDragEnd) {
-      onDragEnd();
-    }
-  }, [onDragEnd]);
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (onDragOver) {
-      onDragOver(e, block.id);
-    }
-  }, [block.id, onDragOver]);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (onDrop) {
-      onDrop(e, block.id);
-    }
-  }, [block.id, onDrop]);
 
   const handleBlockClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -688,10 +626,6 @@ export const useBlockLogic = ({
     handleCompositionEnd,
     handleSlashMenuSelect,
     handleToggleCheck,
-    handleDragStart,
-    handleDragEnd,
-    handleDragOver,
-    handleDrop,
     handleBlockClick,
     setShowSlashMenu,
     setSlashSearchQuery,

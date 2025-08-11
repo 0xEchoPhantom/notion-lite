@@ -6,11 +6,11 @@ interface BlockWrapperProps {
   blockId: string;
   isSelected: boolean;
   isMultiSelected: boolean;
-  isDragging: boolean;
-  isDraggedOver: boolean;
-  dropPosition: 'above' | 'below' | null;
-  onDragOver: (e: React.DragEvent) => void;
-  onDrop: (e: React.DragEvent) => void;
+  isDragging?: boolean;
+  isDraggedOver?: boolean;
+  dropPosition?: 'above' | 'below' | null;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDrop?: (e: React.DragEvent) => void;
   onClick: (e: React.MouseEvent) => void;
   children: React.ReactNode;
 }
@@ -19,9 +19,9 @@ export const BlockWrapper: React.FC<BlockWrapperProps> = ({
   blockId,
   isSelected,
   isMultiSelected,
-  isDragging,
-  isDraggedOver,
-  dropPosition,
+  isDragging = false,
+  isDraggedOver = false,
+  dropPosition = null,
   onDragOver,
   onDrop,
   onClick,

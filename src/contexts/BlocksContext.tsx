@@ -10,6 +10,7 @@ import {
   reorderBlocks,
 } from '@/lib/firestore';
 import { useAuth } from './AuthContext';
+import { updateTaskMetadataForPage } from '@/utils/gtdStatusMapper';
 
 interface BlocksState {
   blocks: Block[];
@@ -143,7 +144,26 @@ export const BlocksProvider: React.FC<BlocksProviderProps> = ({ children, pageId
       throw new Error('Invalid page ID');
     }
     
-    await updateBlock(user.uid, pageId, id, { type: newType });
+    const updates: Partial<Block> = { type: newType };
+    
+    // When converting to todo-list, add appropriate task metadata
+    if (newType === 'todo-list') {
+      const taskMetadata = updateTaskMetadataForPage(undefined, pageId, {
+        forceUpdate: true // Set status for newly converted todo blocks
+      });
+      updates.isChecked = false;
+      updates.taskMetadata = taskMetadata;
+    }
+    // When converting from todo-list, remove task metadata
+    else {
+      const currentBlock = state.blocks.find(b => b.id === id);
+      if (currentBlock && currentBlock.type === 'todo-list') {
+        updates.isChecked = undefined;
+        updates.taskMetadata = undefined;
+      }
+    }
+    
+    await updateBlock(user.uid, pageId, id, updates);
   };
 
   const value = {

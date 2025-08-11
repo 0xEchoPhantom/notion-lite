@@ -4,6 +4,9 @@ import { useCallback } from 'react';
 import { useBlocks } from '@/contexts/BlocksContext';
 import { Block, BlockType } from '@/types/index';
 import { MAX_INDENT_LEVEL } from '@/constants/editor';
+import { 
+  updateTaskMetadataForPage
+} from '../utils/gtdStatusMapper';
 
 export const useBlocksWithKeyboard = () => {
   const { blocks, addBlock, updateBlockContent, deleteBlockById, reorderBlocksList, convertBlockType: convertBlockTypeContext, pageId } = useBlocks();
@@ -45,12 +48,21 @@ export const useBlocksWithKeyboard = () => {
       pageId
     };
 
-    // Add isChecked for todo-list blocks
-    const newBlock = type === 'todo-list' 
-      ? { ...baseBlock, isChecked: false }
-      : baseBlock;
-
-    return await addBlock(newBlock);
+    // Add isChecked and taskMetadata for todo-list blocks
+    if (type === 'todo-list') {
+      const taskMetadata = updateTaskMetadataForPage(undefined, pageId, {
+        forceUpdate: true // Always set status for new todo blocks
+      });
+      
+      const newBlock = { 
+        ...baseBlock, 
+        isChecked: false,
+        taskMetadata
+      };
+      return await addBlock(newBlock);
+    } else {
+      return await addBlock(baseBlock);
+    }
   }, [blocks, addBlock, pageId]);
 
   const convertBlockType = useCallback(async (blockId: string, newType: BlockType) => {

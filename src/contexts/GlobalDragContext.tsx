@@ -45,7 +45,7 @@ export const GlobalDragProvider: React.FC<GlobalDragProviderProps> = ({
   const { user } = useAuth();
   const [draggedBlock, setDraggedBlock] = useState<DraggedBlockData | null>(null);
 
-  const moveBlockToNewPage = async (targetPageId: string, order: number = 0): Promise<string | null> => {
+  const moveBlockToNewPage = async (targetPageId: string): Promise<string | null> => {
     if (!user || !draggedBlock || draggedBlock.sourcePageId === targetPageId) {
       return null;
     }
@@ -55,8 +55,8 @@ export const GlobalDragProvider: React.FC<GlobalDragProviderProps> = ({
         user.uid,
         draggedBlock.sourcePageId,
         targetPageId,
-        draggedBlock.blockId,
-        order
+        draggedBlock.blockId
+        // No order parameter - will automatically append to end
       );
       
       setDraggedBlock(null);

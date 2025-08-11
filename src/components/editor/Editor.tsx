@@ -2,16 +2,18 @@
 
 import React, { useState, useCallback } from 'react';
 import { SimpleBlock } from './SimpleBlock';
+import { BlockDropZone } from './BlockDropZone';
 import { useBlocksWithKeyboard } from '@/hooks/useBlocks';
 import { useBlocks } from '@/contexts/BlocksContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useStatusConsistency } from '@/hooks/useStatusConsistency';
 import { ShortcutHelper } from '@/components/ui/ShortcutHelper';
 import { SelectionProvider, useSelection } from '@/contexts/SelectionContext';
 // import { HistoryProvider, useHistory } from '@/contexts/HistoryContext';
 import { BlockType as BType } from '@/types/index';
-import { useCrossPageDrag } from '@/contexts/CrossPageDragContext';
-import { useGlobalDrag } from '@/contexts/GlobalDragContext';
 import { useFocusManager, useKeystrokeProtection } from '@/hooks/useKeystrokeLock';
 import { KeystrokeIndicator } from '@/components/ui/KeystrokeIndicator';
+import { moveBlockToPage } from '@/lib/firestore';
 
 interface EditorProps {
   pageId: string;
@@ -26,6 +28,7 @@ interface EditorInnerProps {
 // Inner editor component that uses selection context
 const EditorInner: React.FC<EditorInnerProps> = ({ pageId, mode = 'notes' }) => {
   const { blocks, loading } = useBlocks();
+  const { user } = useAuth();
   const focusManager = useFocusManager();
   const keystrokeProtection = useKeystrokeProtection();
   const { 
@@ -38,8 +41,6 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId, mode = 'notes' }) => 
     outdentBlock,
     reorderBlocks
   } = useBlocksWithKeyboard();
-  const { startCrossPageDrag, endCrossPageDrag, isDraggingCrossPage } = useCrossPageDrag();
-  const { setDraggedBlock } = useGlobalDrag();
   
   // Selection context
   const {
@@ -53,9 +54,9 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId, mode = 'notes' }) => 
   // const { undo, redo } = useHistory();
   
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
-  const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
-  const [draggedOverBlockId, setDraggedOverBlockId] = useState<string | null>(null);
-  const [dropPosition, setDropPosition] = useState<'above' | 'below' | null>(null);
+
+  // Ensure status consistency for GTD blocks
+  useStatusConsistency(blocks, pageId);
 
   // Create a new block after the current one (Notion-style: same type and indent level)
   const handleNewBlock = useCallback(async (blockId: string, type?: BType, indentLevel?: number) => {
@@ -267,131 +268,31 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId, mode = 'notes' }) => 
     }
   }, [handleKeyboardSelection, selectedBlockIds, blocks, deleteBlockById, clearSelection, handleIndent, handleOutdent]);
 
-  // Drag and drop handlers
-  const handleDragStart = useCallback((blockId: string) => {
-    setDraggedBlockId(blockId);
-    
-    // Get the block being dragged
-    const block = blocks.find(b => b.id === blockId);
-    if (block) {
-      // Get page title from the document or use pageId
-      const pageTitle = document.title || pageId;
-      
-      // Start cross-page drag
-      startCrossPageDrag(block, pageId, pageTitle);
-      
-      // Also set global drag state for cross-page functionality
-      setDraggedBlock({
-        blockId: block.id,
-        sourcePageId: pageId,
-        type: block.type,
-        content: block.content,
-        indentLevel: block.indentLevel,
-        isChecked: block.isChecked,
-        sourcePageTitle: pageTitle
-      });
-    }
-  }, [blocks, pageId, startCrossPageDrag, setDraggedBlock]);
+  // Open GTD move dialog - now used for immediate move to specific page
+  const handleMoveToGTDPage = useCallback(async (blockId: string, targetPageId: string) => {
+    if (!user) return;
 
-  const handleDragEnd = useCallback(() => {
-    setDraggedBlockId(null);
-    setDraggedOverBlockId(null);
-    setDropPosition(null);
-    
-    // End cross-page drag
-    endCrossPageDrag();
-    
-    // Clear global drag state
-    setDraggedBlock(null);
-  }, [endCrossPageDrag, setDraggedBlock]);
-
-  const handleDragOver = useCallback((e: React.DragEvent, blockId: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    e.dataTransfer.dropEffect = 'move';
-    
-    if (draggedBlockId && draggedBlockId !== blockId) {
-      setDraggedOverBlockId(blockId);
+    try {
+      // Move the block to the selected GTD page (always append to end)
+      const result = await moveBlockToPage(
+        user.uid,
+        pageId, // current page
+        targetPageId, // selected GTD page
+        blockId
+        // No order parameter - will automatically append to end
+      );
       
-      // Calculate drop position based on mouse Y coordinate
-      const blockElement = e.currentTarget as HTMLElement;
-      const rect = blockElement.getBoundingClientRect();
-      const mouseY = e.clientY;
-      const blockCenterY = rect.top + rect.height / 2;
-      
-      // If mouse is in upper half, insert above; if lower half, insert below
-      setDropPosition(mouseY < blockCenterY ? 'above' : 'below');
-    }
-  }, [draggedBlockId]);
-
-  const handleDrop = useCallback(async (e: React.DragEvent, targetBlockId: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    // Note: Even if cross-page drag indicator is active, allow in-page reorder here.
-    // Cross-page moves are handled by the sidebar; dropping back into the editor
-    // should still reorder within the current page.
-    
-    const sourceBlockId = e.dataTransfer.getData('text/plain');
-    
-    if (sourceBlockId && sourceBlockId !== targetBlockId) {
-      const sourceIndex = blocks.findIndex(b => b.id === sourceBlockId);
-      const targetIndex = blocks.findIndex(b => b.id === targetBlockId);
-      
-      if (sourceIndex !== -1 && targetIndex !== -1) {
-        // Create new order for blocks
-        const newBlocks = [...blocks];
-        const [movedBlock] = newBlocks.splice(sourceIndex, 1);
-        
-        // Determine insertion index based on drop position
-        let insertIndex = targetIndex;
-        if (dropPosition === 'below') {
-          insertIndex = targetIndex + 1;
-        }
-        // Adjust for removing source block from earlier position
-        if (sourceIndex < insertIndex) {
-          insertIndex--;
-        }
-        
-        newBlocks.splice(insertIndex, 0, movedBlock);
-        
-        // Update orders - reorderBlocks expects array of {id, order}
-        const blockUpdates = newBlocks.map((block, index) => ({
-          id: block.id,
-          order: index
-        }));
-        
-  await reorderBlocks(blockUpdates);
-  // No-op: wiring a full history push here is larger; safe minimal change captured
+      if (result) {
+        // The block will be automatically removed from current page by Firestore subscription
+        // Show success message (you could replace this with a toast notification)
+        console.log(`Block moved to GTD ${targetPageId} successfully!`);
+      } else {
+        console.error('Failed to move block to GTD');
       }
+    } catch (error) {
+      console.error('Error moving block to GTD:', error);
     }
-    
-  setDraggedBlockId(null);
-    setDraggedOverBlockId(null);
-    setDropPosition(null);
-  }, [blocks, reorderBlocks, dropPosition]);
-
-  // Handle global dragover for the entire editor area
-  const handleGlobalDragOver = useCallback((e: React.DragEvent) => {
-    if (draggedBlockId) {
-      e.preventDefault();
-      e.stopPropagation();
-      e.dataTransfer.dropEffect = 'move';
-    }
-  }, [draggedBlockId]);
-
-  // Handle global drop for the entire editor area
-  const handleGlobalDrop = useCallback((e: React.DragEvent) => {
-    if (draggedBlockId) {
-      e.preventDefault();
-      e.stopPropagation();
-      // If dropped in empty space, move to end
-      const lastBlock = blocks[blocks.length - 1];
-      if (lastBlock && draggedBlockId !== lastBlock.id) {
-        handleDrop(e, lastBlock.id);
-      }
-    }
-  }, [draggedBlockId, blocks, handleDrop]);
+  }, [pageId, user]);
 
   if (loading) {
     return (
@@ -417,18 +318,9 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId, mode = 'notes' }) => 
   return (
     <div 
       className="editor-container max-w-4xl mx-auto py-8 px-4 relative"
-      onDragOver={handleGlobalDragOver}
-      onDrop={handleGlobalDrop}
       onKeyDown={handleKeyDown}
       tabIndex={0} // Make div focusable for keyboard events
     >
-      {/* Cross-page drag indicator */}
-      {isDraggingCrossPage && (
-        <div className="mb-4 px-3 py-2 bg-purple-50 border border-purple-200 rounded-md text-sm text-purple-700">
-          Drag to a page in the sidebar to move this block
-        </div>
-      )}
-      
       {/* Header with shortcut helper */}
       <div className="flex justify-end mb-4">
         <ShortcutHelper />
@@ -443,39 +335,38 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId, mode = 'notes' }) => 
       
       <div className="space-y-1">
         {blocks.map((block) => (
-          <div key={block.id} data-block-id={block.id}>
-            <SimpleBlock
-              block={block}
-              isSelected={selectedBlockId === block.id || isBlockSelected(block.id)}
-              isMultiSelected={isBlockSelected(block.id) && selectedBlockIds.size > 1}
-              onSelect={(event?: React.MouseEvent) => handleBlockSelect(block.id, event)}
-              onNewBlock={() => handleNewBlock(block.id)}
-              onCreateBlock={createNewBlock}
-              onMergeUp={() => handleMergeUp(block.id)}
-              onMoveUp={() => handleMoveUp(block.id)}
-              onMoveDown={() => handleMoveDown(block.id)}
-              onIndent={() => handleIndent(block.id)}
-              onOutdent={() => handleOutdent(block.id)}
-              onDeleteBlock={() => handleDeleteBlock(block.id)}
-              onDuplicateBlock={() => handleDuplicateBlock(block.id)}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-              onDragOver={handleDragOver}
-              onDrop={handleDrop}
-              isDraggedOver={draggedOverBlockId === block.id}
-              isDragging={draggedBlockId === block.id}
-              dropPosition={draggedOverBlockId === block.id ? dropPosition : null}
-              mode={mode}
-            />
-          </div>
+          <BlockDropZone 
+            key={block.id}
+            blockId={block.id}
+          >
+            <div data-block-id={block.id}>
+              <SimpleBlock
+                block={block}
+                pageId={pageId}
+                pageTitle={document.title || pageId}
+                isSelected={selectedBlockId === block.id || isBlockSelected(block.id)}
+                isMultiSelected={isBlockSelected(block.id) && selectedBlockIds.size > 1}
+                onSelect={(event?: React.MouseEvent) => handleBlockSelect(block.id, event)}
+                onNewBlock={() => handleNewBlock(block.id)}
+                onCreateBlock={createNewBlock}
+                onMergeUp={() => handleMergeUp(block.id)}
+                onMoveUp={() => handleMoveUp(block.id)}
+                onMoveDown={() => handleMoveDown(block.id)}
+                onIndent={() => handleIndent(block.id)}
+                onOutdent={() => handleOutdent(block.id)}
+                onDeleteBlock={() => handleDeleteBlock(block.id)}
+                onDuplicateBlock={() => handleDuplicateBlock(block.id)}
+                onMoveToGTDPage={(blockId, targetPageId) => handleMoveToGTDPage(blockId, targetPageId)}
+                mode={mode}
+              />
+            </div>
+          </BlockDropZone>
         ))}
       </div>
       
       {/* Notion-style clickable area below content */}
       <div
         className="min-h-[200px] w-full cursor-text"
-        onDragOver={handleGlobalDragOver}
-        onDrop={handleGlobalDrop}
         onClick={async () => {
           // Only create new block on direct click, not after drag selection
           if (!isSelecting) {

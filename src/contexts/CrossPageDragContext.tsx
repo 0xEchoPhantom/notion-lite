@@ -31,6 +31,7 @@ export const CrossPageDragProvider: React.FC<{ children: React.ReactNode }> = ({
   const [draggedBlock, setDraggedBlock] = useState<DraggedBlockInfo | null>(null);
 
   const startCrossPageDrag = useCallback((block: Block, pageId: string, pageTitle?: string) => {
+    console.log('CrossPageDragContext: Starting drag', { blockId: block.id, pageId, pageTitle });
     setDraggedBlock({
       block,
       sourcePageId: pageId,

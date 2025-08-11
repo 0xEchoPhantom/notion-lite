@@ -64,17 +64,22 @@ export const EditablePageButton: React.FC<EditablePageButtonProps> = ({
 
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setIsHovered(false);
     
-    // Check if it's a block being dropped
-    const blockData = e.dataTransfer.getData('application/json');
-    if (blockData) {
+    // Detect block drop via dataTransfer or global dragging state
+    const hasJson = !!e.dataTransfer.getData('application/json');
+    const hasPlain = !!e.dataTransfer.getData('text/plain');
+    if (hasJson || hasPlain || isDragging) {
       try {
         await moveBlockToNewPage(page.id, 0);
       } catch (error) {
         console.error('Error moving block:', error);
       }
-    } else if (onDrop) {
+      return;
+    }
+    
+    if (onDrop) {
       // Handle page reordering drop
       onDrop(e, page.id);
     }

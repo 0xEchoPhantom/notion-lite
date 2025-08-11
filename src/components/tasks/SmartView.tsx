@@ -3,8 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { Block } from '@/types/index';
 import { formatValue, formatEffort, formatDueDate } from '@/utils/smartTokenParser';
+import { 
+  isStatusConsistentWithPage, 
+  getStatusForPage
+} from '../../utils/gtdStatusMapper';
 import { useAuth } from '@/contexts/AuthContext';
-import { getTodoBlocks } from '@/lib/firestore';
+import { subscribeToTodoBlocks } from '@/lib/firestore';
 
 type ViewMode = 'board' | 'table' | 'priority';
 
@@ -17,10 +21,12 @@ export function SmartView() {
   useEffect(() => {
     if (!user) return;
 
-    const loadTasks = async () => {
-      try {
-        const todoBlocks = await getTodoBlocks(user.uid);
-        
+    setLoading(true);
+    
+    // Use real-time subscription instead of polling
+    const unsubscribe = subscribeToTodoBlocks(
+      user.uid,
+      (todoBlocks) => {
         // Add computed ROI to each block
         const tasksWithROI = todoBlocks.map(block => {
           const value = block.taskMetadata?.value || 0;
@@ -42,18 +48,11 @@ export function SmartView() {
         });
         
         setTasks(tasksWithROI);
-      } catch (error) {
-        console.error('Error loading tasks:', error);
-      } finally {
         setLoading(false);
       }
-    };
-
-    loadTasks();
+    );
     
-    // Refresh every 5 seconds for real-time updates
-    const interval = setInterval(loadTasks, 5000);
-    return () => clearInterval(interval);
+    return () => unsubscribe();
   }, [user]);
 
 
@@ -81,6 +80,14 @@ export function SmartView() {
   const missingDataTasks = tasks.filter(task => 
     !task.taskMetadata?.value || !task.taskMetadata?.effort
   );
+
+  // Status consistency analysis
+  const inconsistentTasks = tasks.filter(task => 
+    !isStatusConsistentWithPage(task.taskMetadata, task.pageId)
+  );
+  const consistencyRate = tasks.length > 0 
+    ? Math.round(((tasks.length - inconsistentTasks.length) / tasks.length) * 100)
+    : 100;
 
   const renderBoardView = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -152,6 +159,24 @@ export function SmartView() {
         <div>
           <h2 className="text-2xl font-bold text-gray-900">🧠 Smart View</h2>
           <p className="text-gray-500 mt-1">Intelligent task management with multiple perspectives</p>
+          
+          {/* Status consistency indicator */}
+          <div className="flex items-center gap-4 mt-2">
+            <div className="flex items-center gap-1">
+              <span className={`w-2 h-2 rounded-full ${
+                consistencyRate >= 90 ? 'bg-green-500' : 
+                consistencyRate >= 70 ? 'bg-yellow-500' : 'bg-red-500'
+              }`}></span>
+              <span className="text-sm text-gray-600">
+                Status Consistency: {consistencyRate}%
+              </span>
+            </div>
+            {inconsistentTasks.length > 0 && (
+              <span className="text-sm text-yellow-600">
+                {inconsistentTasks.length} tasks need status alignment
+              </span>
+            )}
+          </div>
         </div>
         
         <div className="flex items-center gap-2">
@@ -239,13 +264,30 @@ function TaskCard({ task, dragEnabled = true }: {
   task: Block;
   dragEnabled?: boolean;
 }) {
+  // Check if task status is consistent with its page location
+  const isConsistent = isStatusConsistentWithPage(task.taskMetadata, task.pageId);
+  const expectedStatus = getStatusForPage(task.pageId);
+  const currentStatus = task.taskMetadata?.status;
+  
   return (
     <div
       draggable={dragEnabled}
-      className={`p-3 bg-white rounded-lg border border-gray-200 shadow-sm transition-shadow ${
+      className={`p-3 bg-white rounded-lg border transition-shadow ${
+        isConsistent ? 'border-gray-200' : 'border-yellow-300 bg-yellow-50'
+      } shadow-sm ${
         dragEnabled ? 'cursor-move hover:shadow-md' : 'hover:bg-gray-50'
       }`}
     >
+      {/* Status inconsistency warning */}
+      {!isConsistent && (
+        <div className="flex items-center gap-1 mb-2">
+          <span className="text-xs text-yellow-600">⚠️ Status mismatch:</span>
+          <span className="text-xs text-yellow-700">
+            {`'${currentStatus}' → should be '${expectedStatus}'`}
+          </span>
+        </div>
+      )}
+      
       <div className="text-sm text-gray-900 line-clamp-2 mb-2">{task.content}</div>
       
       {(task.taskMetadata?.roi !== undefined && isFinite(task.taskMetadata.roi)) && (

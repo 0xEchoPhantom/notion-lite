@@ -6,7 +6,8 @@ import { TaskCompany } from '@/types/task';
 import { SlashMenu } from './SlashMenu';
 import { TokenSuggest } from './TokenSuggest';
 import { useBlockLogic } from '@/hooks/useBlockLogic';
-import { BlockWrapper, BlockIcon, DragHandle, BlockInput } from './block-parts';
+import { BlockWrapper, BlockIcon, SimpleDragHandle, BlockInput } from './block-parts';
+import { BlockDropZone } from './BlockDropZone';
 import { TaskChips } from '@/components/tasks/TaskChips';
 import { parseTaskTokens } from '@/utils/smartTokenParser';
 import { processAllTokens, validateToken, TokenHistory, TokenSnapshot } from '@/utils/tokenProcessor';
@@ -22,6 +23,8 @@ import {
 
 interface SimpleBlockProps {
   block: BlockType;
+  pageId: string;
+  pageTitle?: string;
   isSelected: boolean;
   isMultiSelected?: boolean;
   onSelect: (event?: React.MouseEvent) => void;
@@ -34,19 +37,15 @@ interface SimpleBlockProps {
   onOutdent: () => void;
   onDeleteBlock: () => void;
   onDuplicateBlock: () => void;
-  onDragStart?: (blockId: string) => void;
-  onDragEnd?: () => void;
-  onDragOver?: (e: React.DragEvent, blockId: string) => void;
-  onDrop?: (e: React.DragEvent, targetBlockId: string) => void;
-  isDraggedOver?: boolean;
-  isDragging?: boolean;
-  dropPosition?: 'above' | 'below' | null;
-  mode?: 'notes' | 'gtd'; // Add mode prop to control available block types
+  onMoveToGTDPage?: (blockId: string, targetPageId: string) => void;
+  mode?: 'notes' | 'gtd';
 }
 
 export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
   const {
     block,
+    pageId,
+    pageTitle,
     isSelected,
     isMultiSelected = false,
     onSelect,
@@ -59,13 +58,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
     onOutdent,
     onDeleteBlock,
     onDuplicateBlock,
-    onDragStart,
-    onDragEnd,
-    onDragOver,
-    onDrop,
-    isDraggedOver = false,
-    isDragging = false,
-    dropPosition = null,
+    onMoveToGTDPage,
     mode = 'notes',
   } = props;
 
@@ -366,18 +359,12 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
     handleCompositionEnd,
     handleSlashMenuSelect,
     handleToggleCheck,
-    handleDragStart,
-    handleDragEnd,
-    handleDragOver,
-    handleDrop,
     handleBlockClick,
     setShowSlashMenu,
     setSlashSearchQuery,
   } = useBlockLogic({
     block,
     isSelected,
-    onDragStart,
-    onDragEnd,
     onCreateBlock,
     onNewBlock,
     onSelect,
@@ -388,8 +375,6 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
     onDeleteBlock,
     onMergeUp,
     onDuplicateBlock,
-    onDragOver,
-    onDrop,
   });
 
   return (
@@ -398,18 +383,15 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
         blockId={block.id}
         isSelected={isSelected}
         isMultiSelected={isMultiSelected}
-        isDragging={isDragging}
-        isDraggedOver={isDraggedOver}
-        dropPosition={dropPosition}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop}
         onClick={handleBlockClick}
       >
-        <DragHandle
+        <SimpleDragHandle
+          block={block}
+          pageId={pageId}
+          pageTitle={pageTitle}
           isSelected={isSelected}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
           onSelect={() => onSelect()}
+          onMoveToGTDPage={onMoveToGTDPage}
         />
         
         <BlockIcon
@@ -482,7 +464,9 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
                         inputRef.current.setSelectionRange(lastAtIndex, lastAtIndex);
                         // Trigger change event
                         const event = new Event('input', { bubbles: true });
-                        inputRef.current.dispatchEvent(event);
+                        if (inputRef.current) {
+                          inputRef.current.dispatchEvent(event);
+                        }
                       }
                     }
                     return;
@@ -538,7 +522,9 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
                           
                           // Trigger change event
                           const event = new Event('input', { bubbles: true });
-                          inputRef.current.dispatchEvent(event);
+                          if (inputRef.current) {
+                            inputRef.current.dispatchEvent(event);
+                          }
                         }
                       }
                     }, 100);
@@ -590,7 +576,9 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
                     
                     // Trigger change event for consistency
                     const event = new Event('input', { bubbles: true });
-                    inputRef.current.dispatchEvent(event);
+                    if (inputRef.current) {
+                      inputRef.current.dispatchEvent(event);
+                    }
                   }
                 }
                 

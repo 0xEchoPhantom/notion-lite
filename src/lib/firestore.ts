@@ -29,6 +29,8 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/firebase/client';
 import { Block, Page, ArchivedPage, ArchivedBlock, TaskMetadata } from '@/types/index';
+import { updateTaskMetadataForPage } from '@/utils/gtdStatusMapper';
+import { withRetry, isRetryableError } from '@/utils/retryUtils';
 
 // ===== CONSTANTS =====
 const GTD_PAGES = ['inbox', 'next-actions', 'waiting-for', 'someday-maybe'];
@@ -365,6 +367,64 @@ export const getTodoBlocks = async (
   return blocks;
 };
 
+// Real-time subscription to todo blocks for Smart View
+export const subscribeToTodoBlocks = (
+  userId: string,
+  callback: (blocks: Block[]) => void,
+  filters?: {
+    status?: string;
+    assignee?: string;
+    hasValue?: boolean;
+    pageId?: string;
+  }
+): (() => void) => {
+  const blocksRef = collection(db, 'users', userId, 'blocks');
+  const constraints: QueryConstraint[] = [
+    where('type', '==', 'todo-list')
+  ];
+  
+  if (filters?.pageId) {
+    constraints.push(where('pageId', '==', normalizePageId(filters.pageId)));
+  }
+  
+  const q = query(blocksRef, ...constraints);
+  
+  return onSnapshot(q, (snapshot) => {
+    let blocks = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      createdAt: doc.data().createdAt?.toDate() || new Date(),
+      updatedAt: doc.data().updatedAt?.toDate() || new Date(),
+      taskMetadata: doc.data().taskMetadata ? {
+        ...doc.data().taskMetadata,
+        dueDate: doc.data().taskMetadata.dueDate?.toDate(),
+        completedAt: doc.data().taskMetadata.completedAt?.toDate(),
+        promotedToNextAt: doc.data().taskMetadata.promotedToNextAt?.toDate(),
+      } : undefined,
+    })) as Block[];
+    
+    // Client-side filtering for complex queries
+    if (filters?.status) {
+      blocks = blocks.filter(b => b.taskMetadata?.status === filters.status);
+    }
+    if (filters?.assignee) {
+      blocks = blocks.filter(b => b.taskMetadata?.assignee === filters.assignee);
+    }
+    if (filters?.hasValue) {
+      blocks = blocks.filter(b => (b.taskMetadata?.value || 0) > 0);
+    }
+    
+    // Sort by ROI if value is present
+    blocks.sort((a, b) => {
+      const roiA = (a.taskMetadata?.value || 0) / (a.taskMetadata?.effort || 1);
+      const roiB = (b.taskMetadata?.value || 0) / (b.taskMetadata?.effort || 1);
+      return roiB - roiA;
+    });
+    
+    callback(blocks);
+  });
+};
+
 export const updateTaskMetadata = async (
   userId: string,
   blockId: string,
@@ -551,12 +611,33 @@ export const getArchivedBlocks = async (userId: string): Promise<ArchivedBlock[]
 
 // ===== CROSS-PAGE OPERATIONS =====
 
-export const moveBlockToPage = async (
+// Helper function to get the next order number for a page (always append to end)
+const getNextOrderForPage = async (userId: string, pageId: string): Promise<number> => {
+  const normalizedPageId = normalizePageId(pageId);
+  const blocksRef = collection(db, 'users', userId, 'blocks');
+  const q = query(
+    blocksRef, 
+    where('pageId', '==', normalizedPageId),
+    orderBy('order', 'desc'),
+    limit(1)
+  );
+  
+  const snapshot = await getDocs(q);
+  if (snapshot.empty) {
+    return 0; // First block on the page
+  }
+  
+  const lastBlock = snapshot.docs[0].data();
+  return (lastBlock.order || 0) + 1;
+};
+
+// Internal function for moving blocks
+const _moveBlockToPage = async (
   userId: string,
   fromPageId: string,
   toPageId: string,
   blockId: string,
-  newOrder: number
+  newOrder?: number // Make this optional since we'll calculate it
 ): Promise<Block | null> => {
   const blockRef = doc(db, 'users', userId, 'blocks', blockId);
   const blockDoc = await getDoc(blockRef);
@@ -566,15 +647,35 @@ export const moveBlockToPage = async (
     return null;
   }
   
+  const blockData = blockDoc.data() as Block;
   const normalizedToPageId = normalizePageId(toPageId);
   const workspaceId = getWorkspaceId(normalizedToPageId);
   
-  await updateDoc(blockRef, {
+  // Always append to the end of the destination page
+  const calculatedOrder = newOrder !== undefined ? newOrder : await getNextOrderForPage(userId, toPageId);
+  
+  // Prepare updates
+  const updates: Record<string, unknown> = {
     pageId: normalizedToPageId,
     workspaceId,
-    order: newOrder,
+    order: calculatedOrder,
     updatedAt: Timestamp.now(),
-  });
+  };
+  
+  // For todo-list blocks, update status based on target GTD page
+  if (blockData.type === 'todo-list') {
+    const updatedTaskMetadata = updateTaskMetadataForPage(
+      blockData.taskMetadata,
+      toPageId, // Use original toPageId (not normalized) for status mapping
+      {
+        preserveCompleted: true, // Keep 'done' status when moving
+        forceUpdate: true        // DO update status when moving to a different page
+      }
+    );
+    updates.taskMetadata = updatedTaskMetadata;
+  }
+  
+  await updateDoc(blockRef, updates);
   
   const updatedDoc = await getDoc(blockRef);
   return {
@@ -582,7 +683,38 @@ export const moveBlockToPage = async (
     ...updatedDoc.data(),
     createdAt: updatedDoc.data()?.createdAt?.toDate() || new Date(),
     updatedAt: updatedDoc.data()?.updatedAt?.toDate() || new Date(),
+    taskMetadata: updatedDoc.data()?.taskMetadata ? {
+      ...updatedDoc.data()?.taskMetadata,
+      dueDate: updatedDoc.data()?.taskMetadata?.dueDate?.toDate(),
+      completedAt: updatedDoc.data()?.taskMetadata?.completedAt?.toDate(),
+      promotedToNextAt: updatedDoc.data()?.taskMetadata?.promotedToNextAt?.toDate(),
+    } : undefined,
   } as Block;
+};
+
+// Public function with retry logic for moving blocks
+export const moveBlockToPage = async (
+  userId: string,
+  fromPageId: string,
+  toPageId: string,
+  blockId: string,
+  newOrder?: number
+): Promise<Block | null> => {
+  return withRetry(
+    () => _moveBlockToPage(userId, fromPageId, toPageId, blockId, newOrder),
+    {
+      maxRetries: 3,
+      initialDelay: 500,
+      onRetry: (attempt, error) => {
+        console.warn(`[moveBlockToPage] Retry attempt ${attempt} for block ${blockId}:`, error);
+        
+        // Only retry if it's a retryable error
+        if (!isRetryableError(error)) {
+          throw error; // Stop retrying for non-retryable errors
+        }
+      }
+    }
+  );
 };
 
 // ===== EXPORT ALL FUNCTIONS =====
@@ -607,6 +739,7 @@ const firestoreExports = {
   
   // Tasks (using blocks)
   getTodoBlocks,
+  subscribeToTodoBlocks,
   updateTaskMetadata,
   
   // Archive
