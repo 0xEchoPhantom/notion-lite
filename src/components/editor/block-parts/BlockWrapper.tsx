@@ -40,7 +40,7 @@ export const BlockWrapper: React.FC<BlockWrapperProps> = ({
         data-block-id={blockId}
         className={clsx(
           'group relative flex items-start gap-1 py-1 px-2 mx-2 rounded hover:bg-gray-50',
-          'transition-all duration-200 cursor-pointer',
+          'transition-all duration-200',
           isDragging && 'opacity-50 transform scale-95',
           isSelected && 'bg-blue-50 hover:bg-blue-100',
           isMultiSelected && 'bg-blue-100 hover:bg-blue-150'

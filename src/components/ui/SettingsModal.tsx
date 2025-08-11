@@ -174,11 +174,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
               {activeTab === 'delegation' && (
                 <div className="space-y-6">
+                  {/* Token Manager Link */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-sm font-medium text-blue-900">Token Manager</h3>
+                        <p className="text-xs text-blue-700 mt-1">Manage all @ token presets including team members, values, and efforts</p>
+                      </div>
+                      <a
+                        href="/settings/tokens"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
+                      >
+                        Open Token Manager →
+                      </a>
+                    </div>
+                  </div>
+                  
                   <div>
                     <div className="flex items-center justify-between mb-4">
                       <div>
-                        <h3 className="text-sm font-medium text-gray-900">Team Members</h3>
-                        <p className="text-xs text-gray-500 mt-1">Define assignees for tasks with their roles and responsibilities</p>
+                        <h3 className="text-sm font-medium text-gray-900">Quick Team Setup</h3>
+                        <p className="text-xs text-gray-500 mt-1">Quickly add team members here or use Token Manager for full control</p>
                       </div>
                       <button
                         onClick={() => {

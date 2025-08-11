@@ -51,7 +51,7 @@ export const GlobalDragProvider: React.FC<GlobalDragProviderProps> = ({
     }
 
     try {
-      const newBlockId = await moveBlockToPage(
+      const newBlock = await moveBlockToPage(
         user.uid,
         draggedBlock.sourcePageId,
         targetPageId,
@@ -60,7 +60,7 @@ export const GlobalDragProvider: React.FC<GlobalDragProviderProps> = ({
       );
       
       setDraggedBlock(null);
-      return newBlockId;
+      return newBlock?.id || null;
     } catch (error) {
       console.error('Error moving block to new page:', error);
       return null;

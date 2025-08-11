@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 interface User {
   uid: string;
@@ -29,13 +29,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthorized, us
   const [actionLoading, setActionLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  useEffect(() => {
-    if (isAuthorized) {
-      loadDashboardData();
-    }
-  }, [isAuthorized]);
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     setLoading(true);
     try {
       // Fetch users list
@@ -65,7 +59,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthorized, us
     } finally {
       setLoading(false);
     }
-  };
+  }, [userEmail]);
+
+  useEffect(() => {
+    if (isAuthorized) {
+      loadDashboardData();
+    }
+  }, [isAuthorized, loadDashboardData]);
 
   const handleDeleteUserData = async (userId: string, email: string) => {
     if (!confirm(`Delete ALL data for ${email}?\n\nThis cannot be undone!`)) return;

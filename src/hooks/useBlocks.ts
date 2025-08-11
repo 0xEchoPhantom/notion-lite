@@ -6,7 +6,7 @@ import { Block, BlockType } from '@/types/index';
 import { MAX_INDENT_LEVEL } from '@/constants/editor';
 
 export const useBlocksWithKeyboard = () => {
-  const { blocks, addBlock, updateBlockContent, deleteBlockById, reorderBlocksList, convertBlockType: convertBlockTypeContext } = useBlocks();
+  const { blocks, addBlock, updateBlockContent, deleteBlockById, reorderBlocksList, convertBlockType: convertBlockTypeContext, pageId } = useBlocks();
 
   const createNewBlock = useCallback(async (
     type: BlockType = 'paragraph',
@@ -41,7 +41,8 @@ export const useBlocksWithKeyboard = () => {
       type,
       content,
       indentLevel,
-      order
+      order,
+      pageId
     };
 
     // Add isChecked for todo-list blocks
@@ -50,7 +51,7 @@ export const useBlocksWithKeyboard = () => {
       : baseBlock;
 
     return await addBlock(newBlock);
-  }, [blocks, addBlock]);
+  }, [blocks, addBlock, pageId]);
 
   const convertBlockType = useCallback(async (blockId: string, newType: BlockType) => {
     await convertBlockTypeContext(blockId, newType);

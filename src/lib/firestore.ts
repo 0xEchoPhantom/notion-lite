@@ -156,12 +156,27 @@ export const updateBlockById = async (
 ): Promise<void> => {
   const blockRef = doc(db, 'users', userId, 'blocks', blockId);
   
-  const cleanUpdates = Object.fromEntries(
-    Object.entries({
-      ...updates,
-      updatedAt: Timestamp.now(),
-    }).filter(([, v]) => v !== undefined)
-  );
+  // Deep clean to remove undefined values
+  const deepClean = (obj: any): any => {
+    if (obj === null || obj === undefined) return undefined;
+    if (obj instanceof Date || obj instanceof Timestamp) return obj;
+    if (typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) return obj.map(deepClean).filter(v => v !== undefined);
+    
+    const cleaned: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      const cleanValue = deepClean(value);
+      if (cleanValue !== undefined) {
+        cleaned[key] = cleanValue;
+      }
+    }
+    return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+  };
+  
+  const cleanUpdates = deepClean({
+    ...updates,
+    updatedAt: Timestamp.now(),
+  });
   
   await updateDoc(blockRef, cleanUpdates);
 };

@@ -7,10 +7,8 @@ import { useRouter } from 'next/navigation';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { WorkspaceMode } from '@/types/workspace';
 import { GTD_PAGES } from '@/types/workspace';
-import { SettingsModal } from './SettingsModal';
 import { useCrossPageDrag } from '@/contexts/CrossPageDragContext';
 import { moveBlockToPage } from '@/lib/firestore';
-import { isAdminAccount } from '@/lib/auth-guard';
 
 interface UnifiedSidebarProps {
   currentPageId?: string;
@@ -31,7 +29,6 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
   const router = useRouter();
   const { currentMode, switchMode, isLoading } = useWorkspace();
   const [isSwitching, setIsSwitching] = React.useState(false);
-  const [showSettings, setShowSettings] = React.useState(false);
   const { draggedBlock, isDraggingCrossPage, isValidDropTarget, endCrossPageDrag } = useCrossPageDrag();
   const [dragOverPageId, setDragOverPageId] = useState<string | null>(null);
 
@@ -237,19 +234,8 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
 
       {/* Bottom Section */}
       <div className="px-3 py-3 border-t border-gray-200/50 space-y-1">
-        {isAdminAccount(user?.email) && (
-          <Link 
-            href="/admin" 
-            className="flex items-center space-x-3 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-            </svg>
-            <span className="text-sm font-medium text-red-600">Admin Dashboard</span>
-          </Link>
-        )}
-        <button 
-          onClick={() => setShowSettings(true)}
+        <Link 
+          href="/settings"
           className="w-full flex items-center space-x-3 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -257,7 +243,7 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
           <span className="text-sm">Settings</span>
-        </button>
+        </Link>
         <Link 
           href="/recycle-bin" 
           className="flex items-center space-x-3 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
@@ -268,9 +254,6 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
           <span className="text-sm">Recycle Bin</span>
         </Link>
       </div>
-
-      {/* Settings Modal */}
-      <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
     </div>
   );
 };

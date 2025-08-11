@@ -9,6 +9,7 @@ import { SelectionProvider, useSelection } from '@/contexts/SelectionContext';
 // import { HistoryProvider, useHistory } from '@/contexts/HistoryContext';
 import { BlockType as BType } from '@/types/index';
 import { useCrossPageDrag } from '@/contexts/CrossPageDragContext';
+import { useGlobalDrag } from '@/contexts/GlobalDragContext';
 
 interface EditorProps {
   pageId: string;
@@ -32,6 +33,7 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId }) => {
     reorderBlocks
   } = useBlocksWithKeyboard();
   const { startCrossPageDrag, endCrossPageDrag, isDraggingCrossPage } = useCrossPageDrag();
+  const { setDraggedBlock } = useGlobalDrag();
   
   // Selection context
   const {
@@ -272,8 +274,19 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId }) => {
       
       // Start cross-page drag
       startCrossPageDrag(block, pageId, pageTitle);
+      
+      // Also set global drag state for cross-page functionality
+      setDraggedBlock({
+        blockId: block.id,
+        sourcePageId: pageId,
+        type: block.type,
+        content: block.content,
+        indentLevel: block.indentLevel,
+        isChecked: block.isChecked,
+        sourcePageTitle: pageTitle
+      });
     }
-  }, [blocks, pageId, startCrossPageDrag]);
+  }, [blocks, pageId, startCrossPageDrag, setDraggedBlock]);
 
   const handleDragEnd = useCallback(() => {
     setDraggedBlockId(null);
@@ -282,7 +295,10 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId }) => {
     
     // End cross-page drag
     endCrossPageDrag();
-  }, [endCrossPageDrag]);
+    
+    // Clear global drag state
+    setDraggedBlock(null);
+  }, [endCrossPageDrag, setDraggedBlock]);
 
   const handleDragOver = useCallback((e: React.DragEvent, blockId: string) => {
     e.preventDefault();
@@ -307,11 +323,9 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId }) => {
     e.preventDefault();
     e.stopPropagation();
     
-    // Check if this is a cross-page drag
-    if (isDraggingCrossPage) {
-      // Cross-page drops are handled by the sidebar
-      return;
-    }
+    // Note: Even if cross-page drag indicator is active, allow in-page reorder here.
+    // Cross-page moves are handled by the sidebar; dropping back into the editor
+    // should still reorder within the current page.
     
     const sourceBlockId = e.dataTransfer.getData('text/plain');
     
@@ -347,10 +361,10 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId }) => {
       }
     }
     
-    setDraggedBlockId(null);
+  setDraggedBlockId(null);
     setDraggedOverBlockId(null);
     setDropPosition(null);
-  }, [blocks, reorderBlocks, dropPosition, isDraggingCrossPage]);
+  }, [blocks, reorderBlocks, dropPosition]);
 
   // Handle global dragover for the entire editor area
   const handleGlobalDragOver = useCallback((e: React.DragEvent) => {

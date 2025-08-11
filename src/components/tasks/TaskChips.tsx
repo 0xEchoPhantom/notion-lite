@@ -16,15 +16,16 @@ interface TaskChipsProps {
 
 export function TaskChips({ taskMetadata, blockId, onUpdate }: TaskChipsProps) {
   const { user } = useAuth();
-  const [editingChip, setEditingChip] = useState<'value' | 'effort' | 'due' | 'company' | null>(null);
+  const [editingChip, setEditingChip] = useState<'value' | 'effort' | 'due' | 'company' | 'assignee' | null>(null);
   const hasValue = !!taskMetadata.value;
   const hasEffort = !!taskMetadata.effort;
   const hasDue = !!taskMetadata.dueDate;
   const hasCompany = !!taskMetadata.company;
+  const hasAssignee = !!taskMetadata.assignee;
   const hasROI = taskMetadata.roi !== undefined && isFinite(taskMetadata.roi);
 
   // If there's nothing meaningful to show, render nothing
-  if (!hasValue && !hasEffort && !hasDue && !hasCompany && !hasROI) {
+  if (!hasValue && !hasEffort && !hasDue && !hasCompany && !hasAssignee && !hasROI) {
     return null;
   }
   
@@ -34,7 +35,7 @@ export function TaskChips({ taskMetadata, blockId, onUpdate }: TaskChipsProps) {
       {hasValue && (
         <ChipEditor
           value={taskMetadata.value}
-          displayValue={formatValue(taskMetadata.value!)}
+          displayValue={`💵 ${formatValue(taskMetadata.value!)}`}
           isEditing={editingChip === 'value'}
           onEdit={() => setEditingChip('value')}
           onSave={async (newValue) => {
@@ -59,7 +60,7 @@ export function TaskChips({ taskMetadata, blockId, onUpdate }: TaskChipsProps) {
       {hasEffort && (
         <ChipEditor
           value={taskMetadata.effort}
-          displayValue={formatEffort(taskMetadata.effort!)}
+          displayValue={`⏱️ ${formatEffort(taskMetadata.effort!)}`}
           isEditing={editingChip === 'effort'}
           onEdit={() => setEditingChip('effort')}
           onSave={async (newValue) => {
@@ -84,7 +85,7 @@ export function TaskChips({ taskMetadata, blockId, onUpdate }: TaskChipsProps) {
       {hasDue && (
         <ChipEditor
           value={taskMetadata.dueDate}
-          displayValue={formatDueDate(taskMetadata.dueDate!)}
+          displayValue={`📅 ${formatDueDate(taskMetadata.dueDate!)}`}
           isEditing={editingChip === 'due'}
           onEdit={() => setEditingChip('due')}
           onSave={async (newValue) => {
@@ -115,7 +116,7 @@ export function TaskChips({ taskMetadata, blockId, onUpdate }: TaskChipsProps) {
       {hasCompany && (
         <ChipEditor
           value={taskMetadata.company}
-          displayValue={taskMetadata.company!}
+          displayValue={`🏢 ${taskMetadata.company!}`}
           isEditing={editingChip === 'company'}
           onEdit={() => setEditingChip('company')}
           onSave={async (newValue) => {
@@ -133,6 +134,36 @@ export function TaskChips({ taskMetadata, blockId, onUpdate }: TaskChipsProps) {
           placeholder="@AIC"
           parser={parseCompanyInput}
           color="indigo"
+        />
+      )}
+      
+      {/* Assignee Chip (only when present) */}
+      {hasAssignee && (
+        <ChipEditor
+          value={taskMetadata.assignee}
+          displayValue={`👤 ${taskMetadata.assignee}`}
+          isEditing={editingChip === 'assignee'}
+          onEdit={() => setEditingChip('assignee')}
+          onSave={async (newValue) => {
+            if (user && blockId) {
+              const blockRef = doc(db, 'users', user.uid, 'blocks', blockId);
+              const updateData: Record<string, unknown> = {
+                updatedAt: serverTimestamp()
+              };
+              if (newValue !== undefined) {
+                updateData['taskMetadata.assignee'] = newValue;
+              } else {
+                updateData['taskMetadata.assignee'] = null;
+              }
+              await updateDoc(blockRef, updateData);
+              onUpdate?.({ ...taskMetadata, assignee: newValue });
+            }
+            setEditingChip(null);
+          }}
+          onCancel={() => setEditingChip(null)}
+          placeholder="@John"
+          parser={parseAssigneeInput}
+          color="amber"
         />
       )}
       
@@ -304,6 +335,16 @@ function parseCompanyInput(input: string): TaskCompany | undefined {
   
   if (TASK_RULES.COMPANIES.includes(cleaned as TaskCompany)) {
     return cleaned as TaskCompany;
+  }
+  
+  return undefined;
+}
+
+function parseAssigneeInput(input: string): string | undefined {
+  const cleaned = input.replace('@', '').trim();
+  
+  if (cleaned.length > 0) {
+    return cleaned;
   }
   
   return undefined;

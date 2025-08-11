@@ -35,28 +35,84 @@ export function TokenSuggest({ isOpen, position, searchQuery, onSelect, onClose 
   const allSuggestions: Suggestion[] = [];
   const intendedType = inferType(queryLower);
     
-    // Load historical values from user's tasks
+    // Load predefined values from token settings
     if (user) {
       try {
-        // Load team members from delegation settings
-        const settingsDoc = await getDoc(doc(db, 'users', user.uid, 'settings', 'delegation'));
-        if (settingsDoc.exists()) {
-          const settings = settingsDoc.data();
-          if (settings?.teamMembers && Array.isArray(settings.teamMembers)) {
-            settings.teamMembers.forEach((member: { name: string; email?: string }) => {
-              if (member.name) {
-                const matchesQuery = !queryLower || member.name.toLowerCase().includes(queryLower);
-                const matchesType = !intendedType || intendedType === 'assignee';
-                if (matchesQuery && matchesType) {
-                  allSuggestions.push({
-                    type: 'assignee',
-                    label: `@${member.name}`,
-                    value: `@${member.name}`,
-                    icon: '👤',
-                    description: 'Team member',
-                    count: 1000 // High priority for configured team members
-                  });
-                }
+        // Load token settings
+        const tokenSettingsDoc = await getDoc(doc(db, 'users', user.uid, 'settings', 'tokens'));
+        if (tokenSettingsDoc.exists()) {
+          const tokenSettings = tokenSettingsDoc.data();
+          
+          // Add team members
+          if (tokenSettings?.assignees && Array.isArray(tokenSettings.assignees)) {
+            tokenSettings.assignees.forEach((name: string) => {
+              const matchesQuery = !queryLower || name.toLowerCase().includes(queryLower);
+              const matchesType = !intendedType || intendedType === 'assignee';
+              if (matchesQuery && matchesType) {
+                allSuggestions.push({
+                  type: 'assignee',
+                  label: `@${name}`,
+                  value: `@${name}`,
+                  icon: '👤',
+                  description: 'Team member',
+                  count: 1000 // High priority for configured team members
+                });
+              }
+            });
+          }
+          
+          // Add common values
+          if (tokenSettings?.commonValues && Array.isArray(tokenSettings.commonValues)) {
+            tokenSettings.commonValues.forEach((value: number) => {
+              const formatted = formatValueForDisplay(value);
+              const matchesQuery = !queryLower || formatted.toLowerCase().includes(queryLower);
+              const matchesType = !intendedType || intendedType === 'value';
+              if (matchesQuery && matchesType) {
+                allSuggestions.push({
+                  type: 'value',
+                  label: `@${formatted}`,
+                  value: `@${formatted}`,
+                  icon: '💵',
+                  description: 'Common value',
+                  count: 900
+                });
+              }
+            });
+          }
+          
+          // Add common efforts
+          if (tokenSettings?.commonEfforts && Array.isArray(tokenSettings.commonEfforts)) {
+            tokenSettings.commonEfforts.forEach((effort: number) => {
+              const formatted = formatEffortForDisplay(effort);
+              const matchesQuery = !queryLower || formatted.toLowerCase().includes(queryLower);
+              const matchesType = !intendedType || intendedType === 'effort';
+              if (matchesQuery && matchesType) {
+                allSuggestions.push({
+                  type: 'effort',
+                  label: `@${formatted}`,
+                  value: `@${formatted}`,
+                  icon: '⏱️',
+                  description: 'Common effort',
+                  count: 900
+                });
+              }
+            });
+          }
+          
+          // Add companies from settings
+          if (tokenSettings?.companies && Array.isArray(tokenSettings.companies)) {
+            tokenSettings.companies.forEach((company: string) => {
+              const matchesQuery = !queryLower || company.toLowerCase().includes(queryLower);
+              const matchesType = !intendedType || intendedType === 'company';
+              if (matchesQuery && matchesType) {
+                allSuggestions.push({
+                  type: 'company',
+                  label: `@${company}`,
+                  value: `@${company}`,
+                  icon: '🏢',
+                  description: 'Organization',
+                  count: 950 // High priority for configured companies
+                });
               }
             });
           }
@@ -142,7 +198,47 @@ export function TokenSuggest({ isOpen, position, searchQuery, onSelect, onClose 
       }
     }
 
-    const sorted = Array.from(seen.values()).sort((a, b) => (b.count || 0) - (a.count || 0) || a.label.localeCompare(b.label));
+    let sorted = Array.from(seen.values()).sort((a, b) => (b.count || 0) - (a.count || 0) || a.label.localeCompare(b.label));
+    
+    // Add "Create new" option if query doesn't match existing suggestions exactly
+    if (queryLower && !sorted.some(s => s.value.toLowerCase() === `@${queryLower}`)) {
+      const detectedType = inferType(queryLower);
+      let createOption: Suggestion | null = null;
+      
+      if (detectedType) {
+        const typeLabels = {
+          'value': '💵 Value',
+          'effort': '⏱️ Effort', 
+          'due': '📅 Due date',
+          'assignee': '👤 Person',
+          'company': '🏢 Company'
+        };
+        
+        createOption = {
+          type: detectedType,
+          label: `Create new: @${queryLower}`,
+          value: `@${queryLower}`,
+          icon: '➕',
+          description: `Add as ${typeLabels[detectedType]}`,
+          count: -1 // Always show at bottom
+        };
+      } else if (queryLower.length >= 2) {
+        // Default to assignee for unknown types
+        createOption = {
+          type: 'assignee',
+          label: `Create new: @${queryLower}`,
+          value: `@${queryLower}`,
+          icon: '➕',
+          description: 'Add as person',
+          count: -1
+        };
+      }
+      
+      if (createOption) {
+        sorted = [...sorted.slice(0, 7), createOption];
+      }
+    }
+    
     setSuggestions(sorted.slice(0, 8));
   }, [queryLower, user]);
   // Load suggestions based on query
@@ -159,17 +255,24 @@ export function TokenSuggest({ isOpen, position, searchQuery, onSelect, onClose 
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault();
-          setSelectedIndex(prev => (prev + 1) % suggestions.length);
+          if (suggestions.length > 0) {
+            setSelectedIndex(prev => (prev + 1) % suggestions.length);
+          }
           break;
         case 'ArrowUp':
           e.preventDefault();
-          setSelectedIndex(prev => (prev - 1 + suggestions.length) % suggestions.length);
+          if (suggestions.length > 0) {
+            setSelectedIndex(prev => (prev - 1 + suggestions.length) % suggestions.length);
+          }
           break;
         case 'Enter':
         case 'Tab':
           e.preventDefault();
           if (suggestions[selectedIndex]) {
             onSelect(suggestions[selectedIndex].value);
+          } else if (searchQuery && suggestions.length === 0) {
+            // Create new with default type (assignee)
+            onSelect(`@${searchQuery}`);
           }
           break;
         case 'Escape':
@@ -197,7 +300,9 @@ export function TokenSuggest({ isOpen, position, searchQuery, onSelect, onClose 
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen, onClose]);
 
-  if (!isOpen || suggestions.length === 0) return null;
+  if (!isOpen) return null;
+  
+  // Always show menu even if no suggestions (will show "Create new" option)
 
   return (
     <div
@@ -209,10 +314,15 @@ export function TokenSuggest({ isOpen, position, searchQuery, onSelect, onClose 
       }}
     >
       <div className="px-3 py-1.5 text-xs font-medium text-gray-500 border-b border-gray-100">
-        Suggestions
+        {suggestions.length > 0 ? 'Suggestions' : 'Type to create'}
       </div>
       
-      {suggestions.map((suggestion, index) => (
+      {suggestions.length === 0 ? (
+        <div className="px-3 py-3 text-sm text-gray-500">
+          Type a value and press Enter to create
+        </div>
+      ) : (
+        suggestions.map((suggestion, index) => (
         <button
           key={`${suggestion.type}-${suggestion.value}`}
           className={`w-full px-3 py-2 flex items-center gap-3 hover:bg-gray-50 transition-colors ${
@@ -232,7 +342,8 @@ export function TokenSuggest({ isOpen, position, searchQuery, onSelect, onClose 
             <span className="text-xs text-gray-400">↵</span>
           )}
         </button>
-      ))}
+      ))
+      )}
       
       <div className="px-3 py-1.5 text-xs text-gray-400 border-t border-gray-100 mt-1">
         Use ↑↓ to navigate, Enter to select

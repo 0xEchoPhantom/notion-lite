@@ -24,7 +24,7 @@ export const useBlockSaving = ({ block, updateBlockContent }: UseBlockSavingProp
   const hasPendingChangesRef = useRef(false);
   
   // Save timeout reference
-  const saveTimeoutRef = useRef<NodeJS.Timeout>();
+  const saveTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   
   // Track if this component is mounted
   const isMountedRef = useRef(true);

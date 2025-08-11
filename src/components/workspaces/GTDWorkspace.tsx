@@ -27,6 +27,8 @@ export function GTDWorkspace() {
   const [currentPageId, setCurrentPageId] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<'editor' | 'smart'>('editor');
   const [isLoading, setIsLoading] = useState(true);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [taggedNotes, setTaggedNotes] = useState<Array<{ id: string; title: string; count: number }>>([]);
 
   // TaskMirrorService removed - taskMetadata is now stored directly in blocks
 

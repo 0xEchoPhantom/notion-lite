@@ -7,6 +7,8 @@ import { TokenSuggest } from './TokenSuggest';
 import { useBlockLogic } from '@/hooks/useBlockLogic';
 import { BlockWrapper, BlockIcon, DragHandle, BlockInput } from './block-parts';
 import { TaskChips } from '@/components/tasks/TaskChips';
+import { parseTaskTokens } from '@/utils/smartTokenParser';
+import { useBlocksWithKeyboard } from '@/hooks/useBlocks';
 
 interface SimpleBlockProps {
   block: BlockType;
@@ -55,13 +57,15 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
     dropPosition = null,
   } = props;
 
+  const { updateBlockContent } = useBlocksWithKeyboard();
   const [showTokenSuggest, setShowTokenSuggest] = useState(false);
   const [tokenSuggestPosition, setTokenSuggestPosition] = useState({ x: 0, y: 0 });
   const [tokenSearchQuery, setTokenSearchQuery] = useState('');
   
   // Handle @ token detection for todo-list blocks
-  const handleTokenTrigger = (input: string, cursorPos: number, inputElement: HTMLTextAreaElement) => {
+  const handleTokenTrigger = (input: string, cursorPos: number | null, inputElement: HTMLTextAreaElement) => {
     if (block.type !== 'todo-list') return;
+    if (cursorPos === null || cursorPos === undefined) return;
     
     const textBeforeCursor = input.substring(0, cursorPos);
     const lastAtIndex = textBeforeCursor.lastIndexOf('@');
@@ -70,14 +74,28 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
       const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
       // Check if we're still in a token (no space after @)
       if (!textAfterAt.includes(' ') && textAfterAt.length <= 20) {
-        // Get caret position for menu
+        // Calculate approximate position of the @ symbol
         const rect = inputElement.getBoundingClientRect();
         
+        // Create a temporary element to measure text width
+        const measureElement = document.createElement('span');
+        measureElement.style.font = window.getComputedStyle(inputElement).font;
+        measureElement.style.position = 'absolute';
+        measureElement.style.visibility = 'hidden';
+        measureElement.style.whiteSpace = 'pre';
+        measureElement.textContent = input.substring(0, lastAtIndex);
+        document.body.appendChild(measureElement);
+        
+        const textWidth = measureElement.offsetWidth;
+        document.body.removeChild(measureElement);
+        
+        // Position menu near the @ symbol
+        const scrollLeft = inputElement.scrollLeft;
+        const x = rect.left + textWidth - scrollLeft + 10; // Add small offset
+        const y = rect.bottom + 4;
+        
         setTokenSearchQuery(textAfterAt);
-        setTokenSuggestPosition({
-          x: rect.left,
-          y: rect.bottom + 4
-        });
+        setTokenSuggestPosition({ x, y });
         setShowTokenSuggest(true);
       } else {
         setShowTokenSuggest(false);
@@ -87,8 +105,8 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
     }
   };
   
-  const handleTokenSelect = (token: string) => {
-    // Insert the token at the cursor position
+  const handleTokenSelect = async (token: string) => {
+    // Remove the @token from content and update metadata
     if (inputRef.current) {
       const cursorPos = inputRef.current.selectionStart;
       const content = inputRef.current.value;
@@ -96,32 +114,52 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
       const lastAtIndex = textBeforeCursor.lastIndexOf('@');
       
       if (lastAtIndex !== -1) {
+        // Remove the @ and everything after it up to cursor from content
         const newContent = 
           content.substring(0, lastAtIndex) + 
-          token + ' ' + 
           content.substring(cursorPos);
         
-        // Update the input value directly
+        // Update the input value directly (removing the @token)
         inputRef.current.value = newContent;
         
-        // Create and dispatch input event to trigger block update
+        // Parse the selected token to extract metadata
+        const parsed = parseTaskTokens(token);
+        
+        // Build the updated taskMetadata, removing undefined values
+        const updatedMetadata: any = {
+          ...(block.taskMetadata || {})
+        };
+        
+        // Only add defined values from parsed tokens
+        if (parsed.values.value !== undefined) updatedMetadata.value = parsed.values.value;
+        if (parsed.values.effort !== undefined) updatedMetadata.effort = parsed.values.effort;
+        if (parsed.values.dueDate !== undefined) updatedMetadata.dueDate = parsed.values.dueDate;
+        if (parsed.values.assignee !== undefined) updatedMetadata.assignee = parsed.values.assignee;
+        if (parsed.values.company !== undefined) updatedMetadata.company = parsed.values.company;
+        
+        // Update block with clean content and new metadata
+        await updateBlockContent(block.id, { 
+          content: newContent,
+          taskMetadata: updatedMetadata
+        });
+        
+        // Create and dispatch input event to trigger UI update
         const inputEvent = new Event('input', { bubbles: true });
         Object.defineProperty(inputEvent, 'target', {
           writable: false,
           value: inputRef.current
         });
         
-        // Manually trigger the input handler
+        // Manually trigger the input handler for local state
         if (handleInput) {
           const typedEvent = inputEvent as unknown as React.FormEvent<HTMLTextAreaElement>;
           handleInput(typedEvent);
         }
         
-        // Move cursor
+        // Move cursor to where the @ was
         setTimeout(() => {
           if (inputRef.current) {
-            const newCursorPos = lastAtIndex + token.length + 1;
-            inputRef.current.setSelectionRange(newCursorPos, newCursorPos);
+            inputRef.current.setSelectionRange(lastAtIndex, lastAtIndex);
             inputRef.current.focus();
           }
         }, 0);
@@ -226,6 +264,21 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
                   if (e.key === 'Escape') {
                     e.preventDefault();
                     setShowTokenSuggest(false);
+                    // Remove the incomplete @ token when escaping
+                    if (inputRef.current) {
+                      const content = inputRef.current.value;
+                      const cursorPos = inputRef.current.selectionStart;
+                      const textBeforeCursor = content.substring(0, cursorPos);
+                      const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+                      if (lastAtIndex !== -1) {
+                        const newContent = content.substring(0, lastAtIndex) + content.substring(cursorPos);
+                        inputRef.current.value = newContent;
+                        inputRef.current.setSelectionRange(lastAtIndex, lastAtIndex);
+                        // Trigger change event
+                        const event = new Event('input', { bubbles: true });
+                        inputRef.current.dispatchEvent(event);
+                      }
+                    }
                     return;
                   }
                 }
@@ -233,7 +286,24 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
               }}
               onPaste={handlePaste}
               onFocus={handleFocus}
-              onBlur={handleBlur}
+              onBlur={(e) => {
+                // Remove incomplete @ token on blur
+                if (showTokenSuggest && inputRef.current) {
+                  const content = inputRef.current.value;
+                  const cursorPos = inputRef.current.selectionStart || 0;
+                  const textBeforeCursor = content.substring(0, cursorPos);
+                  const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+                  if (lastAtIndex !== -1) {
+                    const newContent = content.substring(0, lastAtIndex) + content.substring(cursorPos);
+                    inputRef.current.value = newContent;
+                    // Trigger change to save clean content
+                    const event = new Event('input', { bubbles: true });
+                    inputRef.current.dispatchEvent(event);
+                  }
+                  setShowTokenSuggest(false);
+                }
+                handleBlur(e);
+              }}
               onCompositionStart={handleCompositionStart}
               onCompositionEnd={handleCompositionEnd}
             />

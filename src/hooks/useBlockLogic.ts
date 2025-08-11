@@ -86,7 +86,7 @@ export const useBlockLogic = ({
   const [localContent, setLocalContent] = useState(block.content);
   const [isFocused, setIsFocused] = useState(false);
   const isArrowNavigating = useRef(false);
-  const saveTimeoutRef = useRef<NodeJS.Timeout>();
+  const saveTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const lastSavedContent = useRef(block.content);
   const isTyping = useRef(false); // 🔴 CRITICAL: Prevents Firestore updates from interrupting typing
 
