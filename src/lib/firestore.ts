@@ -157,14 +157,14 @@ export const updateBlockById = async (
   const blockRef = doc(db, 'users', userId, 'blocks', blockId);
   
   // Deep clean to remove undefined values
-  const deepClean = (obj: any): any => {
+  const deepClean = (obj: unknown): unknown => {
     if (obj === null || obj === undefined) return undefined;
     if (obj instanceof Date || obj instanceof Timestamp) return obj;
     if (typeof obj !== 'object') return obj;
     if (Array.isArray(obj)) return obj.map(deepClean).filter(v => v !== undefined);
     
-    const cleaned: any = {};
-    for (const [key, value] of Object.entries(obj)) {
+    const cleaned: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
       const cleanValue = deepClean(value);
       if (cleanValue !== undefined) {
         cleaned[key] = cleanValue;
@@ -178,7 +178,7 @@ export const updateBlockById = async (
     updatedAt: Timestamp.now(),
   });
   
-  await updateDoc(blockRef, cleanUpdates);
+  await updateDoc(blockRef, cleanUpdates as Record<string, unknown>);
 };
 
 // Backward compatibility with old signature (pageId was ignored anyway)

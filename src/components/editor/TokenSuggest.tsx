@@ -206,12 +206,13 @@ export function TokenSuggest({ isOpen, position, searchQuery, onSelect, onClose 
       let createOption: Suggestion | null = null;
       
       if (detectedType) {
-        const typeLabels = {
+        const typeLabels: Record<string, string> = {
           'value': '💵 Value',
           'effort': '⏱️ Effort', 
           'due': '📅 Due date',
           'assignee': '👤 Person',
-          'company': '🏢 Company'
+          'company': '🏢 Company',
+          'template': '📋 Template'
         };
         
         createOption = {

@@ -126,7 +126,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
         const parsed = parseTaskTokens(token);
         
         // Build the updated taskMetadata, removing undefined values
-        const updatedMetadata: any = {
+        const updatedMetadata: Record<string, unknown> = {
           ...(block.taskMetadata || {})
         };
         
@@ -286,7 +286,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
               }}
               onPaste={handlePaste}
               onFocus={handleFocus}
-              onBlur={(e) => {
+              onBlur={() => {
                 // Remove incomplete @ token on blur
                 if (showTokenSuggest && inputRef.current) {
                   const content = inputRef.current.value;
@@ -302,7 +302,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
                   }
                   setShowTokenSuggest(false);
                 }
-                handleBlur(e);
+                handleBlur();
               }}
               onCompositionStart={handleCompositionStart}
               onCompositionEnd={handleCompositionEnd}
