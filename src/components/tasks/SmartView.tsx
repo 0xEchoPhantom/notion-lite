@@ -5,9 +5,8 @@ import { Block } from '@/types/index';
 import { formatValue, formatEffort, formatDueDate } from '@/utils/smartTokenParser';
 import { useAuth } from '@/contexts/AuthContext';
 import { getTodoBlocks } from '@/lib/firestore';
-// import { AIChat } from '@/components/ai/AIChat'; // TODO: Update to work with Block[]
 
-type ViewMode = 'board' | 'table' | 'priority' | 'roi';
+type ViewMode = 'board' | 'table' | 'priority';
 
 export function SmartView() {
   const { user } = useAuth();
@@ -146,17 +145,6 @@ export function SmartView() {
     </div>
   );
 
-  const renderAIChat = () => (
-    // TODO: Update AIChat to work with Block[] instead of Task[]
-    // <AIChat 
-    //   tasks={tasks}
-    //   currentView={viewMode}
-    //   selectedTasks={[]}
-    // />
-    <div className="p-8 text-center text-gray-500">
-      AI Chat feature coming soon
-    </div>
-  );
 
   return (
     <div className="p-6 space-y-6">
@@ -197,23 +185,12 @@ export function SmartView() {
           >
             🎯 Priority
           </button>
-          <button
-            onClick={() => setViewMode('roi')}
-            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-              viewMode === 'roi' 
-                ? 'bg-blue-100 text-blue-700' 
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            🤖 AI Chat
-          </button>
         </div>
       </div>
 
       {viewMode === 'board' && renderBoardView()}
       {viewMode === 'table' && renderTableView()}
       {viewMode === 'priority' && renderPriorityView()}
-      {viewMode === 'roi' && renderAIChat()}
     </div>
   );
 }

@@ -180,7 +180,7 @@ export function GTDWorkspace() {
           currentPageId={currentPageId || undefined}
           onPageSelect={handlePageClick}
           onTasksViewSelect={() => setActiveView('smart')}
-          isSmartViewActive={false}
+          isSmartViewActive={activeView === 'smart'}
           mode="gtd"
         />
         
@@ -207,7 +207,7 @@ export function GTDWorkspace() {
           currentPageId={currentPageId || undefined}
           onPageSelect={handlePageClick}
           onTasksViewSelect={() => setActiveView('smart')}
-          isSmartViewActive={false}
+          isSmartViewActive={activeView === 'smart'}
           mode="gtd"
         />
         
