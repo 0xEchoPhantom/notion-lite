@@ -183,7 +183,7 @@ export function GTDWorkspace() {
             setActiveView('smart');
             setCurrentPageId(null);
           }}
-          isSmartViewActive={activeView === 'smart'}
+          isSmartViewActive={false}
           mode="gtd"
         />
         
@@ -201,6 +201,7 @@ export function GTDWorkspace() {
   }
 
   const currentPage = gtdPages.find(p => p.id === currentPageId);
+  const isSmartActive = activeView === 'smart';
 
   return (
     <GlobalDragProvider currentPageId={currentPageId || ''}>
@@ -213,7 +214,7 @@ export function GTDWorkspace() {
             setActiveView('smart');
             setCurrentPageId(null);
           }}
-          isSmartViewActive={activeView === 'smart'}
+          isSmartViewActive={isSmartActive}
           mode="gtd"
         />
         
@@ -242,7 +243,7 @@ export function GTDWorkspace() {
                 </div>
                 {/* Editor */}
                 <div className="flex-1 overflow-y-auto">
-                  <Editor pageId={currentPageId} />
+                  <Editor pageId={currentPageId} mode="gtd" />
                 </div>
               </div>
             </BlocksProvider>

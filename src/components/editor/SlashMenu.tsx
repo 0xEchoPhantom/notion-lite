@@ -90,6 +90,7 @@ interface SlashMenuProps {
   onSelectType: (type: BlockType) => void;
   position: { x: number; y: number };
   searchQuery?: string;
+  mode?: 'notes' | 'gtd'; // Add mode prop to filter available block types
 }
 
 export interface SlashMenuRef {
@@ -103,22 +104,39 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
     onSelectType,
     position,
     searchQuery = '',
+    mode = 'notes',
   } = props;
   const [selectedIndex, setSelectedIndex] = useState(0);
   const menuRef = useRef<HTMLDivElement>(null);
   const prevSearchQueryRef = useRef(searchQuery);
   const selectedItemRef = useRef<HTMLButtonElement>(null);
 
-  // Filter menu items based on search query
-  const filteredItems = SLASH_MENU_ITEMS.filter(item => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      item.label.toLowerCase().includes(query) ||
-      item.description.toLowerCase().includes(query) ||
-      item.keywords.some(keyword => keyword.toLowerCase().includes(query))
-    );
-  });
+  // Filter menu items based on mode and search query
+  const getAvailableItems = () => {
+    let availableItems = SLASH_MENU_ITEMS;
+    
+    // Filter by mode
+    if (mode === 'gtd') {
+      // In GTD mode, only allow todo-list and paragraph (text)
+      availableItems = SLASH_MENU_ITEMS.filter(item => 
+        item.id === 'todo-list' || item.id === 'paragraph'
+      );
+    }
+    
+    // Filter by search query
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      availableItems = availableItems.filter(item =>
+        item.label.toLowerCase().includes(query) ||
+        item.description.toLowerCase().includes(query) ||
+        item.keywords.some(keyword => keyword.toLowerCase().includes(query))
+      );
+    }
+    
+    return availableItems;
+  };
+
+  const filteredItems = getAvailableItems();
 
   // Reset selected index only when search query changes (not when navigating)
   useEffect(() => {

@@ -10,18 +10,24 @@ import { SelectionProvider, useSelection } from '@/contexts/SelectionContext';
 import { BlockType as BType } from '@/types/index';
 import { useCrossPageDrag } from '@/contexts/CrossPageDragContext';
 import { useGlobalDrag } from '@/contexts/GlobalDragContext';
+import { useFocusManager, useKeystrokeProtection } from '@/hooks/useKeystrokeLock';
+import { KeystrokeIndicator } from '@/components/ui/KeystrokeIndicator';
 
 interface EditorProps {
   pageId: string;
+  mode?: 'notes' | 'gtd';
 }
 
 interface EditorInnerProps {
   pageId: string;
+  mode?: 'notes' | 'gtd';
 }
 
 // Inner editor component that uses selection context
-const EditorInner: React.FC<EditorInnerProps> = ({ pageId }) => {
+const EditorInner: React.FC<EditorInnerProps> = ({ pageId, mode = 'notes' }) => {
   const { blocks, loading } = useBlocks();
+  const focusManager = useFocusManager();
+  const keystrokeProtection = useKeystrokeProtection();
   const { 
     createNewBlock, 
     deleteBlockById, 
@@ -58,20 +64,24 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId }) => {
     
     if (!currentBlock) return;
 
-    // Create new block with same type and indent level as current block
-    const newBlockType = type || currentBlock.type;
+    // Determine new block type
+    let newBlockType = type || currentBlock.type;
+    
+    // In GTD mode, restrict block types to only todo-list and paragraph
+    if (mode === 'gtd') {
+      // If the requested type is not allowed in GTD mode, default to paragraph
+      if (newBlockType !== 'todo-list' && newBlockType !== 'paragraph') {
+        newBlockType = 'paragraph';
+      }
+    }
+    
     const newBlockIndent = indentLevel !== undefined ? indentLevel : currentBlock.indentLevel;
     const newBlockId = await createNewBlock(newBlockType, '', blockId, newBlockIndent);
     
-    // Focus the new block
-    setTimeout(() => {
-      setSelectedBlockId(newBlockId);
-      const newBlockElement = document.querySelector(`[data-block-id="${newBlockId}"] textarea`);
-      if (newBlockElement) {
-        (newBlockElement as HTMLTextAreaElement).focus();
-      }
-    }, 50);
-  }, [blocks, createNewBlock]);
+    // Focus the new block using focus manager
+    setSelectedBlockId(newBlockId);
+    await focusManager.focusBlock(newBlockId);
+  }, [blocks, createNewBlock, mode, focusManager, setSelectedBlockId]);
 
   // Duplicate current block (Notion behavior)
   const handleDuplicateBlock = useCallback(async (blockId: string) => {
@@ -81,15 +91,10 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId }) => {
     // Create new block with same content, type, and indent level
     const newBlockId = await createNewBlock(currentBlock.type, currentBlock.content, blockId, currentBlock.indentLevel);
     
-    // Focus the new block
-    setTimeout(() => {
-      setSelectedBlockId(newBlockId);
-      const newBlockElement = document.querySelector(`[data-block-id="${newBlockId}"] textarea`);
-      if (newBlockElement) {
-        (newBlockElement as HTMLInputElement).focus();
-      }
-    }, 50);
-  }, [blocks, createNewBlock]);
+    // Focus the new block using focus manager
+    setSelectedBlockId(newBlockId);
+    await focusManager.focusBlock(newBlockId);
+  }, [blocks, createNewBlock, focusManager, setSelectedBlockId]);
 
   // Merge current block content up to previous block
   const handleMergeUp = useCallback(async (blockId: string) => {
@@ -460,6 +465,7 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId }) => {
               isDraggedOver={draggedOverBlockId === block.id}
               isDragging={draggedBlockId === block.id}
               dropPosition={draggedOverBlockId === block.id ? dropPosition : null}
+              mode={mode}
             />
           </div>
         ))}
@@ -489,13 +495,20 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId }) => {
         }}
       />
       
+      {/* Keystroke operation indicator */}
+      <KeystrokeIndicator 
+        isCreating={keystrokeProtection.lockState.isCreating}
+        isDeleting={keystrokeProtection.lockState.isDeleting}
+        isLocked={keystrokeProtection.lockState.isLocked}
+      />
+      
   {/* Drag selection overlay removed */}
     </div>
   );
 };
 
 // Main Editor component with SelectionProvider wrapper
-export const Editor: React.FC<EditorProps> = ({ pageId }) => {
+export const Editor: React.FC<EditorProps> = ({ pageId, mode = 'notes' }) => {
   const { blocks } = useBlocks();
   
   const getAllBlocks = useCallback(() => {
@@ -504,7 +517,7 @@ export const Editor: React.FC<EditorProps> = ({ pageId }) => {
 
   return (
     <SelectionProvider getAllBlocks={getAllBlocks}>
-      <EditorInner pageId={pageId} />
+      <EditorInner pageId={pageId} mode={mode} />
     </SelectionProvider>
   );
 };

@@ -21,6 +21,8 @@ interface Suggestion {
   icon: string;
   description?: string;
   count?: number; // How many times used
+  source?: 'configured' | 'historical' | 'create'; // Where this suggestion comes from
+  action?: 'use' | 'create' | 'add-to-manager'; // What happens on selection
 }
 
 export function TokenSuggest({ isOpen, position, searchQuery, onSelect, onClose }: TokenSuggestProps) {
@@ -30,9 +32,22 @@ export function TokenSuggest({ isOpen, position, searchQuery, onSelect, onClose 
   const menuRef = useRef<HTMLDivElement>(null);
   const queryLower = searchQuery.toLowerCase();
 
+  // Helper function to normalize values for comparison
+  const normalizeForComparison = (value: string, type: Suggestion['type']): string => {
+    if (type === 'company') return value.toUpperCase();
+    if (type === 'assignee') return value.toLowerCase();
+    if (type === 'value' || type === 'effort') {
+      // Normalize numeric values
+      const parsed = type === 'value' ? parseValueString(value) : parseEffortString(value);
+      return parsed ? parsed.toString() : value.toLowerCase();
+    }
+    return value.toLowerCase();
+  };
+
   // Memoize loader to avoid exhaustive-deps warning
   const loadSuggestions = useCallback(async () => {
   const allSuggestions: Suggestion[] = [];
+  const configuredValues = new Set<string>(); // Track configured values to prevent duplicates
   const intendedType = inferType(queryLower);
     
     // Load predefined values from token settings
@@ -49,13 +64,17 @@ export function TokenSuggest({ isOpen, position, searchQuery, onSelect, onClose 
               const matchesQuery = !queryLower || name.toLowerCase().includes(queryLower);
               const matchesType = !intendedType || intendedType === 'assignee';
               if (matchesQuery && matchesType) {
+                const normalizedName = normalizeForComparison(name, 'assignee');
+                configuredValues.add(`assignee:${normalizedName}`);
                 allSuggestions.push({
                   type: 'assignee',
                   label: `@${name}`,
                   value: `@${name}`,
-                  icon: '👤',
-                  description: 'Team member',
-                  count: 1000 // High priority for configured team members
+                  icon: '📌',
+                  description: 'Configured',
+                  count: 1000, // High priority for configured team members
+                  source: 'configured',
+                  action: 'use'
                 });
               }
             });
@@ -65,16 +84,19 @@ export function TokenSuggest({ isOpen, position, searchQuery, onSelect, onClose 
           if (tokenSettings?.commonValues && Array.isArray(tokenSettings.commonValues)) {
             tokenSettings.commonValues.forEach((value: number) => {
               const formatted = formatValueForDisplay(value);
-              const matchesQuery = !queryLower || formatted.toLowerCase().includes(queryLower);
+              const matchesQuery = !queryLower || formatted.toLowerCase().includes(queryLower) || value.toString().includes(queryLower);
               const matchesType = !intendedType || intendedType === 'value';
               if (matchesQuery && matchesType) {
+                configuredValues.add(`value:${value}`);
                 allSuggestions.push({
                   type: 'value',
                   label: `@${formatted}`,
                   value: `@${formatted}`,
-                  icon: '💵',
-                  description: 'Common value',
-                  count: 900
+                  icon: '📌',
+                  description: 'Configured',
+                  count: 1000,
+                  source: 'configured',
+                  action: 'use'
                 });
               }
             });
@@ -87,13 +109,16 @@ export function TokenSuggest({ isOpen, position, searchQuery, onSelect, onClose 
               const matchesQuery = !queryLower || formatted.toLowerCase().includes(queryLower);
               const matchesType = !intendedType || intendedType === 'effort';
               if (matchesQuery && matchesType) {
+                configuredValues.add(`effort:${effort}`);
                 allSuggestions.push({
                   type: 'effort',
                   label: `@${formatted}`,
                   value: `@${formatted}`,
-                  icon: '⏱️',
-                  description: 'Common effort',
-                  count: 900
+                  icon: '📌',
+                  description: 'Configured',
+                  count: 1000,
+                  source: 'configured',
+                  action: 'use'
                 });
               }
             });
@@ -105,13 +130,17 @@ export function TokenSuggest({ isOpen, position, searchQuery, onSelect, onClose 
               const matchesQuery = !queryLower || company.toLowerCase().includes(queryLower);
               const matchesType = !intendedType || intendedType === 'company';
               if (matchesQuery && matchesType) {
+                const normalizedCompany = company.toUpperCase();
+                configuredValues.add(`company:${normalizedCompany}`);
                 allSuggestions.push({
                   type: 'company',
                   label: `@${company}`,
                   value: `@${company}`,
-                  icon: '🏢',
-                  description: 'Organization',
-                  count: 950 // High priority for configured companies
+                  icon: '📌',
+                  description: 'Configured',
+                  count: 1000, // High priority for configured companies
+                  source: 'configured',
+                  action: 'use'
                 });
               }
             });
@@ -163,26 +192,91 @@ export function TokenSuggest({ isOpen, position, searchQuery, onSelect, onClose 
           if (matchesQuery && matchesType) allSuggestions.push(s);
         };
 
+        // Add historical values (skip if already in configured)
         valueCounts.forEach((count, val) => {
-          const formatted = formatValueForDisplay(val);
-          pushIfMatch({ type: 'value', label: `@${formatted}`, value: `@${formatted}`, icon: '💵', description: `Used ${count}×`, count });
+          const key = `value:${val}`;
+          if (!configuredValues.has(key)) {
+            const formatted = formatValueForDisplay(val);
+            const suggestion: Suggestion = {
+              type: 'value',
+              label: `@${formatted}`,
+              value: `@${formatted}`,
+              icon: count >= 5 ? '⭐' : '📊',
+              description: count >= 5 ? `Frequently used (${count}×)` : `Used ${count}×`,
+              count,
+              source: 'historical',
+              action: count >= 5 ? 'add-to-manager' : 'use'
+            };
+            pushIfMatch(suggestion);
+          }
         });
+        
         effortCounts.forEach((count, hrs) => {
-          const formatted = formatEffortForDisplay(hrs);
-          pushIfMatch({ type: 'effort', label: `@${formatted}`, value: `@${formatted}`, icon: '⏱️', description: `Used ${count}×`, count });
+          const key = `effort:${hrs}`;
+          if (!configuredValues.has(key)) {
+            const formatted = formatEffortForDisplay(hrs);
+            const suggestion: Suggestion = {
+              type: 'effort',
+              label: `@${formatted}`,
+              value: `@${formatted}`,
+              icon: count >= 5 ? '⭐' : '📊',
+              description: count >= 5 ? `Frequently used (${count}×)` : `Used ${count}×`,
+              count,
+              source: 'historical',
+              action: count >= 5 ? 'add-to-manager' : 'use'
+            };
+            pushIfMatch(suggestion);
+          }
         });
+        
         dueCounts.forEach((count, iso) => {
-          pushIfMatch({ type: 'due', label: `@${iso}`, value: `@${iso}`, icon: '📅', description: `Used ${count}×`, count });
-        });
-        // Only add historical assignees if no team members are configured
-        const hasTeamMembers = allSuggestions.some(s => s.type === 'assignee' && s.count === 1000);
-        if (!hasTeamMembers) {
-          assigneeCounts.forEach((count, name) => {
-            pushIfMatch({ type: 'assignee', label: `@${name}`, value: `@${name}`, icon: '👤', description: `Used ${count}×`, count });
+          pushIfMatch({ 
+            type: 'due', 
+            label: `@${iso}`, 
+            value: `@${iso}`, 
+            icon: '📅', 
+            description: `Used ${count}×`, 
+            count,
+            source: 'historical',
+            action: 'use'
           });
-        }
+        });
+        
+        // Add historical assignees (check for duplicates case-insensitively)
+        assigneeCounts.forEach((count, name) => {
+          const normalizedName = normalizeForComparison(name, 'assignee');
+          const key = `assignee:${normalizedName}`;
+          if (!configuredValues.has(key)) {
+            const suggestion: Suggestion = {
+              type: 'assignee',
+              label: `@${name}`,
+              value: `@${name}`,
+              icon: count >= 5 ? '⭐' : '👤',
+              description: count >= 5 ? `Frequently used (${count}×)` : `Used ${count}×`,
+              count,
+              source: 'historical',
+              action: count >= 5 ? 'add-to-manager' : 'use'
+            };
+            pushIfMatch(suggestion);
+          }
+        });
+        
         companyCounts.forEach((count, comp) => {
-          pushIfMatch({ type: 'company', label: `@${comp}`, value: `@${comp}`, icon: getCompanyIcon(comp as TaskCompany), description: `Used ${count}×`, count });
+          const normalizedCompany = comp.toUpperCase();
+          const key = `company:${normalizedCompany}`;
+          if (!configuredValues.has(key)) {
+            const suggestion: Suggestion = {
+              type: 'company',
+              label: `@${comp}`,
+              value: `@${comp}`,
+              icon: count >= 5 ? '⭐' : getCompanyIcon(comp as TaskCompany),
+              description: count >= 5 ? `Frequently used (${count}×)` : `Used ${count}×`,
+              count,
+              source: 'historical',
+              action: count >= 5 ? 'add-to-manager' : 'use'
+            };
+            pushIfMatch(suggestion);
+          }
         });
       } catch (error) {
         console.error('Error loading historical suggestions:', error);
@@ -201,11 +295,18 @@ export function TokenSuggest({ isOpen, position, searchQuery, onSelect, onClose 
     let sorted = Array.from(seen.values()).sort((a, b) => (b.count || 0) - (a.count || 0) || a.label.localeCompare(b.label));
     
     // Add "Create new" option if query doesn't match existing suggestions exactly
-    if (queryLower && !sorted.some(s => s.value.toLowerCase() === `@${queryLower}`)) {
-      const detectedType = inferType(queryLower);
-      let createOption: Suggestion | null = null;
+    if (queryLower && queryLower.length >= 1) {
+      // Check if value already exists (case-insensitive, normalized)
+      const detectedType = inferType(queryLower) || 'assignee';
+      const normalizedQuery = normalizeForComparison(queryLower, detectedType);
       
-      if (detectedType) {
+      // Check if this exact value already exists in suggestions
+      const exactMatch = sorted.find(s => {
+        const normalizedSuggestion = normalizeForComparison(s.value.replace('@', ''), s.type);
+        return normalizedSuggestion === normalizedQuery;
+      });
+      
+      if (!exactMatch) {
         const typeLabels: Record<string, string> = {
           'value': '💵 Value',
           'effort': '⏱️ Effort', 
@@ -215,27 +316,17 @@ export function TokenSuggest({ isOpen, position, searchQuery, onSelect, onClose 
           'template': '📋 Template'
         };
         
-        createOption = {
+        const createOption: Suggestion = {
           type: detectedType,
           label: `Create new: @${queryLower}`,
           value: `@${queryLower}`,
           icon: '➕',
-          description: `Add as ${typeLabels[detectedType]}`,
-          count: -1 // Always show at bottom
+          description: `Add as ${typeLabels[detectedType]} and save to Manager`,
+          count: -1, // Always show at bottom
+          source: 'create',
+          action: 'create'
         };
-      } else if (queryLower.length >= 2) {
-        // Default to assignee for unknown types
-        createOption = {
-          type: 'assignee',
-          label: `Create new: @${queryLower}`,
-          value: `@${queryLower}`,
-          icon: '➕',
-          description: 'Add as person',
-          count: -1
-        };
-      }
-      
-      if (createOption) {
+        
         sorted = [...sorted.slice(0, 7), createOption];
       }
     }
@@ -325,7 +416,7 @@ export function TokenSuggest({ isOpen, position, searchQuery, onSelect, onClose 
       ) : (
         suggestions.map((suggestion, index) => (
         <button
-          key={`${suggestion.type}-${suggestion.value}`}
+          key={`${suggestion.type}-${suggestion.value}-${suggestion.source}`}
           className={`w-full px-3 py-2 flex items-center gap-3 hover:bg-gray-50 transition-colors ${
             index === selectedIndex ? 'bg-blue-50' : ''
           }`}
@@ -334,11 +425,25 @@ export function TokenSuggest({ isOpen, position, searchQuery, onSelect, onClose 
         >
           <span className="text-lg flex-shrink-0">{suggestion.icon}</span>
           <div className="flex-1 text-left">
-            <div className="text-sm font-medium text-gray-900">{suggestion.label}</div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-gray-900">{suggestion.label}</span>
+              {suggestion.source === 'configured' && (
+                <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded">Manager</span>
+              )}
+              {suggestion.source === 'historical' && suggestion.count && suggestion.count >= 5 && (
+                <span className="text-xs px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded">Frequent</span>
+              )}
+              {suggestion.action === 'create' && (
+                <span className="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded">New</span>
+              )}
+            </div>
             {suggestion.description && (
               <div className="text-xs text-gray-500">{suggestion.description}</div>
             )}
           </div>
+          {suggestion.action === 'add-to-manager' && (
+            <span className="text-xs text-purple-600">📍 Add</span>
+          )}
           {index === selectedIndex && (
             <span className="text-xs text-gray-400">↵</span>
           )}
@@ -354,6 +459,45 @@ export function TokenSuggest({ isOpen, position, searchQuery, onSelect, onClose 
 }
 
 // Helper functions
+function parseValueString(input: string): number | undefined {
+  const cleaned = input.replace(/[@$,]/g, '').trim();
+  const match = cleaned.match(/^(\d+(?:\.\d+)?)\s*([KMB])?$/i);
+  if (!match) return undefined;
+  
+  const [, numStr, multiplier] = match;
+  const num = parseFloat(numStr);
+  
+  if (multiplier) {
+    const multipliers: Record<string, number> = {
+      K: 1000,
+      M: 1000000,
+      B: 1000000000
+    };
+    return num * multipliers[multiplier.toUpperCase()];
+  }
+  
+  return num;
+}
+
+function parseEffortString(input: string): number | undefined {
+  const cleaned = input.replace(/@/g, '').trim();
+  const match = cleaned.match(/^(\d+(?:\.\d+)?)\s*([mhdwM])?$/);
+  if (!match) return undefined;
+  
+  const [, numStr, unit = 'h'] = match;
+  const num = parseFloat(numStr);
+  
+  const multipliers: Record<string, number> = {
+    m: 1/60,
+    h: 1,
+    d: 8,
+    w: 40,
+    M: 160
+  };
+  
+  return num * multipliers[unit.toLowerCase()];
+}
+
 function coerceToDate(input: unknown): Date {
   if (input instanceof Date) return input;
   if (typeof input === 'string' || typeof input === 'number') return new Date(input);

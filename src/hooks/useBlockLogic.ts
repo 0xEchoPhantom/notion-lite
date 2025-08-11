@@ -32,6 +32,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Block, BlockType as BType } from '@/types/index';
 import { useBlocksWithKeyboard } from '@/hooks/useBlocks';
+import { useKeystrokeProtection } from '@/hooks/useKeystrokeLock';
 // Removed GlobalDragContext - using CrossPageDragContext instead which is provided at app level
 import { getMarkdownShortcut, applyTextFormatting } from '@/utils/editor';
 import { parseNotionClipboard, isNotionContent, cleanContent } from '@/utils/clipboard';
@@ -76,6 +77,7 @@ export const useBlockLogic = ({
   onDrop,
 }: UseBlockLogicProps) => {
   const { updateBlockContent, convertBlockType, toggleTodoCheck } = useBlocksWithKeyboard();
+  const keystrokeProtection = useKeystrokeProtection(100); // 100ms debounce
   // Drag state is handled by parent components via onDragStart/onDragEnd callbacks
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const slashMenuRef = useRef<SlashMenuRef>(null);
@@ -421,22 +423,29 @@ export const useBlockLogic = ({
       
       if (!cmdKey) {
         e.preventDefault();
-        const currentContent = localContentRef.current || localContent;
-        if (block.type === 'todo-list') {
-          if (currentContent.trim() === '') {
-            if (block.indentLevel === 0) {
-              onNewBlock('paragraph', 0);
-            } else if (block.indentLevel >= 3) {
-              onNewBlock('paragraph', Math.max(0, block.indentLevel - 2));
+        
+        // Use keystroke protection to prevent rapid Enter presses
+        keystrokeProtection.executeEnterOperation(block.id, async () => {
+          const currentContent = localContentRef.current || localContent;
+          
+          if (block.type === 'todo-list') {
+            if (currentContent.trim() === '') {
+              if (block.indentLevel === 0) {
+                onNewBlock('paragraph', 0);
+              } else if (block.indentLevel >= 3) {
+                onNewBlock('paragraph', Math.max(0, block.indentLevel - 2));
+              } else {
+                onNewBlock('paragraph', Math.max(0, block.indentLevel - 1));
+              }
             } else {
-              onNewBlock('paragraph', Math.max(0, block.indentLevel - 1));
+              onNewBlock('todo-list', block.indentLevel);
             }
           } else {
-            onNewBlock('todo-list', block.indentLevel);
+            onNewBlock(block.type === 'paragraph' ? undefined : block.type, block.indentLevel);
           }
-        } else {
-          onNewBlock(block.type === 'paragraph' ? undefined : block.type, block.indentLevel);
-        }
+          
+          return true;
+        });
         return;
       }
     }
@@ -445,21 +454,28 @@ export const useBlockLogic = ({
     if (key === 'Backspace') {
       if (input && input.selectionStart === 0 && input.selectionEnd === 0) {
         e.preventDefault();
-        const currentContent = localContentRef.current || localContent;
-        if (currentContent === '') {
-          if (block.type === 'todo-list' && block.indentLevel > 0) {
-            if (block.indentLevel >= 4) {
-              onOutdent();
-              onOutdent();
+        
+        // Use keystroke protection to prevent rapid Backspace presses
+        keystrokeProtection.executeBackspaceOperation(block.id, async () => {
+          const currentContent = localContentRef.current || localContent;
+          
+          if (currentContent === '') {
+            if (block.type === 'todo-list' && block.indentLevel > 0) {
+              if (block.indentLevel >= 4) {
+                onOutdent();
+                onOutdent();
+              } else {
+                onOutdent();
+              }
             } else {
-              onOutdent();
+              onDeleteBlock();
             }
           } else {
-            onDeleteBlock();
+            onMergeUp();
           }
-        } else {
-          onMergeUp();
-        }
+          
+          return true;
+        });
         return;
       }
     }
@@ -519,7 +535,7 @@ export const useBlockLogic = ({
   }, [
     block.type, localContent, block.id, block.indentLevel, toggleTodoCheck, onMoveUp, onMoveDown, onIndent, onOutdent,
     onNewBlock, onDeleteBlock, onMergeUp, onDuplicateBlock, onSelect, isComposing, showSlashMenu,
-    convertBlockType, updateBlockContent,
+    convertBlockType, updateBlockContent, keystrokeProtection,
   ]);
 
   const handleCompositionStart = useCallback(() => {
