@@ -12,7 +12,6 @@ import {
   collection,
   doc,
   addDoc,
-  setDoc,
   updateDoc,
   deleteDoc,
   getDocs,
@@ -142,7 +141,7 @@ export const createBlock = async (
   
   // Clean undefined values
   const cleanBlock = Object.fromEntries(
-    Object.entries(blockData).filter(([_, v]) => v !== undefined)
+    Object.entries(blockData).filter(([, v]) => v !== undefined)
   );
   
   const docRef = await addDoc(blocksRef, cleanBlock);
@@ -161,7 +160,7 @@ export const updateBlockById = async (
     Object.entries({
       ...updates,
       updatedAt: Timestamp.now(),
-    }).filter(([_, v]) => v !== undefined)
+    }).filter(([, v]) => v !== undefined)
   );
   
   await updateDoc(blockRef, cleanUpdates);
@@ -572,7 +571,7 @@ export const moveBlockToPage = async (
 };
 
 // ===== EXPORT ALL FUNCTIONS =====
-export default {
+const firestoreExports = {
   // Helpers
   normalizePageId,
   getWorkspaceId,
@@ -604,3 +603,5 @@ export default {
   // Cross-page
   moveBlockToPage,
 };
+
+export default firestoreExports;

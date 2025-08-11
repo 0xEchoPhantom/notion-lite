@@ -32,7 +32,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Block, BlockType as BType } from '@/types/index';
 import { useBlocksWithKeyboard } from '@/hooks/useBlocks';
-import { useBlocks } from '@/contexts/BlocksContext';
 // Removed GlobalDragContext - using CrossPageDragContext instead which is provided at app level
 import { getMarkdownShortcut, applyTextFormatting } from '@/utils/editor';
 import { parseNotionClipboard, isNotionContent, cleanContent } from '@/utils/clipboard';

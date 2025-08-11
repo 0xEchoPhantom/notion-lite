@@ -59,8 +59,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthorized, us
         const statsData = await statsRes.json();
         setStats(statsData);
       }
-    } catch (error) {
-      console.error('Error loading dashboard:', error);
+    } catch {
+      console.error('Error loading dashboard');
       setMessage({ type: 'error', text: 'Failed to load dashboard data' });
     } finally {
       setLoading(false);
@@ -86,7 +86,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthorized, us
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to delete data' });
       }
-    } catch (error) {
+    } catch {
       setMessage({ type: 'error', text: 'Failed to delete user data' });
     } finally {
       setActionLoading(false);
@@ -112,7 +112,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthorized, us
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to delete account' });
       }
-    } catch (error) {
+    } catch {
       setMessage({ type: 'error', text: 'Failed to delete user' });
     } finally {
       setActionLoading(false);
@@ -139,7 +139,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthorized, us
       } else {
         setMessage({ type: 'error', text: data.error || 'Cleanup failed' });
       }
-    } catch (error) {
+    } catch {
       setMessage({ type: 'error', text: 'Failed to cleanup users' });
     } finally {
       setActionLoading(false);

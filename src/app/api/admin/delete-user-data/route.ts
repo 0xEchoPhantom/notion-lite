@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb, adminAuth, isAdminSDKAvailable } from '@/lib/firebaseAdmin';
+import { adminDb, isAdminSDKAvailable } from '@/lib/firebaseAdmin';
 
 async function verifyAdmin(request: NextRequest): Promise<boolean> {
   const userEmail = request.headers.get('x-user-email');

@@ -1,13 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Block as BlockType, BlockType as BType } from '@/types/index';
 import { SlashMenu } from './SlashMenu';
 import { TokenSuggest } from './TokenSuggest';
 import { useBlockLogic } from '@/hooks/useBlockLogic';
 import { BlockWrapper, BlockIcon, DragHandle, BlockInput } from './block-parts';
 import { TaskChips } from '@/components/tasks/TaskChips';
-import { useAuth } from '@/contexts/AuthContext';
 
 interface SimpleBlockProps {
   block: BlockType;
@@ -56,7 +55,6 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
     dropPosition = null,
   } = props;
 
-  const { user } = useAuth();
   const [showTokenSuggest, setShowTokenSuggest] = useState(false);
   const [tokenSuggestPosition, setTokenSuggestPosition] = useState({ x: 0, y: 0 });
   const [tokenSearchQuery, setTokenSearchQuery] = useState('');

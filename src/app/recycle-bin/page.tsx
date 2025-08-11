@@ -210,7 +210,7 @@ export default function RecycleBinPage() {
                               onClick={async () => {
                                 setBusyId(b.id);
                                 try {
-                                  const targetPageId = b.pageId;
+                                  // const targetPageId = b.pageId;
                                   // TODO: Implement restoreArchivedBlock
                                   // await restoreArchivedBlock(userId, b.id, targetPageId);
                                   alert('Restore feature coming soon');

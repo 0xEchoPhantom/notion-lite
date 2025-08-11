@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { TaskCompany } from '@/types/task';
-import { collection, query, limit, getDocs, orderBy, doc, getDoc, where } from 'firebase/firestore';
+import { collection, query, limit, getDocs, orderBy, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/firebase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
