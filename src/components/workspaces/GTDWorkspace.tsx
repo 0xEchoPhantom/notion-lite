@@ -177,9 +177,12 @@ export function GTDWorkspace() {
       <div className="flex h-screen w-full">
         {/* Unified Sidebar */}
         <UnifiedSidebar 
-          currentPageId={currentPageId || undefined}
+          currentPageId={activeView === 'editor' ? currentPageId || undefined : undefined}
           onPageSelect={handlePageClick}
-          onTasksViewSelect={() => setActiveView('smart')}
+          onTasksViewSelect={() => {
+            setActiveView('smart');
+            setCurrentPageId(null);
+          }}
           isSmartViewActive={activeView === 'smart'}
           mode="gtd"
         />
@@ -204,9 +207,12 @@ export function GTDWorkspace() {
       <div className="flex h-screen w-full">
         {/* Unified Sidebar */}
         <UnifiedSidebar 
-          currentPageId={currentPageId || undefined}
+          currentPageId={activeView === 'editor' ? currentPageId || undefined : undefined}
           onPageSelect={handlePageClick}
-          onTasksViewSelect={() => setActiveView('smart')}
+          onTasksViewSelect={() => {
+            setActiveView('smart');
+            setCurrentPageId(null);
+          }}
           isSmartViewActive={activeView === 'smart'}
           mode="gtd"
         />
