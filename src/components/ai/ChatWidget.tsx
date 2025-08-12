@@ -180,14 +180,12 @@ export function ChatWidget() {
   }
 
   return (
-    <div className={`fixed bottom-6 right-6 bg-white rounded-lg shadow-2xl border border-gray-200 z-50 transition-all ${
-      isMinimized ? 'w-80 h-14' : 'w-96 h-[600px]'
-    }`}>
+    <div className={`fixed ${isMinimized ? 'bottom-20 lg:bottom-6 right-4 lg:right-6 w-72 lg:w-80 h-14' : 'inset-4 lg:inset-auto lg:bottom-6 lg:right-6 lg:w-96 lg:h-[600px]'} bg-white rounded-lg shadow-2xl border border-gray-200 z-50 transition-all`}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
         <div className="flex items-center space-x-2">
           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-          <h3 className="font-semibold text-sm text-gray-800">AI Assistant</h3>
+          <h3 className="font-semibold text-sm lg:text-base text-gray-800">AI Assistant</h3>
         </div>
         <div className="flex items-center space-x-2">
           <button
@@ -195,14 +193,14 @@ export function ChatWidget() {
             className="text-gray-500 hover:text-gray-700 transition-colors"
             title={isMinimized ? 'Maximize' : 'Minimize'}
           >
-            {isMinimized ? <Maximize2 size={18} /> : <Minimize2 size={18} />}
+            {isMinimized ? <Maximize2 className="w-4 h-4 lg:w-5 lg:h-5" /> : <Minimize2 className="w-4 h-4 lg:w-5 lg:h-5" />}
           </button>
           <button
             onClick={() => setIsOpen(false)}
             className="text-gray-500 hover:text-gray-700 transition-colors"
             title="Close"
           >
-            <X size={18} />
+            <X className="w-4 h-4 lg:w-5 lg:h-5" />
           </button>
         </div>
       </div>
@@ -281,7 +279,7 @@ export function ChatWidget() {
                 disabled={!input.trim() || isLoading}
                 className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                <Send size={18} />
+                <Send className="w-4 h-4 lg:w-5 lg:h-5" />
               </button>
             </div>
           </div>

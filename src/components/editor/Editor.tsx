@@ -487,7 +487,7 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId, mode = 'notes' }) => 
 
   return (
     <div 
-      className="editor-container max-w-4xl mx-auto py-8 px-4 relative"
+      className="editor-container lg:max-w-4xl mx-auto py-4 lg:py-8 px-3 lg:px-4 relative"
       onKeyDown={handleKeyDown}
       tabIndex={0} // Make div focusable for keyboard events
     >

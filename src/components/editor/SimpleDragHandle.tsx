@@ -175,12 +175,14 @@ export const SimpleDragHandle: React.FC<SimpleDragHandleProps> = ({
         ref={handleRef}
         className={clsx(
           'drag-handle transition-all duration-200',
-          'flex items-center justify-center w-8 h-8',
+          'flex items-center justify-center',
+          'w-10 h-10 lg:w-8 lg:h-8', // Larger on mobile for touch
           'rounded-lg',
           'cursor-grab active:cursor-grabbing',
           isDragging && 'is-dragging',
-          // Only show on hover (not on selection or focus)
-          'opacity-0 group-hover:opacity-100'
+          // Always visible on mobile, hover on desktop
+          'opacity-100 lg:opacity-0 lg:group-hover:opacity-100',
+          'touch-manipulation' // Better touch handling
         )}
         suppressHydrationWarning={true}
         draggable={true}

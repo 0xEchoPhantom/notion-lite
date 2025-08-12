@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "../styles/blue-drag-drop.css";
+@import "../styles/mobile.css";
 
 /* Remove default focus outlines - we'll use custom focus states */
 *:focus {

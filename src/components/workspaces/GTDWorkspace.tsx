@@ -14,6 +14,9 @@ import { getBlocks } from '@/lib/firestore';
 import { getWorkspacePages } from '@/lib/workspaceOperations';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { UnifiedSidebar } from '@/components/ui/UnifiedSidebar';
+import { MobileBottomNav } from '@/components/ui/MobileBottomNav';
+import { useMobileNav } from '@/hooks/useMobileNav';
+import { Menu } from 'lucide-react';
 
 // Extended Page interface for GTD pages with emoji and description
 interface GTDPage extends Page {
@@ -24,6 +27,7 @@ interface GTDPage extends Page {
 export function GTDWorkspace() {
   const { user } = useAuth();
   const { notesWorkspace } = useWorkspace();
+  const { isMobile, isMobileMenuOpen, toggleMobileMenu, closeMobileMenu } = useMobileNav();
   const [gtdPages, setGtdPages] = useState<GTDPage[]>([]);
   const [currentPageId, setCurrentPageId] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<'editor' | 'smart'>('editor');
@@ -206,7 +210,15 @@ export function GTDWorkspace() {
 
   return (
     <GlobalDragProvider currentPageId={currentPageId || ''}>
-      <div className="flex h-screen w-full">
+      <div className="flex h-screen w-full relative">
+        {/* Mobile menu button */}
+        <button
+          onClick={toggleMobileMenu}
+          className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-md min-h-[44px] min-w-[44px] flex items-center justify-center"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+        
         {/* Unified Sidebar */}
         <UnifiedSidebar 
           currentPageId={activeView === 'editor' ? currentPageId || undefined : undefined}
@@ -214,13 +226,16 @@ export function GTDWorkspace() {
           onTasksViewSelect={() => {
             setActiveView('smart');
             setCurrentPageId(null);
+            closeMobileMenu();
           }}
           isSmartViewActive={isSmartActive}
           mode="gtd"
+          isMobileMenuOpen={isMobileMenuOpen}
+          onMobileMenuToggle={toggleMobileMenu}
         />
         
         {/* Main Content */}
-        <div className="flex-1 bg-white overflow-y-auto">
+        <div className="flex-1 bg-white overflow-y-auto pb-16 lg:pb-0">
           {activeView === 'smart' ? (
             <SmartView />
           ) : currentPageId && currentPage ? (
@@ -252,6 +267,33 @@ export function GTDWorkspace() {
             </BlocksProvider>
           ) : null}
         </div>
+        
+        {/* Mobile Bottom Navigation */}
+        <MobileBottomNav
+          activeView={activeView === 'smart' ? 'smart' : currentPageId || 'inbox'}
+          onNavigate={(view) => {
+            if (view === 'smart') {
+              setActiveView('smart');
+              setCurrentPageId(null);
+            } else if (view === 'inbox') {
+              const inboxPage = gtdPages.find(p => p.id === 'inbox');
+              if (inboxPage) {
+                setCurrentPageId('inbox');
+                setActiveView('editor');
+              }
+            } else if (view === 'notes') {
+              // TODO: Switch to notes workspace
+              console.log('Switch to notes workspace');
+            }
+          }}
+          onQuickAdd={() => {
+            // Navigate to inbox for quick capture
+            setCurrentPageId('inbox');
+            setActiveView('editor');
+            // TODO: Focus on new block creation
+          }}
+          onMenuToggle={toggleMobileMenu}
+        />
       </div>
     </GlobalDragProvider>
   );

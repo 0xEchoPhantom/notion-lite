@@ -90,7 +90,7 @@ export function SmartView() {
     : 100;
 
   const renderBoardView = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-4">
       {(['now', 'next', 'waiting', 'someday', 'done'] as TaskStatus[]).map((status) => (
         <TaskColumn
           key={status}
@@ -103,7 +103,7 @@ export function SmartView() {
   );
 
   const renderTableView = () => (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+    <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
@@ -125,7 +125,7 @@ export function SmartView() {
   );
 
   const renderPriorityView = () => (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
       <div className="bg-white rounded-lg border border-gray-200">
         <div className="p-4 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">🔥 High Priority Tasks</h3>
@@ -154,7 +154,7 @@ export function SmartView() {
 
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 lg:p-6 space-y-4 lg:space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">🧠 Smart View</h2>
@@ -179,36 +179,36 @@ export function SmartView() {
           </div>
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 lg:gap-2 flex-wrap">
           <button
             onClick={() => setViewMode('board')}
-            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+            className={`px-2 lg:px-3 py-1.5 text-xs lg:text-sm font-medium rounded-md transition-colors ${
               viewMode === 'board' 
                 ? 'bg-blue-100 text-blue-700' 
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            📋 Board
+            <span className="hidden sm:inline">📋 </span>Board
           </button>
           <button
             onClick={() => setViewMode('table')}
-            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+            className={`px-2 lg:px-3 py-1.5 text-xs lg:text-sm font-medium rounded-md transition-colors ${
               viewMode === 'table' 
                 ? 'bg-blue-100 text-blue-700' 
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            📊 Table
+            <span className="hidden sm:inline">📊 </span>Table
           </button>
           <button
             onClick={() => setViewMode('priority')}
-            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+            className={`px-2 lg:px-3 py-1.5 text-xs lg:text-sm font-medium rounded-md transition-colors ${
               viewMode === 'priority' 
                 ? 'bg-blue-100 text-blue-700' 
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            🎯 Priority
+            <span className="hidden sm:inline">🎯 </span>Priority
           </button>
         </div>
       </div>

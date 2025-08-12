@@ -1,0 +1,90 @@
+/* Mobile-specific styles */
+
+/* Ensure touch targets are at least 44px for mobile */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Prevent horizontal scrolling on mobile */
+html, body {
+  overflow-x: hidden;
+  width: 100%;
+}
+
+/* Better tap highlighting for mobile */
+@media (max-width: 1023px) {
+  button, a, [role="button"] {
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Ensure modals don't overflow on mobile */
+  .modal-mobile {
+    max-width: calc(100vw - 2rem);
+    max-height: calc(100vh - 4rem);
+  }
+  
+  /* Better scrolling performance */
+  .overflow-y-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Prevent zoom on input focus */
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+  
+  /* Safe area for iOS devices */
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  /* Hide scrollbars on mobile for cleaner look */
+  ::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Ensure drag handles are visible and touchable on mobile */
+  .drag-handle {
+    min-width: 44px;
+    min-height: 44px;
+    opacity: 1 !important;
+  }
+}
+
+/* Responsive tables */
+@media (max-width: 767px) {
+  .table-responsive {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .table-responsive table {
+    min-width: 600px;
+  }
+}
+
+/* Mobile-friendly focus states */
+@media (hover: none) {
+  button:focus,
+  a:focus,
+  input:focus,
+  textarea:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+  }
+}
+
+/* Landscape mode adjustments */
+@media (max-width: 767px) and (orientation: landscape) {
+  .bottom-nav {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+  
+  .sidebar-mobile {
+    max-height: calc(100vh - 3rem);
+  }
+}
