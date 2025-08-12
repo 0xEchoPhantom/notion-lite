@@ -64,6 +64,50 @@ export default function TokenManagerPage() {
     }
   };
 
+  // Helper function to save settings with specific data
+  const saveSettingsWithData = async (dataToSave: TokenSettings) => {
+    if (!user) {
+      setMessage({ type: 'error', text: 'You must be logged in to save settings' });
+      return false;
+    }
+    
+    try {
+      const userId = user.uid;
+      if (!userId) {
+        throw new Error('User ID is missing');
+      }
+      
+      const settingsRef = doc(db, 'users', userId, 'settings', 'tokens');
+      
+      const finalData = {
+        assignees: dataToSave.assignees || [],
+        companies: dataToSave.companies || DEFAULT_COMPANIES,
+        commonValues: dataToSave.commonValues || DEFAULT_VALUES,
+        commonEfforts: dataToSave.commonEfforts || DEFAULT_EFFORTS,
+        defaultCompany: dataToSave.defaultCompany || null,
+        updatedAt: serverTimestamp(),
+        userId: userId
+      };
+      
+      console.log('Auto-saving settings:', {
+        path: `users/${userId}/settings/tokens`,
+        data: finalData
+      });
+      
+      await setDoc(settingsRef, finalData);
+      setMessage({ type: 'success', text: 'Settings saved!' });
+      
+      // Clear message after 2 seconds
+      setTimeout(() => setMessage(null), 2000);
+      return true;
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setMessage({ type: 'error', text: `Failed to save: ${errorMessage}` });
+      return false;
+    }
+  };
+
   const saveSettings = async () => {
     if (!user) {
       setMessage({ type: 'error', text: 'You must be logged in to save settings' });
@@ -129,57 +173,89 @@ export default function TokenManagerPage() {
   };
 
   // Handlers for adding/removing items
-  const addAssignee = () => {
-    if (newAssignee.trim() && !settings.assignees.includes(newAssignee.trim())) {
-      setSettings(prev => ({
-        ...prev,
-        assignees: [...prev.assignees, newAssignee.trim()].sort()
-      }));
-      setNewAssignee('');
+  const addAssignee = async () => {
+    const trimmedAssignee = newAssignee.trim();
+    if (!trimmedAssignee || settings.assignees.includes(trimmedAssignee)) {
+      return;
     }
-  };
-
-  const removeAssignee = (assignee: string) => {
+    
+    // Update local state
+    const newAssignees = [...settings.assignees, trimmedAssignee].sort();
     setSettings(prev => ({
       ...prev,
-      assignees: prev.assignees.filter(a => a !== assignee)
+      assignees: newAssignees
     }));
+    setNewAssignee('');
+    
+    // Save immediately
+    await saveSettingsWithData({ ...settings, assignees: newAssignees });
   };
 
-  const addValue = () => {
+  const removeAssignee = async (assignee: string) => {
+    const newAssignees = settings.assignees.filter(a => a !== assignee);
+    setSettings(prev => ({
+      ...prev,
+      assignees: newAssignees
+    }));
+    
+    // Save immediately
+    await saveSettingsWithData({ ...settings, assignees: newAssignees });
+  };
+
+  const addValue = async () => {
     const value = parseValueInput(newValue);
-    if (value && !settings.commonValues.includes(value)) {
-      setSettings(prev => ({
-        ...prev,
-        commonValues: [...prev.commonValues, value].sort((a, b) => a - b)
-      }));
-      setNewValue('');
+    if (!value || settings.commonValues.includes(value)) {
+      return;
     }
-  };
-
-  const removeValue = (value: number) => {
+    
+    const newValues = [...settings.commonValues, value].sort((a, b) => a - b);
     setSettings(prev => ({
       ...prev,
-      commonValues: prev.commonValues.filter(v => v !== value)
+      commonValues: newValues
     }));
+    setNewValue('');
+    
+    // Save immediately
+    await saveSettingsWithData({ ...settings, commonValues: newValues });
   };
 
-  const addEffort = () => {
+  const removeValue = async (value: number) => {
+    const newValues = settings.commonValues.filter(v => v !== value);
+    setSettings(prev => ({
+      ...prev,
+      commonValues: newValues
+    }));
+    
+    // Save immediately
+    await saveSettingsWithData({ ...settings, commonValues: newValues });
+  };
+
+  const addEffort = async () => {
     const effort = parseEffortInput(newEffort);
-    if (effort && !settings.commonEfforts.includes(effort)) {
-      setSettings(prev => ({
-        ...prev,
-        commonEfforts: [...prev.commonEfforts, effort].sort((a, b) => a - b)
-      }));
-      setNewEffort('');
+    if (!effort || settings.commonEfforts.includes(effort)) {
+      return;
     }
-  };
-
-  const removeEffort = (effort: number) => {
+    
+    const newEfforts = [...settings.commonEfforts, effort].sort((a, b) => a - b);
     setSettings(prev => ({
       ...prev,
-      commonEfforts: prev.commonEfforts.filter(e => e !== effort)
+      commonEfforts: newEfforts
     }));
+    setNewEffort('');
+    
+    // Save immediately
+    await saveSettingsWithData({ ...settings, commonEfforts: newEfforts });
+  };
+
+  const removeEffort = async (effort: number) => {
+    const newEfforts = settings.commonEfforts.filter(e => e !== effort);
+    setSettings(prev => ({
+      ...prev,
+      commonEfforts: newEfforts
+    }));
+    
+    // Save immediately
+    await saveSettingsWithData({ ...settings, commonEfforts: newEfforts });
   };
 
   if (!user) {
@@ -240,7 +316,7 @@ export default function TokenManagerPage() {
             >
               {assignee}
               <button
-                onClick={() => removeAssignee(assignee)}
+                onClick={async () => await removeAssignee(assignee)}
                 className="text-amber-500 hover:text-amber-700"
               >
                 ×
@@ -282,7 +358,7 @@ export default function TokenManagerPage() {
             >
               {formatValue(value)}
               <button
-                onClick={() => removeValue(value)}
+                onClick={async () => await removeValue(value)}
                 className="text-green-500 hover:text-green-700"
               >
                 ×
@@ -321,7 +397,7 @@ export default function TokenManagerPage() {
             >
               {formatEffort(effort)}
               <button
-                onClick={() => removeEffort(effort)}
+                onClick={async () => await removeEffort(effort)}
                 className="text-blue-500 hover:text-blue-700"
               >
                 ×
@@ -358,10 +434,14 @@ export default function TokenManagerPage() {
           <select
             className="border rounded-lg px-3 py-2 w-full max-w-xs"
             value={settings.defaultCompany || ''}
-            onChange={(e) => setSettings(prev => ({
-              ...prev,
-              defaultCompany: e.target.value as TaskCompany || undefined
-            }))}
+            onChange={async (e) => {
+              const newCompany = e.target.value as TaskCompany || undefined;
+              setSettings(prev => ({
+                ...prev,
+                defaultCompany: newCompany
+              }));
+              await saveSettingsWithData({ ...settings, defaultCompany: newCompany });
+            }}
           >
             <option value="">No default</option>
             {DEFAULT_COMPANIES.map(company => (
@@ -371,15 +451,14 @@ export default function TokenManagerPage() {
         </div>
       </div>
 
-      {/* Save Button */}
-      <div className="flex justify-end">
-        <button
-          onClick={saveSettings}
-          disabled={saving}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-        >
-          {saving ? 'Saving...' : 'Save Settings'}
-        </button>
+      {/* Auto-save indicator */}
+      <div className="text-center text-sm text-gray-500">
+        <span className="inline-flex items-center gap-2">
+          <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+          </svg>
+          Settings auto-save enabled
+        </span>
       </div>
     </div>
   );
