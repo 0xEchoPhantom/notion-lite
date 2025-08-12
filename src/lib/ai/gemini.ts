@@ -47,10 +47,11 @@ export interface AIResponse {
 }
 
 export interface ActionSuggestion {
-  type: 'prioritize' | 'estimate' | 'breakdown' | 'focus';
+  type: 'prioritize' | 'estimate' | 'breakdown' | 'focus' | 'daily-plan' | 'weekly-review' | 'crisis' | 'delegate' | 'report' | 'procrastination' | 'time-audit';
   title: string;
   description: string;
   taskIds?: string[];
+  action?: () => void;
 }
 
 export interface TaskUpdate {
@@ -66,9 +67,27 @@ export interface AIHistoryMessage {
 
 export class GeminiTaskAssistant {
   private model = model;
+  
+  // Predefined prompts for common use cases
+  private readonly PROMPTS = {
+    DAILY_PLAN: 'Create a time-blocked daily plan based on deadlines, ROI, and energy levels',
+    WEEKLY_REVIEW: 'Run a comprehensive weekly review with metrics and recommendations',
+    CRISIS_MODE: 'Help me triage - everything is urgent and I am overwhelmed',
+    ROI_OPTIMIZE: 'Optimize my task list for maximum ROI per hour',
+    SMART_CREATE: 'Parse natural language and create structured task with metadata',
+    DELEGATION: 'Analyze which tasks I should delegate and to whom',
+    STATUS_REPORT: 'Generate a professional status report for stakeholders',
+    PROCRASTINATION: 'Help me overcome procrastination on specific tasks',
+    TIME_AUDIT: 'Analyze where my time is going and suggest improvements',
+    FOCUS_SESSION: 'Design a deep work session for maximum productivity'
+  };
 
   async chatWithTasks(message: string, context: ChatContext): Promise<AIResponse> {
     try {
+      // Check for special commands
+      const response = await this.handleSpecialCommands(message, context);
+      if (response) return response;
+      
       const prompt = this.buildTaskAnalysisPrompt(message, context);
       const result = await this.model.generateContent(prompt);
       const text = result.response.text();
@@ -319,6 +338,508 @@ ${tasks
     };
   }
 
+  private async handleSpecialCommands(message: string, context: ChatContext): Promise<AIResponse | null> {
+    const lowerMessage = message.toLowerCase();
+    
+    // Daily Planning
+    if (lowerMessage.includes('plan my day') || lowerMessage.includes('daily plan')) {
+      return this.generateDailyPlan(context);
+    }
+    
+    // Weekly Review
+    if (lowerMessage.includes('weekly review') || lowerMessage.includes('week summary')) {
+      return this.generateWeeklyReview(context);
+    }
+    
+    // Crisis Mode
+    if (lowerMessage.includes('overwhelmed') || lowerMessage.includes('everything is on fire') || lowerMessage.includes('crisis')) {
+      return this.handleCrisisMode(context);
+    }
+    
+    // ROI Optimization
+    if (lowerMessage.includes('optimize roi') || lowerMessage.includes('maximize value')) {
+      return this.optimizeForROI(context);
+    }
+    
+    // Delegation Advisor
+    if (lowerMessage.includes('delegate') || lowerMessage.includes('assign to others')) {
+      return this.suggestDelegation(context);
+    }
+    
+    // Status Report
+    if (lowerMessage.includes('status report') || lowerMessage.includes('update for')) {
+      return this.generateStatusReport(context);
+    }
+    
+    // Procrastination Help
+    if (lowerMessage.includes('procrastinat') || lowerMessage.includes('stuck on')) {
+      return this.breakProcrastination(message, context);
+    }
+    
+    // Time Audit
+    if (lowerMessage.includes('time audit') || lowerMessage.includes('where is my time')) {
+      return this.performTimeAudit(context);
+    }
+    
+    return null;
+  }
+  
+  private async generateDailyPlan(context: ChatContext): Promise<AIResponse> {
+    const { tasks } = context;
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    // Filter today's tasks and high priority items
+    const urgentTasks = tasks.filter(t => {
+      if (t.dueDate) {
+        const due = new Date(t.dueDate);
+        return due <= new Date(today.getTime() + 86400000); // Today or overdue
+      }
+      return false;
+    });
+    
+    const highROITasks = tasks
+      .filter(t => t.roi && t.roi > 100 && !urgentTasks.includes(t))
+      .sort((a, b) => (b.roi || 0) - (a.roi || 0))
+      .slice(0, 3);
+    
+    const totalEffort = [...urgentTasks, ...highROITasks]
+      .reduce((sum, t) => sum + (t.effort || 2), 0);
+    
+    let plan = `📅 Daily Plan for ${now.toLocaleDateString()}\n\n`;
+    plan += `⏰ Total Estimated Time: ${totalEffort.toFixed(1)} hours\n\n`;
+    
+    if (urgentTasks.length > 0) {
+      plan += `🔴 URGENT (Due Today):\n`;
+      urgentTasks.forEach(t => {
+        plan += `• ${t.content} (${t.effort || 2}h)\n`;
+      });
+      plan += `\n`;
+    }
+    
+    if (highROITasks.length > 0) {
+      plan += `💰 HIGH VALUE:\n`;
+      highROITasks.forEach(t => {
+        plan += `• ${t.content} ($${Math.round(t.roi || 0)}/h, ${t.effort || 2}h)\n`;
+      });
+      plan += `\n`;
+    }
+    
+    plan += `⏰ SUGGESTED SCHEDULE:\n`;
+    plan += `9:00-11:00 - Deep work (highest ROI task)\n`;
+    plan += `11:00-11:30 - Email/Slack check\n`;
+    plan += `11:30-13:00 - Urgent tasks\n`;
+    plan += `14:00-16:00 - Meetings/Collaboration\n`;
+    plan += `16:00-17:00 - Admin/Low energy tasks\n\n`;
+    plan += `💡 Remember to take breaks every 90 minutes!`;
+    
+    return {
+      reply: plan,
+      suggestions: [
+        {
+          type: 'focus',
+          title: 'Start with deep work',
+          description: 'Begin your highest ROI task now'
+        },
+        {
+          type: 'prioritize',
+          title: 'Focus on urgent',
+          description: 'Complete time-sensitive tasks first'
+        }
+      ]
+    };
+  }
+  
+  private async generateWeeklyReview(context: ChatContext): Promise<AIResponse> {
+    const { tasks } = context;
+    
+    const completedTasks = tasks.filter(t => t.status === 'done');
+    const activeTasks = tasks.filter(t => t.status !== 'done');
+    const overdueTasks = tasks.filter(t => {
+      if (t.dueDate && t.status !== 'done') {
+        return new Date(t.dueDate) < new Date();
+      }
+      return false;
+    });
+    
+    const totalValue = completedTasks.reduce((sum, t) => sum + (t.value || 0), 0);
+    const totalEffort = completedTasks.reduce((sum, t) => sum + (t.effort || 0), 0);
+    const avgROI = totalEffort > 0 ? totalValue / totalEffort : 0;
+    
+    let review = `📊 Weekly Review\n\n`;
+    review += `✅ Completed: ${completedTasks.length} tasks\n`;
+    review += `💰 Value Delivered: $${totalValue.toLocaleString()}\n`;
+    review += `⏱️ Time Invested: ${totalEffort.toFixed(1)} hours\n`;
+    review += `📈 Average ROI: $${Math.round(avgROI)}/hour\n\n`;
+    
+    if (overdueTasks.length > 0) {
+      review += `⚠️ OVERDUE (${overdueTasks.length}):\n`;
+      overdueTasks.slice(0, 3).forEach(t => {
+        review += `• ${t.content}\n`;
+      });
+      review += `\n`;
+    }
+    
+    review += `🎯 RECOMMENDATIONS:\n`;
+    if (avgROI < 100) {
+      review += `• Focus on higher-value tasks (current ROI is low)\n`;
+    }
+    if (overdueTasks.length > 3) {
+      review += `• Clear overdue backlog before taking new work\n`;
+    }
+    if (activeTasks.length > 20) {
+      review += `• Consider delegating or deferring some tasks\n`;
+    }
+    review += `• Schedule time for planning next week\n`;
+    
+    return {
+      reply: review,
+      suggestions: [
+        {
+          type: 'weekly-review',
+          title: 'Plan next week',
+          description: 'Set priorities for upcoming week'
+        },
+        {
+          type: 'prioritize',
+          title: 'Clear overdue',
+          description: 'Focus on overdue tasks'
+        }
+      ]
+    };
+  }
+  
+  private async handleCrisisMode(context: ChatContext): Promise<AIResponse> {
+    const { tasks } = context;
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    // Triage tasks
+    const critical = tasks.filter(t => {
+      if (t.dueDate) {
+        const due = new Date(t.dueDate);
+        return due <= today && t.status !== 'done';
+      }
+      return false;
+    });
+    
+    const important = tasks
+      .filter(t => !critical.includes(t) && t.value && t.value > 1000)
+      .slice(0, 3);
+    
+    const canDefer = tasks
+      .filter(t => !critical.includes(t) && !important.includes(t))
+      .slice(0, 5);
+    
+    let response = `🚨 CRISIS TRIAGE\n\n`;
+    response += `Take 3 deep breaths. Let's handle this systematically.\n\n`;
+    
+    response += `🔴 DO NOW (Critical):\n`;
+    if (critical.length > 0) {
+      critical.slice(0, 3).forEach((t, i) => {
+        response += `${i + 1}. ${t.content} (${t.effort || 1}h)\n`;
+      });
+    } else {
+      response += `• No truly critical items - that's good!\n`;
+    }
+    response += `\n`;
+    
+    response += `🟡 DO TODAY (Important):\n`;
+    important.forEach((t, i) => {
+      response += `${i + 1}. ${t.content}\n`;
+    });
+    response += `\n`;
+    
+    response += `🟢 DEFER/DELEGATE:\n`;
+    response += `• Send "update coming tomorrow" emails\n`;
+    response += `• Reschedule non-critical meetings\n`;
+    response += `• Ask for help on complex tasks\n\n`;
+    
+    response += `📋 ACTION PLAN:\n`;
+    response += `1. Handle critical items one by one\n`;
+    response += `2. Communicate delays proactively\n`;
+    response += `3. Block tomorrow morning for catch-up\n`;
+    response += `4. Say NO to new requests today\n\n`;
+    response += `💪 You've got this! Focus on one task at a time.`;
+    
+    return {
+      reply: response,
+      suggestions: [
+        {
+          type: 'crisis',
+          title: 'Start critical task',
+          description: 'Begin with the most urgent item'
+        },
+        {
+          type: 'delegate',
+          title: 'Request help',
+          description: 'Identify tasks to delegate'
+        }
+      ]
+    };
+  }
+  
+  private async optimizeForROI(context: ChatContext): Promise<AIResponse> {
+    const { tasks } = context;
+    
+    const tasksWithROI = tasks
+      .filter(t => t.roi && t.roi > 0 && t.status !== 'done')
+      .sort((a, b) => (b.roi || 0) - (a.roi || 0));
+    
+    const top10 = tasksWithROI.slice(0, 10);
+    const totalValue = top10.reduce((sum, t) => sum + (t.value || 0), 0);
+    const totalEffort = top10.reduce((sum, t) => sum + (t.effort || 0), 0);
+    
+    let response = `💰 ROI OPTIMIZATION REPORT\n\n`;
+    response += `📊 Top 10 Highest ROI Tasks:\n\n`;
+    
+    top10.forEach((t, i) => {
+      response += `${i + 1}. ${t.content}\n`;
+      response += `   ROI: $${Math.round(t.roi || 0)}/h | Value: $${t.value} | Time: ${t.effort}h\n\n`;
+    });
+    
+    response += `📈 SUMMARY:\n`;
+    response += `• Total Value: $${totalValue.toLocaleString()}\n`;
+    response += `• Total Time: ${totalEffort.toFixed(1)} hours\n`;
+    response += `• Average ROI: $${Math.round(totalValue / totalEffort)}/hour\n\n`;
+    
+    response += `💡 RECOMMENDATIONS:\n`;
+    response += `• Focus exclusively on top 5 ROI tasks this week\n`;
+    response += `• Delegate or delete tasks with ROI < $50/hour\n`;
+    response += `• Batch similar low-ROI tasks together\n`;
+    response += `• Say no to new low-value requests\n`;
+    
+    return {
+      reply: response,
+      suggestions: [
+        {
+          type: 'prioritize',
+          title: 'Start #1 ROI task',
+          description: top10[0] ? `Begin "${top10[0].content}"` : 'Start highest value task'
+        },
+        {
+          type: 'focus',
+          title: 'Focus mode',
+          description: 'Work on top 5 ROI tasks only'
+        }
+      ]
+    };
+  }
+  
+  private async suggestDelegation(context: ChatContext): Promise<AIResponse> {
+    const { tasks } = context;
+    
+    const delegatable = tasks.filter(t => {
+      // Low ROI, routine, or not requiring special expertise
+      return t.status !== 'done' && (
+        (t.roi && t.roi < 100) ||
+        t.content.toLowerCase().includes('email') ||
+        t.content.toLowerCase().includes('meeting notes') ||
+        t.content.toLowerCase().includes('update') ||
+        t.content.toLowerCase().includes('report')
+      );
+    });
+    
+    let response = `👥 DELEGATION ANALYSIS\n\n`;
+    response += `Found ${delegatable.length} tasks suitable for delegation:\n\n`;
+    
+    response += `📋 DELEGATE IMMEDIATELY:\n`;
+    delegatable.slice(0, 5).forEach(t => {
+      response += `• ${t.content}\n`;
+      response += `  Why: ${t.roi ? `Low ROI ($${Math.round(t.roi)}/h)` : 'Routine task'}\n\n`;
+    });
+    
+    response += `📝 DELEGATION TEMPLATE:\n`;
+    response += `"Hi [Name], could you help with [task]?\n`;
+    response += `Context: [why it matters]\n`;
+    response += `Deadline: [date]\n`;
+    response += `Success looks like: [clear outcome]\n`;
+    response += `Let me know if you need any clarification."\n\n`;
+    
+    response += `💡 TIPS:\n`;
+    response += `• Delegate outcomes, not just tasks\n`;
+    response += `• Provide clear success criteria\n`;
+    response += `• Set check-in points for longer tasks\n`;
+    response += `• Thank people for their help\n`;
+    
+    return {
+      reply: response,
+      suggestions: [
+        {
+          type: 'delegate',
+          title: 'Create delegation list',
+          description: 'Export tasks for delegation'
+        }
+      ]
+    };
+  }
+  
+  private async generateStatusReport(context: ChatContext): Promise<AIResponse> {
+    const { tasks } = context;
+    const thisWeek = new Date();
+    thisWeek.setDate(thisWeek.getDate() - 7);
+    
+    const completed = tasks.filter(t => t.status === 'done');
+    const inProgress = tasks.filter(t => t.status === 'now');
+    const blocked = tasks.filter(t => t.status === 'waiting');
+    
+    let report = `📊 STATUS REPORT\n\n`;
+    report += `Week of ${thisWeek.toLocaleDateString()} - ${new Date().toLocaleDateString()}\n\n`;
+    
+    report += `✅ COMPLETED (${completed.length}):\n`;
+    completed.slice(0, 5).forEach(t => {
+      report += `• ${t.content}${t.value ? ` ($${t.value} value)` : ''}\n`;
+    });
+    report += `\n`;
+    
+    report += `🔄 IN PROGRESS (${inProgress.length}):\n`;
+    inProgress.slice(0, 5).forEach(t => {
+      report += `• ${t.content}${t.effort ? ` (${Math.round((t.effort || 0) * 0.5)}h remaining)` : ''}\n`;
+    });
+    report += `\n`;
+    
+    if (blocked.length > 0) {
+      report += `⚠️ BLOCKED (${blocked.length}):\n`;
+      blocked.slice(0, 3).forEach(t => {
+        report += `• ${t.content}\n`;
+      });
+      report += `\n`;
+    }
+    
+    report += `📅 NEXT WEEK PRIORITIES:\n`;
+    const upcoming = tasks
+      .filter(t => t.status === 'next')
+      .slice(0, 3);
+    upcoming.forEach(t => {
+      report += `• ${t.content}\n`;
+    });
+    report += `\n`;
+    
+    report += `📈 KEY METRICS:\n`;
+    report += `• Completion Rate: ${Math.round((completed.length / (completed.length + inProgress.length + blocked.length)) * 100)}%\n`;
+    report += `• Value Delivered: $${completed.reduce((sum, t) => sum + (t.value || 0), 0).toLocaleString()}\n`;
+    report += `• Time Invested: ${completed.reduce((sum, t) => sum + (t.effort || 0), 0).toFixed(1)} hours\n`;
+    
+    return {
+      reply: report,
+      suggestions: [
+        {
+          type: 'report',
+          title: 'Copy report',
+          description: 'Copy to clipboard for email'
+        }
+      ]
+    };
+  }
+  
+  private async breakProcrastination(message: string, context: ChatContext): Promise<AIResponse> {
+    // Extract the specific task mentioned
+    const taskMatch = message.match(/on ["'](.+?)["']|on (.+?)$/i);
+    const taskName = taskMatch ? (taskMatch[1] || taskMatch[2]) : null;
+    
+    let response = `🎯 PROCRASTINATION BREAKER\n\n`;
+    
+    if (taskName) {
+      response += `Let's tackle "${taskName}" together!\n\n`;
+    }
+    
+    response += `🧠 WHY WE PROCRASTINATE:\n`;
+    response += `• Task feels too big → Break it down\n`;
+    response += `• Unclear outcome → Define success\n`;
+    response += `• Fear of failure → Lower the bar\n`;
+    response += `• Boring task → Add rewards\n\n`;
+    
+    response += `⚡ QUICK START TECHNIQUE:\n`;
+    response += `1. Set timer for just 10 minutes\n`;
+    response += `2. Do the tiniest first step:\n`;
+    response += `   • Open the document\n`;
+    response += `   • Write one sentence\n`;
+    response += `   • Send one email\n`;
+    response += `3. Stop when timer rings (or continue if flowing)\n\n`;
+    
+    response += `🎮 GAMIFICATION IDEAS:\n`;
+    response += `• Reward: Coffee after 25 minutes\n`;
+    response += `• Challenge: Beat yesterday's progress\n`;
+    response += `• Accountability: Tell someone you'll finish by 3pm\n`;
+    response += `• Visual: Cross off subtasks as you go\n\n`;
+    
+    response += `💪 MOTIVATION:\n`;
+    response += `"The secret to getting ahead is getting started."\n`;
+    response += `You don't need to be perfect, just start!\n`;
+    
+    return {
+      reply: response,
+      suggestions: [
+        {
+          type: 'focus',
+          title: 'Start 10-min timer',
+          description: 'Begin with tiny step'
+        },
+        {
+          type: 'breakdown',
+          title: 'Break it down',
+          description: 'Split into smaller tasks'
+        }
+      ]
+    };
+  }
+  
+  private async performTimeAudit(context: ChatContext): Promise<AIResponse> {
+    const { tasks } = context;
+    
+    // Group tasks by status and calculate time
+    const timeByStatus = {
+      done: tasks.filter(t => t.status === 'done').reduce((sum, t) => sum + (t.effort || 0), 0),
+      now: tasks.filter(t => t.status === 'now').reduce((sum, t) => sum + (t.effort || 0), 0),
+      next: tasks.filter(t => t.status === 'next').reduce((sum, t) => sum + (t.effort || 0), 0),
+      waiting: tasks.filter(t => t.status === 'waiting').reduce((sum, t) => sum + (t.effort || 0), 0),
+      someday: tasks.filter(t => t.status === 'someday').reduce((sum, t) => sum + (t.effort || 0), 0)
+    };
+    
+    const totalTime = Object.values(timeByStatus).reduce((a, b) => a + b, 0);
+    
+    let response = `⏱️ TIME AUDIT REPORT\n\n`;
+    response += `📊 TIME ALLOCATION:\n`;
+    response += `• Completed: ${timeByStatus.done.toFixed(1)}h (${Math.round(timeByStatus.done / totalTime * 100)}%)\n`;
+    response += `• In Progress: ${timeByStatus.now.toFixed(1)}h (${Math.round(timeByStatus.now / totalTime * 100)}%)\n`;
+    response += `• Planned: ${timeByStatus.next.toFixed(1)}h (${Math.round(timeByStatus.next / totalTime * 100)}%)\n`;
+    response += `• Blocked: ${timeByStatus.waiting.toFixed(1)}h (${Math.round(timeByStatus.waiting / totalTime * 100)}%)\n`;
+    response += `• Backlog: ${timeByStatus.someday.toFixed(1)}h\n\n`;
+    
+    // Analyze patterns
+    const highEffortTasks = tasks.filter(t => t.effort && t.effort > 8);
+    const quickWins = tasks.filter(t => t.effort && t.effort <= 1 && t.roi && t.roi > 100);
+    
+    response += `🔍 INSIGHTS:\n`;
+    if (highEffortTasks.length > 3) {
+      response += `• ${highEffortTasks.length} tasks need >8 hours - consider breaking down\n`;
+    }
+    if (quickWins.length > 0) {
+      response += `• ${quickWins.length} quick wins available (<1h, high ROI)\n`;
+    }
+    if (timeByStatus.waiting > timeByStatus.now) {
+      response += `• Too much time blocked - need to unblock or delegate\n`;
+    }
+    response += `\n`;
+    
+    response += `💡 RECOMMENDATIONS:\n`;
+    response += `• Batch similar small tasks together\n`;
+    response += `• Block 2-4 hour chunks for deep work\n`;
+    response += `• Limit work-in-progress to 3-5 tasks\n`;
+    response += `• Review and prune "someday" list monthly\n`;
+    
+    return {
+      reply: response,
+      suggestions: [
+        {
+          type: 'focus',
+          title: 'Do quick wins',
+          description: 'Complete high-ROI tasks under 1 hour'
+        }
+      ]
+    };
+  }
+  
   private getFallbackResponse(message: string, context: ChatContext): AIResponse {
     const lowerMessage = message.toLowerCase();
     

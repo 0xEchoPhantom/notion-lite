@@ -27,18 +27,38 @@ export function ChatWidget() {
     {
       id: '1',
       type: 'assistant',
-      content: "Hi! I'm your AI assistant. I can help you prioritize tasks, estimate values, break down complex work, and make better decisions. What would you like to know?",
+      content: "Hi! I'm your enhanced AI assistant with new superpowers! I can help you plan your day, run weekly reviews, handle crises, and much more. Try these commands or ask me anything!",
       timestamp: new Date(),
       suggestions: [
         {
-          type: 'prioritize',
-          title: 'What should I work on next?',
-          description: 'Get prioritization recommendations'
+          type: 'daily-plan',
+          title: 'Plan my day',
+          description: 'Get a time-blocked daily schedule'
         },
         {
-          type: 'focus',
-          title: 'Analyze my tasks',
-          description: 'Get insights about your task list'
+          type: 'weekly-review',
+          title: 'Weekly review',
+          description: 'Analyze your week and get insights'
+        },
+        {
+          type: 'crisis',
+          title: "I'm overwhelmed",
+          description: 'Crisis mode triage'
+        },
+        {
+          type: 'prioritize',
+          title: 'Optimize ROI',
+          description: 'Focus on highest value tasks'
+        },
+        {
+          type: 'procrastination',
+          title: "I'm procrastinating",
+          description: 'Get unstuck with actionable steps'
+        },
+        {
+          type: 'time-audit',
+          title: 'Time audit',
+          description: 'See where your time is going'
         }
       ]
     }
@@ -60,6 +80,7 @@ export function ChatWidget() {
     if (!user) return;
     try {
       const todoBlocks = await getTodoBlocks(user.uid);
+      console.log('Loaded todo blocks:', todoBlocks.length, 'tasks');
       setBlocks(todoBlocks);
     } catch (error) {
       console.error('Error loading todo blocks:', error);
@@ -90,42 +111,44 @@ export function ChatWidget() {
     setIsLoading(true);
 
     try {
-      // Convert blocks to Task format for the AI
-      const tasks: Task[] = blocks.map(block => ({
-        // Core identifiers
-        id: block.id,
-        blockId: block.id,
-        pageId: block.pageId || '',
-        userId: user.uid,
-        
-        // Content
-        content: block.content,
-        rawContent: block.content, // We don't have the raw content with tokens
-        
-        // Decision metrics from taskMetadata
-        value: block.taskMetadata?.value,
-        effort: block.taskMetadata?.effort,
-        roi: block.taskMetadata?.roi,
-        
-        // Task metadata
-        status: block.taskMetadata?.status || 'someday',
-        company: block.taskMetadata?.company as TaskCompany | undefined,
-        dueDate: block.taskMetadata?.dueDate,
-        assignee: block.taskMetadata?.assignee,
-        
-        // Hierarchy
-        parentTaskId: block.taskMetadata?.parentTaskId,
-        subtaskIds: block.taskMetadata?.subtaskIds || [],
-        
-        // State
-        isCompleted: block.isChecked || false,
-        completedAt: block.taskMetadata?.completedAt,
-        
-        // Timestamps
-        createdAt: block.createdAt || new Date(),
-        updatedAt: block.updatedAt || new Date(),
-        promotedToNextAt: block.taskMetadata?.promotedToNextAt
-      }));
+      // Convert blocks to Task format for the AI - only include todo blocks
+      const tasks: Task[] = blocks
+        .filter(block => block.type === 'todo-list' || block.taskMetadata) // Only include todo blocks
+        .map(block => ({
+          // Core identifiers
+          id: block.id,
+          blockId: block.id,
+          pageId: block.pageId || '',
+          userId: user.uid,
+          
+          // Content
+          content: block.content || '',
+          rawContent: block.content || '', // We don't have the raw content with tokens
+          
+          // Decision metrics from taskMetadata
+          value: block.taskMetadata?.value,
+          effort: block.taskMetadata?.effort,
+          roi: block.taskMetadata?.roi,
+          
+          // Task metadata
+          status: block.taskMetadata?.status || (block.isChecked ? 'done' : 'someday'),
+          company: (block.taskMetadata?.company as TaskCompany) || undefined,
+          dueDate: block.taskMetadata?.dueDate,
+          assignee: block.taskMetadata?.assignee,
+          
+          // Hierarchy
+          parentTaskId: block.taskMetadata?.parentTaskId,
+          subtaskIds: block.taskMetadata?.subtaskIds || [],
+          
+          // State
+          isCompleted: block.isChecked || false,
+          completedAt: block.taskMetadata?.completedAt,
+          
+          // Timestamps
+          createdAt: block.createdAt || new Date(),
+          updatedAt: block.updatedAt || new Date(),
+          promotedToNextAt: block.taskMetadata?.promotedToNextAt
+        }));
 
       const context: ChatContext = {
         tasks,
@@ -162,9 +185,75 @@ export function ChatWidget() {
     }
   };
 
-  const handleSuggestionClick = (suggestion: ActionSuggestion) => {
-    setInput(suggestion.title);
-    inputRef.current?.focus();
+  const handleSuggestionClick = async (suggestion: ActionSuggestion) => {
+    // Directly send the suggestion title as a message
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      type: 'user',
+      content: suggestion.title,
+      timestamp: new Date()
+    };
+    
+    const nextMessages = [...messages, userMessage];
+    setMessages(nextMessages);
+    setInput('');
+    setIsLoading(true);
+    
+    try {
+      // Build proper task context from blocks
+      const tasks = blocks
+        .filter(b => b.type === 'todo-list' || b.taskMetadata) // Only include todo blocks
+        .map(b => ({
+          id: b.id,
+          blockId: b.id,
+          pageId: b.pageId || '',
+          userId: user?.uid || '',
+          content: b.content || '',
+          rawContent: b.content || '',
+          value: b.taskMetadata?.value,
+          effort: b.taskMetadata?.effort,
+          roi: b.taskMetadata?.roi,
+          status: b.taskMetadata?.status || (b.isChecked ? 'done' : 'someday'),
+          company: b.taskMetadata?.company as TaskCompany | undefined,
+          dueDate: b.taskMetadata?.dueDate,
+          assignee: b.taskMetadata?.assignee,
+          parentTaskId: b.taskMetadata?.parentTaskId,
+          subtaskIds: b.taskMetadata?.subtaskIds || [],
+          isCompleted: b.isChecked || false,
+          completedAt: b.taskMetadata?.completedAt,
+          createdAt: b.createdAt || new Date(),
+          updatedAt: b.updatedAt || new Date(),
+          promotedToNextAt: b.taskMetadata?.promotedToNextAt
+        }));
+      
+      const context: ChatContext = {
+        tasks,
+        userQuery: suggestion.title
+      };
+      
+      const response = await geminiAssistant.chatWithTasks(suggestion.title, context);
+      
+      const assistantMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        type: 'assistant',
+        content: response.reply,
+        timestamp: new Date(),
+        suggestions: response.suggestions
+      };
+      
+      setMessages([...nextMessages, assistantMessage]);
+    } catch (error) {
+      console.error('AI Error:', error);
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        type: 'assistant',
+        content: 'Sorry, I encountered an error. Please try again.',
+        timestamp: new Date()
+      };
+      setMessages([...nextMessages, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (!isOpen) {
@@ -180,7 +269,7 @@ export function ChatWidget() {
   }
 
   return (
-    <div className={`fixed ${isMinimized ? 'bottom-20 lg:bottom-6 right-4 lg:right-6 w-72 lg:w-80 h-14' : 'inset-4 lg:inset-auto lg:bottom-6 lg:right-6 lg:w-96 lg:h-[600px]'} bg-white rounded-lg shadow-2xl border border-gray-200 z-50 transition-all`}>
+    <div className={`fixed ${isMinimized ? 'bottom-20 lg:bottom-6 right-4 lg:right-6 w-72 lg:w-80 h-14' : 'inset-4 lg:inset-auto lg:bottom-6 lg:right-6 lg:w-96 lg:h-[600px]'} bg-white rounded-lg shadow-2xl border border-gray-200 z-50 transition-all flex flex-col`}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
         <div className="flex items-center space-x-2">
@@ -206,9 +295,9 @@ export function ChatWidget() {
       </div>
 
       {!isMinimized && (
-        <>
+        <div className="flex flex-col flex-1 min-h-0">
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4" style={{ height: 'calc(100% - 120px)' }}>
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 min-h-0">
             {messages.map((message) => (
               <div
                 key={message.id}
@@ -219,22 +308,28 @@ export function ChatWidget() {
                     ? 'bg-blue-600 text-white rounded-l-lg rounded-br-lg'
                     : 'bg-gray-100 text-gray-800 rounded-r-lg rounded-bl-lg'
                 } px-3 py-2`}>
-                  <div className="text-sm prose prose-sm max-w-none">
+                  <div className="text-sm">
                     {message.type === 'assistant' ? (
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {message.content}
-                      </ReactMarkdown>
+                      <div className="prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {message.content}
+                        </ReactMarkdown>
+                      </div>
                     ) : (
-                      message.content
+                      <span>{message.content}</span>
                     )}
                   </div>
-                  {message.suggestions && (
+                  {message.suggestions && message.suggestions.length > 0 && (
                     <div className="mt-2 space-y-1">
-                      {message.suggestions.map((suggestion, idx) => (
+                      {message.suggestions.slice(0, 4).map((suggestion, idx) => (
                         <button
                           key={idx}
                           onClick={() => handleSuggestionClick(suggestion)}
-                          className="block w-full text-left px-2 py-1 text-xs bg-white/10 hover:bg-white/20 rounded transition-colors"
+                          className={`block w-full text-left px-2 py-1 text-xs rounded transition-colors ${
+                            message.type === 'user' 
+                              ? 'bg-white/10 hover:bg-white/20 text-white'
+                              : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                          }`}
                         >
                           <div className="font-medium">{suggestion.title}</div>
                           {suggestion.description && (
@@ -261,8 +356,68 @@ export function ChatWidget() {
             <div ref={messagesEndRef} />
           </div>
 
+          {/* Quick Commands */}
+          <div className="border-t border-gray-200 px-3 py-2 flex gap-2 overflow-x-auto flex-shrink-0 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <button
+              onClick={() => handleSuggestionClick({ type: 'daily-plan', title: 'Plan my day', description: '' })}
+              className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-xs whitespace-nowrap"
+              disabled={isLoading}
+            >
+              📅 Daily
+            </button>
+            <button
+              onClick={() => handleSuggestionClick({ type: 'weekly-review', title: 'Weekly review', description: '' })}
+              className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-xs whitespace-nowrap"
+              disabled={isLoading}
+            >
+              📊 Weekly
+            </button>
+            <button
+              onClick={() => handleSuggestionClick({ type: 'prioritize', title: 'Optimize ROI', description: '' })}
+              className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-xs whitespace-nowrap"
+              disabled={isLoading}
+            >
+              💰 ROI
+            </button>
+            <button
+              onClick={() => handleSuggestionClick({ type: 'crisis', title: "I'm overwhelmed", description: '' })}
+              className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-xs whitespace-nowrap"
+              disabled={isLoading}
+            >
+              🚨 Crisis
+            </button>
+            <button
+              onClick={() => handleSuggestionClick({ type: 'delegate', title: 'What to delegate', description: '' })}
+              className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-xs whitespace-nowrap"
+              disabled={isLoading}
+            >
+              👥 Delegate
+            </button>
+            <button
+              onClick={() => handleSuggestionClick({ type: 'report', title: 'Status report', description: '' })}
+              className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-xs whitespace-nowrap"
+              disabled={isLoading}
+            >
+              📋 Report
+            </button>
+            <button
+              onClick={() => handleSuggestionClick({ type: 'procrastination', title: "I'm procrastinating", description: '' })}
+              className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-xs whitespace-nowrap"
+              disabled={isLoading}
+            >
+              🎯 Unstuck
+            </button>
+            <button
+              onClick={() => handleSuggestionClick({ type: 'time-audit', title: 'Time audit', description: '' })}
+              className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-xs whitespace-nowrap"
+              disabled={isLoading}
+            >
+              ⏱️ Time
+            </button>
+          </div>
+          
           {/* Input */}
-          <div className="border-t border-gray-200 px-4 py-3">
+          <div className="border-t border-gray-200 px-4 py-3 flex-shrink-0">
             <div className="flex space-x-2">
               <input
                 ref={inputRef}
@@ -270,7 +425,7 @@ export function ChatWidget() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-                placeholder="Ask about your tasks..."
+                placeholder="Try: 'Plan my day', 'Weekly review', 'I'm overwhelmed', 'Time audit'..."
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 disabled={isLoading}
               />
@@ -283,7 +438,7 @@ export function ChatWidget() {
               </button>
             </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
