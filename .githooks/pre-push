@@ -1,0 +1,18 @@
+#!/bin/sh
+
+# Git pre-push hook
+# Automatically runs verification before pushing to remote
+
+echo "🔍 Running pre-push verification..."
+
+# Run the quick verification (lint + type check)
+npm run verify:quick
+
+if [ $? -ne 0 ]; then
+  echo "❌ Pre-push verification failed!"
+  echo "Please fix the issues before pushing."
+  exit 1
+fi
+
+echo "✅ Pre-push verification passed!"
+echo "Pushing to remote..."

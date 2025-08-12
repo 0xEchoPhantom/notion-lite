@@ -9,6 +9,22 @@ This is Notion Lite - a Notion-like editor built with Next.js, React, TypeScript
 - **Lint**: `npm run lint` - Runs ESLint to check code quality
 - **Type Check**: `npx tsc --noEmit` - Runs TypeScript type checking
 
+## Pre-Push Verification (IMPORTANT)
+Before pushing to GitHub/Vercel, ALWAYS run one of these commands:
+- **Quick Verify**: `npm run verify:quick` - Runs lint + type check only
+- **Full Verify**: `npm run verify:build` - Runs lint + type check + full build
+- **Complete Verify**: `npm run verify` - Comprehensive check including Vercel build
+
+### Verification Scripts:
+1. `npm run verify:quick` - Fast check (lint + TypeScript)
+2. `npm run verify:build` - With production build
+3. `npm run verify` - Full verification with detailed report
+
+### To enable automatic pre-push verification:
+```bash
+git config core.hooksPath .githooks
+```
+
 ## Important Project Structure
 
 ### Core Editor Components

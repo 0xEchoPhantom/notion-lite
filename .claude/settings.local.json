@@ -43,7 +43,9 @@
       "Bash(start https://notion-lite-weld.vercel.app)",
       "Bash(git commit:*)",
       "Bash(start http://localhost:3002/settings)",
-      "Bash(start https://notion-lite-d9332zxh3-quangvust201s-projects.vercel.app)"
+      "Bash(start https://notion-lite-d9332zxh3-quangvust201s-projects.vercel.app)",
+      "Bash(npm run verify:quick:*)",
+      "Bash(git config:*)"
     ],
     "deny": []
   }

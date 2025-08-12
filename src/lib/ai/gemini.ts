@@ -1068,7 +1068,7 @@ ${tasks
     const valueMatch = taskContent.match(/\$(\d+k?)/i);
     const effortMatch = taskContent.match(/(\d+)\s*h(?:ours?)?/i);
     
-    let suggestedTask = {
+    const suggestedTask = {
       content: taskContent.replace(/by.*|before.*|on.*|\$\d+k?|\d+\s*h(?:ours?)?/gi, '').trim(),
       dueDate: dueDateMatch ? this.parseDueDate(dueDateMatch[1]) : undefined,
       value: valueMatch ? this.parseValue(valueMatch[1]) : undefined,
