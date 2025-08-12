@@ -30,25 +30,71 @@ export default function TokenManagerPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   
+  // Debug function to test Firebase write permissions
+  const testFirebaseWrite = async () => {
+    if (!user) return;
+    console.log('[TokenSettings] Testing Firebase write permissions...');
+    try {
+      const testRef = doc(db, 'users', user.uid, 'test', 'test-doc');
+      await setDoc(testRef, {
+        test: true,
+        timestamp: serverTimestamp(),
+        userId: user.uid
+      });
+      console.log('[TokenSettings] ✅ Test write successful!');
+    } catch (error) {
+      console.error('[TokenSettings] ❌ Test write failed:', error);
+      console.error('[TokenSettings] Test write error details:', {
+        code: (error as Error & {code?: string})?.code,
+        message: (error as Error)?.message
+      });
+    }
+  };
+  
   // Form states
   const [newAssignee, setNewAssignee] = useState('');
   const [newValue, setNewValue] = useState('');
   const [newEffort, setNewEffort] = useState('');
 
   useEffect(() => {
-    if (!user) return;
+    console.log('[TokenSettings] Component mounted, user:', user?.uid);
+    
+    // Check Firebase connection
+    if (db) {
+      console.log('[TokenSettings] Firebase DB initialized:', db);
+    } else {
+      console.error('[TokenSettings] Firebase DB not initialized!');
+    }
+    
+    if (!user) {
+      console.log('[TokenSettings] No user, skipping settings load');
+      return;
+    }
+    
+    // Test Firebase write permissions on mount
+    testFirebaseWrite();
+    
     loadSettings();
   }, [user]);
 
   const loadSettings = async () => {
-    if (!user) return;
+    if (!user) {
+      console.log('[TokenSettings] No user found for loading settings');
+      return;
+    }
+    
+    console.log('[TokenSettings] Loading settings for user:', user.uid, user.email);
     setLoading(true);
+    
     try {
       const settingsRef = doc(db, 'users', user.uid, 'settings', 'tokens');
+      console.log('[TokenSettings] Fetching from path:', `users/${user.uid}/settings/tokens`);
+      
       const settingsDoc = await getDoc(settingsRef);
       
       if (settingsDoc.exists()) {
         const data = settingsDoc.data() as TokenSettings;
+        console.log('[TokenSettings] Loaded existing settings:', data);
         setSettings({
           assignees: data.assignees || [],
           companies: data.companies || DEFAULT_COMPANIES,
@@ -56,8 +102,16 @@ export default function TokenManagerPage() {
           commonEfforts: data.commonEfforts || DEFAULT_EFFORTS,
           defaultCompany: data.defaultCompany
         });
+      } else {
+        console.log('[TokenSettings] No existing settings found, using defaults');
       }
     } catch (error) {
+      console.error('[TokenSettings] Failed to load settings:', error);
+      console.error('[TokenSettings] Error details:', {
+        code: (error as Error & {code?: string})?.code,
+        message: (error as Error)?.message,
+        stack: (error as Error)?.stack
+      });
       setMessage({ type: 'error', text: 'Failed to load settings' });
     } finally {
       setLoading(false);
@@ -66,14 +120,24 @@ export default function TokenManagerPage() {
 
   // Helper function to save settings with specific data
   const saveSettingsWithData = async (dataToSave: TokenSettings) => {
+    console.log('[TokenSettings] saveSettingsWithData called');
+    
     if (!user) {
+      console.error('[TokenSettings] Save failed: No user authenticated');
       setMessage({ type: 'error', text: 'You must be logged in to save settings' });
       return false;
     }
     
+    console.log('[TokenSettings] Current auth state:', {
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName
+    });
+    
     try {
       const userId = user.uid;
       if (!userId) {
+        console.error('[TokenSettings] Save failed: User ID is missing');
         throw new Error('User ID is missing');
       }
       
@@ -89,21 +153,63 @@ export default function TokenManagerPage() {
         userId: userId
       };
       
-      console.log('Auto-saving settings:', {
+      console.log('[TokenSettings] Attempting to save:', {
         path: `users/${userId}/settings/tokens`,
-        data: finalData
+        data: finalData,
+        timestamp: new Date().toISOString()
       });
       
       await setDoc(settingsRef, finalData);
+      
+      console.log('[TokenSettings] Save successful!');
       setMessage({ type: 'success', text: 'Settings saved!' });
       
       // Clear message after 2 seconds
       setTimeout(() => setMessage(null), 2000);
       return true;
     } catch (error) {
-      console.error('Failed to save settings:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      setMessage({ type: 'error', text: `Failed to save: ${errorMessage}` });
+      console.error('[TokenSettings] ❌ Save failed with error:', error);
+      
+      const firebaseError = error as Error & {
+        code?: string;
+        customData?: unknown;
+        serverResponse?: unknown;
+      };
+      
+      console.error('[TokenSettings] Error details:', {
+        name: firebaseError?.name,
+        code: firebaseError?.code,
+        message: firebaseError?.message,
+        stack: firebaseError?.stack,
+        customData: firebaseError?.customData,
+        serverResponse: firebaseError?.serverResponse
+      });
+      
+      // Detailed error message based on Firebase error codes
+      let errorMessage = 'Failed to save settings';
+      if (firebaseError?.code) {
+        switch (firebaseError.code) {
+          case 'permission-denied':
+            errorMessage = 'Permission denied. Check Firebase rules.';
+            break;
+          case 'unauthenticated':
+            errorMessage = 'Not authenticated. Please log in again.';
+            break;
+          case 'unavailable':
+            errorMessage = 'Service unavailable. Check your connection.';
+            break;
+          case 'invalid-argument':
+            errorMessage = 'Invalid data format.';
+            break;
+          default:
+            errorMessage = `Firebase error: ${firebaseError.code}`;
+        }
+      } else if (firebaseError?.message) {
+        errorMessage = firebaseError.message;
+      }
+      
+      console.error('[TokenSettings] User-friendly error:', errorMessage);
+      setMessage({ type: 'error', text: errorMessage });
       return false;
     }
   };
@@ -174,13 +280,23 @@ export default function TokenManagerPage() {
 
   // Handlers for adding/removing items
   const addAssignee = async () => {
+    console.log('[TokenSettings] addAssignee called with:', newAssignee);
     const trimmedAssignee = newAssignee.trim();
-    if (!trimmedAssignee || settings.assignees.includes(trimmedAssignee)) {
+    
+    if (!trimmedAssignee) {
+      console.log('[TokenSettings] Skipping empty assignee');
+      return;
+    }
+    
+    if (settings.assignees.includes(trimmedAssignee)) {
+      console.log('[TokenSettings] Assignee already exists:', trimmedAssignee);
       return;
     }
     
     // Update local state
     const newAssignees = [...settings.assignees, trimmedAssignee].sort();
+    console.log('[TokenSettings] New assignees list:', newAssignees);
+    
     setSettings(prev => ({
       ...prev,
       assignees: newAssignees
@@ -188,27 +304,38 @@ export default function TokenManagerPage() {
     setNewAssignee('');
     
     // Save immediately
-    await saveSettingsWithData({ ...settings, assignees: newAssignees });
+    const saveResult = await saveSettingsWithData({ ...settings, assignees: newAssignees });
+    console.log('[TokenSettings] Save result:', saveResult);
   };
 
   const removeAssignee = async (assignee: string) => {
+    console.log('[TokenSettings] removeAssignee called for:', assignee);
     const newAssignees = settings.assignees.filter(a => a !== assignee);
+    console.log('[TokenSettings] Updated assignees list:', newAssignees);
+    
     setSettings(prev => ({
       ...prev,
       assignees: newAssignees
     }));
     
     // Save immediately
-    await saveSettingsWithData({ ...settings, assignees: newAssignees });
+    const saveResult = await saveSettingsWithData({ ...settings, assignees: newAssignees });
+    console.log('[TokenSettings] Remove save result:', saveResult);
   };
 
   const addValue = async () => {
+    console.log('[TokenSettings] addValue called with:', newValue);
     const value = parseValueInput(newValue);
+    console.log('[TokenSettings] Parsed value:', value);
+    
     if (!value || settings.commonValues.includes(value)) {
+      console.log('[TokenSettings] Invalid or duplicate value');
       return;
     }
     
     const newValues = [...settings.commonValues, value].sort((a, b) => a - b);
+    console.log('[TokenSettings] New values list:', newValues);
+    
     setSettings(prev => ({
       ...prev,
       commonValues: newValues
@@ -216,7 +343,8 @@ export default function TokenManagerPage() {
     setNewValue('');
     
     // Save immediately
-    await saveSettingsWithData({ ...settings, commonValues: newValues });
+    const saveResult = await saveSettingsWithData({ ...settings, commonValues: newValues });
+    console.log('[TokenSettings] Value save result:', saveResult);
   };
 
   const removeValue = async (value: number) => {
