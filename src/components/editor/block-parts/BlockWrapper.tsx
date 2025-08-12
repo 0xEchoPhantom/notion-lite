@@ -1,9 +1,12 @@
 import React from 'react';
 import clsx from 'clsx';
+import { Block } from '@/types/index';
+import { isSubTodo } from '@/utils/editor';
 // Drag-to-select removed; normal click behavior retained
 
 interface BlockWrapperProps {
   blockId: string;
+  block?: Block;
   isSelected: boolean;
   isMultiSelected: boolean;
   isDragging?: boolean;
@@ -17,6 +20,7 @@ interface BlockWrapperProps {
 
 export const BlockWrapper: React.FC<BlockWrapperProps> = ({
   blockId,
+  block,
   isSelected,
   isMultiSelected,
   isDragging = false,
@@ -39,14 +43,12 @@ export const BlockWrapper: React.FC<BlockWrapperProps> = ({
       <div
         data-block-id={blockId}
         className={clsx(
-          'group relative flex items-start gap-1 py-1 px-2 mx-2 rounded hover:bg-gray-50',
+          'group relative flex items-start gap-1 py-1 px-2 mx-2 rounded',
           'transition-all duration-200',
-          isDragging && 'opacity-30 transform scale-95 blur-sm',
-          isSelected && 'bg-blue-50 hover:bg-blue-100',
-          isMultiSelected && 'bg-blue-100 hover:bg-blue-150'
+          isDragging && 'opacity-30 transform scale-95 blur-sm'
         )}
         style={{
-          borderLeft: isSelected || isMultiSelected ? '2px solid #3b82f6' : '2px solid transparent'
+          borderLeft: '2px solid transparent'
         }}
         onDragOver={onDragOver}
         onDrop={onDrop}

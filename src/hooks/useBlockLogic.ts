@@ -421,8 +421,10 @@ export const useBlockLogic = ({
         keystrokeProtection.executeEnterOperation(block.id, async () => {
           const currentContent = localContentRef.current || localContent;
           
-          if (block.type === 'todo-list') {
+          // Handle list types (todo, bulleted, numbered) - convert to paragraph when empty
+          if (block.type === 'todo-list' || block.type === 'bulleted-list' || block.type === 'numbered-list') {
             if (currentContent.trim() === '') {
+              // Empty list item - convert to paragraph with appropriate indent
               if (block.indentLevel === 0) {
                 onNewBlock('paragraph', 0);
               } else if (block.indentLevel >= 3) {
@@ -431,9 +433,11 @@ export const useBlockLogic = ({
                 onNewBlock('paragraph', Math.max(0, block.indentLevel - 1));
               }
             } else {
-              onNewBlock('todo-list', block.indentLevel);
+              // Non-empty list item - create new list item of same type
+              onNewBlock(block.type, block.indentLevel);
             }
           } else {
+            // For other block types, maintain the same type
             onNewBlock(block.type === 'paragraph' ? undefined : block.type, block.indentLevel);
           }
           
@@ -443,7 +447,7 @@ export const useBlockLogic = ({
       }
     }
 
-    // Backspace handling
+    // Comprehensive Backspace handling
     if (key === 'Backspace') {
       if (input && input.selectionStart === 0 && input.selectionEnd === 0) {
         e.preventDefault();
@@ -453,17 +457,41 @@ export const useBlockLogic = ({
           const currentContent = localContentRef.current || localContent;
           
           if (currentContent === '') {
-            if (block.type === 'todo-list' && block.indentLevel > 0) {
-              if (block.indentLevel >= 4) {
-                onOutdent();
-                onOutdent();
-              } else {
-                onOutdent();
-              }
-            } else {
-              onDeleteBlock();
+            // Empty block handling
+            
+            // 1. First check if block is indented - outdent it first
+            if (block.indentLevel > 0) {
+              onOutdent();
+              return true;
+            }
+            
+            // 2. Handle type conversion for empty blocks
+            switch (block.type) {
+              case 'todo-list':
+              case 'bulleted-list':
+              case 'numbered-list':
+              case 'heading-1':
+              case 'heading-2':
+              case 'heading-3':
+              case 'quote':
+              case 'code':
+                // Convert these types to paragraph first
+                convertBlockType(block.id, 'paragraph');
+                return true;
+                
+              case 'divider':
+                // Delete divider immediately
+                onDeleteBlock();
+                return true;
+                
+              case 'paragraph':
+              default:
+                // Delete the paragraph block (parent will check if it's the only block)
+                onDeleteBlock();
+                return true;
             }
           } else {
+            // Block has content, cursor at start - merge with previous block
             onMergeUp();
           }
           
@@ -561,11 +589,45 @@ export const useBlockLogic = ({
   }, [block.id, convertBlockType, updateBlockContent]);
 
   const handleSlashMenuSelect = (type: BType) => {
+    // Clear the slash command from the content
+    const currentContent = localContentRef.current || localContent;
+    
+    // Find the last slash in the content
+    const slashIndex = currentContent.lastIndexOf('/');
+    
+    let cleanedContent = currentContent;
+    if (slashIndex !== -1) {
+      // Remove everything from the slash onwards
+      cleanedContent = currentContent.substring(0, slashIndex).trimEnd();
+    }
+    
+    // Update the local content immediately
+    setLocalContent(cleanedContent);
+    localContentRef.current = cleanedContent;
+    
+    // Update the input field immediately if it exists
+    if (inputRef.current) {
+      inputRef.current.value = cleanedContent;
+      // Move cursor to end of cleaned content
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.setSelectionRange(cleanedContent.length, cleanedContent.length);
+        }
+      }, 0);
+    }
+    
+    // Update the block content in the database
+    updateBlockContent(block.id, { content: cleanedContent });
+    
+    // Convert the block type
     convertBlockType(block.id, type);
+    
     if (type === 'todo-list') {
       setTimeout(() => updateBlockContent(block.id, { isChecked: false }), 50);
     }
+    
     setShowSlashMenu(false);
+    setSlashSearchQuery('');
   };
 
   const handleToggleCheck = useCallback(() => {

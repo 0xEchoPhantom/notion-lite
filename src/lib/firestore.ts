@@ -717,7 +717,85 @@ export const moveBlockToPage = async (
   );
 };
 
-// ===== EXPORT ALL FUNCTIONS =====
+// Move multiple blocks to a new page atomically (for parent with children)
+export const moveBlocksToPage = async (
+  userId: string,
+  fromPageId: string,
+  toPageId: string,
+  blockIds: string[]
+): Promise<Block[]> => {
+  if (blockIds.length === 0) return [];
+  
+  console.log(`[moveBlocksToPage] Moving ${blockIds.length} blocks from ${fromPageId} to ${toPageId}`);
+  
+  // Normalize page IDs
+  const normalizedToPageId = normalizePageId(toPageId);
+  const normalizedFromPageId = normalizePageId(fromPageId);
+  
+  console.log(`[moveBlocksToPage] Normalized: from ${normalizedFromPageId} to ${normalizedToPageId}`);
+  
+  const batch = writeBatch(db);
+  const results: Block[] = [];
+  const now = new Date();
+  
+  // Get the next order for the target page (getNextOrderForPage already normalizes internally)
+  let nextOrder = await getNextOrderForPage(userId, toPageId);
+  
+  // Prepare all block updates in batch
+  for (const blockId of blockIds) {
+    const blockRef = doc(db, 'users', userId, 'blocks', blockId);
+    const blockDoc = await getDoc(blockRef);
+    
+    if (!blockDoc.exists()) {
+      console.warn(`Block ${blockId} not found`);
+      continue;
+    }
+    
+    const blockData = blockDoc.data();
+    
+    // Update the block with new pageId (normalized) and order
+    const updates = {
+      pageId: normalizedToPageId, // Use normalized page ID
+      order: nextOrder,
+      updatedAt: Timestamp.now(), // Use Firestore Timestamp
+      // Update task metadata if it's a GTD page
+      ...(blockData.type === 'todo-list' && {
+        taskMetadata: updateTaskMetadataForPage(blockData.taskMetadata, toPageId) // Use original for status mapping
+      })
+    };
+    
+    batch.update(blockRef, updates);
+    
+    // Add to results for return
+    results.push({
+      id: blockId,
+      ...blockData,
+      ...updates,
+      createdAt: blockData.createdAt?.toDate() || now,
+      updatedAt: now,
+      taskMetadata: updates.taskMetadata || blockData.taskMetadata
+    } as Block);
+    
+    nextOrder += 1000;
+  }
+  
+  // Execute all updates atomically
+  try {
+    if (results.length > 0) {
+      await batch.commit();
+      console.log(`[moveBlocksToPage] Successfully moved ${results.length} blocks to page ${normalizedToPageId}`);
+    } else {
+      console.warn('[moveBlocksToPage] No blocks to move');
+    }
+    return results;
+  } catch (error) {
+    console.error('[moveBlocksToPage] Batch commit failed:', error);
+    console.error('Failed to move blocks:', blockIds);
+    throw error;
+  }
+};
+
+// ===== EXPORT ALL FUNCTIONS ======
 const firestoreExports = {
   // Helpers
   normalizePageId,
@@ -750,6 +828,7 @@ const firestoreExports = {
   
   // Cross-page
   moveBlockToPage,
+  moveBlocksToPage,
 };
 
 export default firestoreExports;

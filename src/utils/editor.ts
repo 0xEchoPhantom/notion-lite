@@ -145,6 +145,26 @@ export const getBlockFeatures = (blockType: BlockType) => {
 };
 
 /**
+ * Checks if a block is a sub-todo (has a parent task)
+ * @param block - The block to check
+ * @returns True if the block is a sub-todo
+ */
+export const isSubTodo = (block: Block): boolean => {
+  return block.type === 'todo-list' && !!block.taskMetadata?.parentTaskId;
+};
+
+/**
+ * Checks if a block has sub-todos
+ * @param block - The block to check
+ * @returns True if the block has sub-todos
+ */
+export const hasSubTodos = (block: Block): boolean => {
+  return block.type === 'todo-list' && 
+         !!block.taskMetadata?.subtaskIds && 
+         block.taskMetadata.subtaskIds.length > 0;
+};
+
+/**
  * Applies text formatting to selected text
  * @param content - The full content
  * @param start - Selection start position

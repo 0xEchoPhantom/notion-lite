@@ -40,6 +40,7 @@ interface SimpleBlockProps {
   onDuplicateBlock: () => void;
   onMoveToGTDPage?: (blockId: string, targetPageId: string) => void;
   mode?: 'notes' | 'gtd';
+  childBlocks?: BlockType[]; // Child blocks for drag-drop
 }
 
 export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
@@ -61,6 +62,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
     onDuplicateBlock,
     onMoveToGTDPage,
     mode = 'notes',
+    childBlocks = [],
   } = props;
 
   const { updateBlockContent } = useBlocksWithKeyboard();
@@ -422,6 +424,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
     <>
       <BlockWrapper
         blockId={block.id}
+        block={block}
         isSelected={isSelected}
         isMultiSelected={isMultiSelected}
         onClick={handleBlockClick}
@@ -434,6 +437,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
           onSelect={() => onSelect()}
           onMoveToGTDPage={onMoveToGTDPage}
           onConvertToTodo={handleConvertToTodo}
+          childBlocks={childBlocks}
         />
         
         <BlockIcon

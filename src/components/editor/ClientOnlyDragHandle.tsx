@@ -12,6 +12,7 @@ interface ClientOnlyDragHandleProps {
   onSelect?: () => void;
   onMoveToGTDPage?: (blockId: string, targetPageId: string) => void;
   onConvertToTodo?: () => void;
+  childBlocks?: Block[];
 }
 
 export const ClientOnlyDragHandle: React.FC<ClientOnlyDragHandleProps> = (props) => {

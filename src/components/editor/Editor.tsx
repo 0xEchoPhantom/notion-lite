@@ -10,7 +10,7 @@ import { useStatusConsistency } from '@/hooks/useStatusConsistency';
 import { ShortcutHelper } from '@/components/ui/ShortcutHelper';
 import { SelectionProvider, useSelection } from '@/contexts/SelectionContext';
 // import { HistoryProvider, useHistory } from '@/contexts/HistoryContext';
-import { BlockType as BType } from '@/types/index';
+import { Block, BlockType as BType } from '@/types/index';
 import { useFocusManager, useKeystrokeProtection } from '@/hooks/useKeystrokeLock';
 import { KeystrokeIndicator } from '@/components/ui/KeystrokeIndicator';
 import { moveBlockToPage } from '@/lib/firestore';
@@ -41,6 +41,8 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId, mode = 'notes' }) => 
     outdentBlock,
     reorderBlocks
   } = useBlocksWithKeyboard();
+  
+  const { updateBlockContent: updateBlock } = useBlocks();
   
   // Selection context
   const {
@@ -269,11 +271,19 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId, mode = 'notes' }) => 
   }, [handleKeyboardSelection, selectedBlockIds, blocks, deleteBlockById, clearSelection, handleIndent, handleOutdent]);
 
   // Open GTD move dialog - now used for immediate move to specific page
-  // Handle drag and drop reordering
-  const handleBlockReorder = useCallback(async (draggedBlockId: string, targetBlockId: string, position: 'above' | 'below') => {
+  // Handle drag and drop reordering with parent-child support
+  const handleBlockReorder = useCallback(async (
+    draggedBlockId: string, 
+    targetBlockId: string, 
+    position: 'above' | 'below' | 'child',
+    childBlockIds?: string[]
+  ) => {
     if (!user || draggedBlockId === targetBlockId) return;
     
     console.log(`Reordering: Moving ${draggedBlockId} ${position} ${targetBlockId}`);
+    if (childBlockIds?.length) {
+      console.log(`  with children:`, childBlockIds);
+    }
     
     // Find source and target blocks
     const sourceBlock = blocks.find(b => b.id === draggedBlockId);
@@ -281,39 +291,153 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId, mode = 'notes' }) => 
     
     if (!sourceBlock || !targetBlock) return;
 
+    // If no childBlockIds passed but we're moving a block with children, collect them
+    const actualChildBlocks: Block[] = [];
+    const sourceIndex = blocks.findIndex(b => b.id === draggedBlockId);
+    
+    // Collect all indented children following the source block
+    for (let i = sourceIndex + 1; i < blocks.length; i++) {
+      const nextBlock = blocks[i];
+      if (nextBlock.indentLevel > sourceBlock.indentLevel) {
+        actualChildBlocks.push(nextBlock);
+      } else {
+        break;
+      }
+    }
+    
+    // Use passed childBlockIds if available, otherwise use detected children
+    const blocksToMove = [sourceBlock];
+    if (childBlockIds?.length) {
+      const childBlocks = blocks.filter(b => childBlockIds.includes(b.id));
+      blocksToMove.push(...childBlocks);
+    } else if (actualChildBlocks.length > 0) {
+      blocksToMove.push(...actualChildBlocks);
+    }
+    
+    console.log(`Moving ${blocksToMove.length} blocks total (parent + ${blocksToMove.length - 1} children)`);
+
     // Sort blocks by order
     const sortedBlocks = [...blocks].sort((a, b) => (a.order || 0) - (b.order || 0));
     
-    // Remove source block from the list
-    const filteredBlocks = sortedBlocks.filter(b => b.id !== sourceBlock.id);
+    // Remove all blocks being moved from the list
+    const blockIdsToMove = blocksToMove.map(b => b.id);
+    const filteredBlocks = sortedBlocks.filter(b => !blockIdsToMove.includes(b.id));
     
     // Find target index in filtered list
     const targetIndex = filteredBlocks.findIndex(b => b.id === targetBlockId);
     
-    // Calculate new position
+    // Handle different drop positions
     let insertIndex: number;
-    if (position === 'above') {
-      insertIndex = targetIndex;
-    } else {
+    const updates: { id: string; order?: number; indentLevel?: number; taskMetadata?: any }[] = [];
+    
+    if (position === 'child') {
+      // Dropping as a child of the target block
       insertIndex = targetIndex + 1;
+      
+      // Update source block to be a child of target
+      const newIndentLevel = targetBlock.indentLevel + 1;
+      
+      // Update parent-child relationships for todo-list blocks
+      if (sourceBlock.type === 'todo-list' && targetBlock.type === 'todo-list') {
+        // Add to parent's subtaskIds
+        const parentSubtaskIds = targetBlock.taskMetadata?.subtaskIds || [];
+        if (!parentSubtaskIds.includes(draggedBlockId)) {
+          updates.push({
+            id: targetBlockId,
+            taskMetadata: {
+              ...targetBlock.taskMetadata,
+              subtaskIds: [...parentSubtaskIds, draggedBlockId]
+            }
+          });
+        }
+        
+        // Update source block's parent and indent
+        updates.push({
+          id: draggedBlockId,
+          indentLevel: newIndentLevel,
+          taskMetadata: {
+            ...sourceBlock.taskMetadata,
+            parentTaskId: targetBlockId
+          }
+        });
+        
+        // Update children's indent levels
+        blocksToMove.slice(1).forEach(child => {
+          const indentDiff = newIndentLevel - sourceBlock.indentLevel;
+          updates.push({
+            id: child.id,
+            indentLevel: child.indentLevel + indentDiff
+          });
+        });
+      }
+    } else {
+      // Normal above/below positioning
+      if (position === 'above') {
+        insertIndex = targetIndex;
+      } else {
+        insertIndex = targetIndex + 1;
+      }
+      
+      // If dropping at same level, maintain indent
+      // If source had a parent, remove parent relationship
+      if (sourceBlock.taskMetadata?.parentTaskId) {
+        const oldParent = blocks.find(b => b.id === sourceBlock.taskMetadata?.parentTaskId);
+        if (oldParent) {
+          const parentSubtaskIds = oldParent.taskMetadata?.subtaskIds || [];
+          updates.push({
+            id: oldParent.id,
+            taskMetadata: {
+              ...oldParent.taskMetadata,
+              subtaskIds: parentSubtaskIds.filter(id => id !== draggedBlockId)
+            }
+          });
+        }
+        
+        updates.push({
+          id: draggedBlockId,
+          indentLevel: targetBlock.indentLevel,
+          taskMetadata: {
+            ...sourceBlock.taskMetadata,
+            parentTaskId: undefined
+          }
+        });
+      }
     }
     
-    // Insert source block at new position
-    filteredBlocks.splice(insertIndex, 0, sourceBlock);
+    // Insert blocks at new position
+    filteredBlocks.splice(insertIndex, 0, ...blocksToMove);
     
     // Update orders for all affected blocks
-    const updates: { id: string; order: number }[] = [];
     filteredBlocks.forEach((block, index) => {
-      const newOrder = index * 1000; // Use larger gaps for easier future insertions
+      const newOrder = index * 1000;
       if (block.order !== newOrder) {
-        updates.push({ id: block.id, order: newOrder });
+        const existingUpdate = updates.find(u => u.id === block.id);
+        if (existingUpdate) {
+          existingUpdate.order = newOrder;
+        } else {
+          updates.push({ id: block.id, order: newOrder });
+        }
       }
     });
     
     if (updates.length > 0) {
-      await reorderBlocks(updates);
+      // Batch reorder updates
+      const orderUpdates = updates.filter(u => u.order !== undefined).map(u => ({ id: u.id, order: u.order! }));
+      if (orderUpdates.length > 0) {
+        await reorderBlocks(orderUpdates);
+      }
+      
+      // Apply other updates
+      for (const update of updates) {
+        if (update.indentLevel !== undefined || update.taskMetadata !== undefined) {
+          await updateBlock(update.id, {
+            ...(update.indentLevel !== undefined && { indentLevel: update.indentLevel }),
+            ...(update.taskMetadata !== undefined && { taskMetadata: update.taskMetadata })
+          });
+        }
+      }
     }
-  }, [user, blocks, reorderBlocks]);
+  }, [user, blocks, reorderBlocks, updateBlock]);
 
   const handleMoveToGTDPage = useCallback(async (blockId: string, targetPageId: string) => {
     if (!user) return;
@@ -372,43 +496,57 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId, mode = 'notes' }) => 
         <ShortcutHelper />
       </div>
       
-      {/* Selection info */}
-      {selectedBlockIds.size > 1 && (
-        <div className="mb-4 px-3 py-2 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-700">
-          {selectedBlockIds.size} blocks selected • Tab/Shift+Tab to indent/outdent • Delete to remove
-        </div>
-      )}
+      {/* Removed selection info bar for cleaner look */}
       
       <div className="space-y-1">
-        {blocks.map((block) => (
-          <SimpleDropZone 
-            key={block.id}
-            blockId={block.id}
-            onDrop={handleBlockReorder}
-          >
-            <div data-block-id={block.id}>
-              <SimpleBlock
-                block={block}
-                pageId={pageId}
-                pageTitle={document.title || pageId}
-                isSelected={selectedBlockId === block.id || isBlockSelected(block.id)}
-                isMultiSelected={isBlockSelected(block.id) && selectedBlockIds.size > 1}
-                onSelect={(event?: React.MouseEvent) => handleBlockSelect(block.id, event)}
-                onNewBlock={() => handleNewBlock(block.id)}
-                onCreateBlock={createNewBlock}
-                onMergeUp={() => handleMergeUp(block.id)}
-                onMoveUp={() => handleMoveUp(block.id)}
-                onMoveDown={() => handleMoveDown(block.id)}
-                onIndent={() => handleIndent(block.id)}
-                onOutdent={() => handleOutdent(block.id)}
-                onDeleteBlock={() => handleDeleteBlock(block.id)}
-                onDuplicateBlock={() => handleDuplicateBlock(block.id)}
-                onMoveToGTDPage={(blockId, targetPageId) => handleMoveToGTDPage(blockId, targetPageId)}
-                mode={mode}
-              />
-            </div>
-          </SimpleDropZone>
-        ))}
+        {blocks.map((block, index) => {
+          // Collect ALL child blocks (not just todos) based on indent hierarchy
+          const childBlocks: Block[] = [];
+          
+          // Find all blocks that are indented under this one
+          for (let i = index + 1; i < blocks.length; i++) {
+            const nextBlock = blocks[i];
+            // If next block is more indented, it's a child (any type)
+            if (nextBlock.indentLevel > block.indentLevel) {
+              childBlocks.push(nextBlock);
+            } else {
+              // Stop when we hit a block at same or lower level
+              break;
+            }
+          }
+          
+          return (
+            <SimpleDropZone 
+              key={block.id}
+              blockId={block.id}
+              block={block}
+              onDrop={handleBlockReorder}
+            >
+              <div data-block-id={block.id}>
+                <SimpleBlock
+                  block={block}
+                  pageId={pageId}
+                  pageTitle={document.title || pageId}
+                  isSelected={selectedBlockId === block.id || isBlockSelected(block.id)}
+                  isMultiSelected={isBlockSelected(block.id) && selectedBlockIds.size > 1}
+                  onSelect={(event?: React.MouseEvent) => handleBlockSelect(block.id, event)}
+                  onNewBlock={() => handleNewBlock(block.id)}
+                  onCreateBlock={createNewBlock}
+                  onMergeUp={() => handleMergeUp(block.id)}
+                  onMoveUp={() => handleMoveUp(block.id)}
+                  onMoveDown={() => handleMoveDown(block.id)}
+                  onIndent={() => handleIndent(block.id)}
+                  onOutdent={() => handleOutdent(block.id)}
+                  onDeleteBlock={() => handleDeleteBlock(block.id)}
+                  onDuplicateBlock={() => handleDuplicateBlock(block.id)}
+                  onMoveToGTDPage={(blockId, targetPageId) => handleMoveToGTDPage(blockId, targetPageId)}
+                  mode={mode}
+                  childBlocks={childBlocks}
+                />
+              </div>
+            </SimpleDropZone>
+          );
+        })}
       </div>
       
       {/* Notion-style clickable area below content */}

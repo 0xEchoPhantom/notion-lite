@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState } from 'react';
 import { useAuth } from './AuthContext';
-import { moveBlockToPage } from '@/lib/firestore';
+import { moveBlockToPage, moveBlocksToPage } from '@/lib/firestore';
 import { BlockType } from '@/types/index';
 
 interface DraggedBlockData {
@@ -13,13 +13,16 @@ interface DraggedBlockData {
   indentLevel: number;
   isChecked?: boolean;
   sourcePageTitle?: string; // Để hiển thị trong UI
+  childBlockIds?: string[]; // IDs of child blocks to move together
 }
 
 interface GlobalDragContextType {
   draggedBlock: DraggedBlockData | null;
   setDraggedBlock: (block: DraggedBlockData | null) => void;
   moveBlockToNewPage: (targetPageId: string, order: number) => Promise<string | null>;
+  moveBlocksToNewPage: (targetPageId: string, blockIds: string[]) => Promise<string[] | null>;
   isDragging: boolean;
+  isMoving: boolean; // New state to show moving animation
   isValidDropTarget: (targetPageId: string) => boolean;
 }
 
@@ -44,25 +47,70 @@ export const GlobalDragProvider: React.FC<GlobalDragProviderProps> = ({
 }) => {
   const { user } = useAuth();
   const [draggedBlock, setDraggedBlock] = useState<DraggedBlockData | null>(null);
+  const [isMoving, setIsMoving] = useState(false);
 
   const moveBlockToNewPage = async (targetPageId: string): Promise<string | null> => {
     if (!user || !draggedBlock || draggedBlock.sourcePageId === targetPageId) {
       return null;
     }
 
+    setIsMoving(true); // Start moving animation
+    
     try {
-      const newBlock = await moveBlockToPage(
+      // If there are child blocks, move them all together
+      if (draggedBlock.childBlockIds && draggedBlock.childBlockIds.length > 0) {
+        const allBlockIds = [draggedBlock.blockId, ...draggedBlock.childBlockIds];
+        const movedBlocks = await moveBlocksToPage(
+          user.uid,
+          draggedBlock.sourcePageId,
+          targetPageId,
+          allBlockIds
+        );
+        
+        setDraggedBlock(null);
+        setIsMoving(false);
+        return movedBlocks[0]?.id || null;
+      } else {
+        // Just move the single block
+        const newBlock = await moveBlockToPage(
+          user.uid,
+          draggedBlock.sourcePageId,
+          targetPageId,
+          draggedBlock.blockId
+        );
+        
+        setDraggedBlock(null);
+        setIsMoving(false);
+        return newBlock?.id || null;
+      }
+    } catch (error) {
+      console.error('Error moving block to new page:', error);
+      setIsMoving(false);
+      return null;
+    }
+  };
+  
+  const moveBlocksToNewPage = async (targetPageId: string, blockIds: string[]): Promise<string[] | null> => {
+    if (!user || !draggedBlock || draggedBlock.sourcePageId === targetPageId) {
+      return null;
+    }
+
+    setIsMoving(true);
+    
+    try {
+      const movedBlocks = await moveBlocksToPage(
         user.uid,
         draggedBlock.sourcePageId,
         targetPageId,
-        draggedBlock.blockId
-        // No order parameter - will automatically append to end
+        blockIds
       );
       
       setDraggedBlock(null);
-      return newBlock?.id || null;
+      setIsMoving(false);
+      return movedBlocks.map(b => b.id);
     } catch (error) {
-      console.error('Error moving block to new page:', error);
+      console.error('Error moving blocks to new page:', error);
+      setIsMoving(false);
       return null;
     }
   };
@@ -81,7 +129,9 @@ export const GlobalDragProvider: React.FC<GlobalDragProviderProps> = ({
       } : null);
     },
     moveBlockToNewPage,
+    moveBlocksToNewPage,
     isDragging: !!draggedBlock,
+    isMoving,
     isValidDropTarget,
   };
 

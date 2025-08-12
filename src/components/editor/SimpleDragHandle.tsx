@@ -11,9 +11,10 @@ interface SimpleDragHandleProps {
   isSelected: boolean;
   onSelect?: () => void;
   onMoveToGTDPage?: (blockId: string, targetPageId: string) => void;
-  onStartDrag?: (block: Block) => void;
+  onStartDrag?: (block: Block, childBlocks?: Block[]) => void;
   onEndDrag?: () => void;
   onConvertToTodo?: () => void;
+  childBlocks?: Block[]; // Child blocks to drag along with parent
 }
 
 export const SimpleDragHandle: React.FC<SimpleDragHandleProps> = ({ 
@@ -25,7 +26,8 @@ export const SimpleDragHandle: React.FC<SimpleDragHandleProps> = ({
   onMoveToGTDPage,
   onStartDrag,
   onEndDrag,
-  onConvertToTodo
+  onConvertToTodo,
+  childBlocks = []
 }) => {
   const [showMenu, setShowMenu] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -48,16 +50,27 @@ export const SimpleDragHandle: React.FC<SimpleDragHandleProps> = ({
     console.log('Drag started for block:', block.id);
     setIsDragging(true);
     
+    // Child blocks are passed from parent component
+    const childBlocksList = childBlocks || [];
+    
     // Set drag data for native drag and drop
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('blockId', block.id);
     e.dataTransfer.setData('blockContent', block.content || '');
     e.dataTransfer.setData('sourcePageId', pageId);
+    e.dataTransfer.setData('blockType', block.type);
+    e.dataTransfer.setData('indentLevel', block.indentLevel.toString());
     
-    // Also set global drag state for cross-page dragging
-    globalStartDrag(block, pageId, pageTitle);
+    // Store child block IDs if dragging a parent
+    if (childBlocksList.length > 0) {
+      e.dataTransfer.setData('childBlockIds', childBlocksList.map(b => b.id).join(','));
+    }
     
-    // Create custom drag image
+    // Also set global drag state for cross-page dragging with child IDs
+    const childIds = childBlocksList.map(b => b.id);
+    globalStartDrag(block, pageId, pageTitle, childIds.length > 0 ? childIds : undefined);
+    
+    // Create custom drag image showing parent and children count
     const dragImage = document.createElement('div');
     dragImage.style.cssText = `
       position: absolute;
@@ -71,7 +84,12 @@ export const SimpleDragHandle: React.FC<SimpleDragHandleProps> = ({
       font-size: 14px;
       max-width: 300px;
     `;
-    dragImage.textContent = block.content || 'Moving block...';
+    
+    let dragText = block.content || 'Moving block...';
+    if (childBlocksList.length > 0) {
+      dragText += ` (+${childBlocksList.length} sub-task${childBlocksList.length > 1 ? 's' : ''})`;
+    }
+    dragImage.textContent = dragText;
     document.body.appendChild(dragImage);
     e.dataTransfer.setDragImage(dragImage, 0, 0);
     
@@ -82,13 +100,21 @@ export const SimpleDragHandle: React.FC<SimpleDragHandleProps> = ({
       }
     }, 0);
     
-    // Add visual feedback to the source block
+    // Add visual feedback to the source block and its children
     const blockElement = e.currentTarget.closest('[data-block-id]') as HTMLElement;
     if (blockElement) {
       blockElement.classList.add('dragging');
+      
+      // Also mark child blocks as dragging
+      childBlocksList.forEach(child => {
+        const childElement = document.querySelector(`[data-block-id="${child.id}"]`) as HTMLElement;
+        if (childElement) {
+          childElement.classList.add('dragging-child');
+        }
+      });
     }
     
-    onStartDrag?.(block);
+    onStartDrag?.(block, childBlocksList);
   };
 
   const handleDragEnd = (e: React.DragEvent) => {
@@ -100,6 +126,11 @@ export const SimpleDragHandle: React.FC<SimpleDragHandleProps> = ({
     if (blockElement) {
       blockElement.classList.remove('dragging');
     }
+    
+    // Also remove visual feedback from child blocks
+    document.querySelectorAll('.dragging-child').forEach(element => {
+      element.classList.remove('dragging-child');
+    });
     
     // Clear global drag state
     globalEndDrag();

@@ -69,7 +69,7 @@ export const useBlocksWithKeyboard = () => {
     await convertBlockTypeContext(blockId, newType);
   }, [convertBlockTypeContext]);
 
-  const toggleTodoCheck = useCallback(async (blockId: string, options?: { skipChildren?: boolean }) => {
+  const toggleTodoCheck = useCallback(async (blockId: string, options?: { skipChildren?: boolean, skipParent?: boolean }) => {
     const block = blocks.find(b => b.id === blockId);
     if (!block || block.type !== 'todo-list') return;
 
@@ -92,16 +92,50 @@ export const useBlocksWithKeyboard = () => {
           break;
         }
         
-        // If it's a direct child (one level deeper) and a todo, add it
-        if (nextBlock.indentLevel === block.indentLevel + 1 && nextBlock.type === 'todo-list') {
+        // Collect all todo children (not just direct children)
+        if (nextBlock.type === 'todo-list' && nextBlock.indentLevel > block.indentLevel) {
           childBlocks.push(nextBlock);
         }
       }
 
-      // Update all direct child todos to match parent state
+      // Update all child todos to match parent state
       for (const childBlock of childBlocks) {
         if (childBlock.isChecked !== newCheckedState) {
           await updateBlockContent(childBlock.id, { isChecked: newCheckedState });
+        }
+      }
+    }
+    
+    // Handle parent todo update if not explicitly skipped
+    if (!options?.skipParent && block.taskMetadata?.parentTaskId) {
+      const parentBlock = blocks.find(b => b.id === block.taskMetadata?.parentTaskId);
+      
+      if (parentBlock && parentBlock.type === 'todo-list') {
+        // Check if all siblings are checked to potentially update parent
+        const parentSubtaskIds = parentBlock.taskMetadata?.subtaskIds || [];
+        let allSiblingsChecked = true;
+        let anySiblingChecked = false;
+        
+        for (const subtaskId of parentSubtaskIds) {
+          const subtask = blocks.find(b => b.id === subtaskId);
+          if (subtask && subtask.type === 'todo-list') {
+            // Consider the new state for the current block
+            const isChecked = subtaskId === blockId ? newCheckedState : subtask.isChecked;
+            if (!isChecked) {
+              allSiblingsChecked = false;
+            } else {
+              anySiblingChecked = true;
+            }
+          }
+        }
+        
+        // Update parent based on children states
+        if (allSiblingsChecked && !parentBlock.isChecked) {
+          // All children are checked, check the parent
+          await toggleTodoCheck(parentBlock.id, { skipChildren: true });
+        } else if (!anySiblingChecked && parentBlock.isChecked) {
+          // No children are checked, uncheck the parent
+          await toggleTodoCheck(parentBlock.id, { skipChildren: true });
         }
       }
     }
@@ -118,7 +152,53 @@ export const useBlocksWithKeyboard = () => {
 
     // Allow indentation for all block types with max level from constants
     if (block.indentLevel < MAX_INDENT_LEVEL) {
-      await updateBlockContent(blockId, { indentLevel: block.indentLevel + 1 });
+      const currentIndex = blocks.findIndex(b => b.id === blockId);
+      
+      // If this is a todo-list, establish parent-child relationship
+      if (block.type === 'todo-list' && currentIndex > 0) {
+        // Find the potential parent (previous block with lower indent)
+        let parentBlock = null;
+        for (let i = currentIndex - 1; i >= 0; i--) {
+          if (blocks[i].indentLevel === block.indentLevel) {
+            // Found a sibling or potential parent at same level
+            if (blocks[i].type === 'todo-list') {
+              parentBlock = blocks[i];
+              break;
+            }
+          } else if (blocks[i].indentLevel < block.indentLevel) {
+            // Found a block at lower level, stop searching
+            break;
+          }
+        }
+        
+        if (parentBlock) {
+          // Update parent's subtaskIds
+          const parentSubtaskIds = parentBlock.taskMetadata?.subtaskIds || [];
+          if (!parentSubtaskIds.includes(blockId)) {
+            await updateBlockContent(parentBlock.id, {
+              taskMetadata: {
+                ...parentBlock.taskMetadata,
+                subtaskIds: [...parentSubtaskIds, blockId]
+              }
+            });
+          }
+          
+          // Update current block's parentTaskId and indent
+          await updateBlockContent(blockId, { 
+            indentLevel: block.indentLevel + 1,
+            taskMetadata: {
+              ...block.taskMetadata,
+              parentTaskId: parentBlock.id
+            }
+          });
+        } else {
+          // Just update indent level if no parent found
+          await updateBlockContent(blockId, { indentLevel: block.indentLevel + 1 });
+        }
+      } else {
+        // Non-todo blocks just get indented
+        await updateBlockContent(blockId, { indentLevel: block.indentLevel + 1 });
+      }
     }
   }, [blocks, updateBlockContent]);
 
@@ -132,7 +212,50 @@ export const useBlocksWithKeyboard = () => {
     if (!block) return;
 
     if (block.indentLevel > 0) {
-      await updateBlockContent(blockId, { indentLevel: block.indentLevel - 1 });
+      // If this is a todo with a parent, remove parent-child relationship
+      if (block.type === 'todo-list' && block.taskMetadata?.parentTaskId) {
+        const parentBlock = blocks.find(b => b.id === block.taskMetadata?.parentTaskId);
+        
+        if (parentBlock) {
+          // Remove this block from parent's subtaskIds
+          const parentSubtaskIds = parentBlock.taskMetadata?.subtaskIds || [];
+          const filteredSubtaskIds = parentSubtaskIds.filter(id => id !== blockId);
+          
+          await updateBlockContent(parentBlock.id, {
+            taskMetadata: {
+              ...parentBlock.taskMetadata,
+              subtaskIds: filteredSubtaskIds
+            }
+          });
+        }
+        
+        // Remove parentTaskId from current block and outdent
+        await updateBlockContent(blockId, { 
+          indentLevel: block.indentLevel - 1,
+          taskMetadata: {
+            ...block.taskMetadata,
+            parentTaskId: undefined
+          }
+        });
+        
+        // Move any children with this block
+        const currentIndex = blocks.findIndex(b => b.id === blockId);
+        for (let i = currentIndex + 1; i < blocks.length; i++) {
+          const childBlock = blocks[i];
+          if (childBlock.indentLevel > block.indentLevel) {
+            // This is a child, outdent it too
+            await updateBlockContent(childBlock.id, { 
+              indentLevel: childBlock.indentLevel - 1 
+            });
+          } else {
+            // No more children
+            break;
+          }
+        }
+      } else {
+        // Non-todo blocks or todos without parent just get outdented
+        await updateBlockContent(blockId, { indentLevel: block.indentLevel - 1 });
+      }
     }
   }, [blocks, updateBlockContent]);
 

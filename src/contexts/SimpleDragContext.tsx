@@ -7,12 +7,13 @@ interface DraggedBlockData {
   block: Block;
   sourcePageId: string;
   sourcePageTitle?: string;
+  childBlockIds?: string[]; // IDs of child blocks being dragged
 }
 
 interface SimpleDragContextType {
   draggedBlock: DraggedBlockData | null;
   isDragging: boolean;
-  startDrag: (block: Block, pageId: string, pageTitle?: string) => void;
+  startDrag: (block: Block, pageId: string, pageTitle?: string, childBlockIds?: string[]) => void;
   endDrag: () => void;
   getDraggedBlock: () => DraggedBlockData | null;
 }
@@ -74,11 +75,12 @@ export const SimpleDragProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
   }, []);
 
-  const startDrag = useCallback((block: Block, pageId: string, pageTitle?: string) => {
+  const startDrag = useCallback((block: Block, pageId: string, pageTitle?: string, childBlockIds?: string[]) => {
     const dragData: DraggedBlockData = {
       block,
       sourcePageId: pageId,
-      sourcePageTitle: pageTitle
+      sourcePageTitle: pageTitle,
+      childBlockIds
     };
 
     // Store in sessionStorage for cross-component access

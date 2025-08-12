@@ -16,10 +16,10 @@ input:focus {
   box-shadow: none !important;
 }
 
-/* Keep a subtle focus indicator for accessibility on text inputs */
+/* Remove all focus indicators for cleaner look */
 textarea:focus,
 input[type="text"]:focus {
-  border-color: #e5e7eb !important;
+  border-color: transparent !important;
 }
 
 /* Remove tap highlight on mobile */

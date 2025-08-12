@@ -3,18 +3,20 @@ import clsx from 'clsx';
 
 interface SimpleDropZoneProps {
   blockId: string;
+  block?: any; // Block data for determining if it can be a parent
   children: React.ReactNode;
-  onDrop: (draggedBlockId: string, targetBlockId: string, position: 'above' | 'below') => void;
+  onDrop: (draggedBlockId: string, targetBlockId: string, position: 'above' | 'below' | 'child', childBlockIds?: string[]) => void;
   className?: string;
 }
 
 export const SimpleDropZone: React.FC<SimpleDropZoneProps> = ({ 
   blockId, 
+  block,
   children,
   onDrop,
   className
 }) => {
-  const [dropPosition, setDropPosition] = useState<'above' | 'below' | null>(null);
+  const [dropPosition, setDropPosition] = useState<'above' | 'below' | 'child' | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const dropZoneRef = useRef<HTMLDivElement>(null);
 
@@ -25,10 +27,27 @@ export const SimpleDropZone: React.FC<SimpleDropZoneProps> = ({
     const rect = dropZoneRef.current?.getBoundingClientRect();
     if (!rect) return;
     
-    // Determine if drop should be above or below based on mouse position
+    // We can't read dataTransfer data during dragOver, only during drop
+    // So we'll use a simpler approach for determining if it can be a child
+    const draggedBlockType = 'todo-list'; // Assume todo for now
     const mouseY = e.clientY;
-    const blockMiddle = rect.top + rect.height / 2;
-    const position = mouseY < blockMiddle ? 'above' : 'below';
+    const mouseX = e.clientX;
+    
+    // Check if we can drop as child (for todo-list blocks)
+    const canBeChild = block?.type === 'todo-list' && 
+                      draggedBlockType === 'todo-list' &&
+                      mouseX > rect.left + 40; // Indented position
+    
+    let position: 'above' | 'below' | 'child';
+    
+    if (canBeChild && mouseY > rect.top + rect.height * 0.3 && mouseY < rect.top + rect.height * 0.7) {
+      // Middle area with indent - drop as child
+      position = 'child';
+    } else {
+      // Determine if drop should be above or below
+      const blockMiddle = rect.top + rect.height / 2;
+      position = mouseY < blockMiddle ? 'above' : 'below';
+    }
     
     setDropPosition(position);
     setIsDragOver(true);
@@ -65,10 +84,14 @@ export const SimpleDropZone: React.FC<SimpleDropZoneProps> = ({
     e.stopPropagation();
     
     const draggedBlockId = e.dataTransfer.getData('blockId');
+    const childBlockIds = e.dataTransfer.getData('childBlockIds');
     
     if (draggedBlockId && draggedBlockId !== blockId && dropPosition) {
       console.log(`Dropping block ${draggedBlockId} ${dropPosition} block ${blockId}`);
-      onDrop(draggedBlockId, blockId, dropPosition);
+      
+      // Pass child block IDs if dragging a parent with children
+      const childIds = childBlockIds ? childBlockIds.split(',').filter(id => id) : undefined;
+      onDrop(draggedBlockId, blockId, dropPosition, childIds);
     }
     
     // Clean up
