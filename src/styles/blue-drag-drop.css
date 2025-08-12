@@ -107,6 +107,14 @@
   box-shadow: 0 0 8px rgba(139, 92, 246, 0.5);
 }
 
+/* Visual feedback for child drop zone */
+.child-drop-zone {
+  background: rgba(139, 92, 246, 0.05);
+  border-left: 3px solid #8b5cf6;
+  padding-left: 8px;
+  transition: all 0.2s ease;
+}
+
 @keyframes child-pulse {
   0%, 100% {
     opacity: 0.6;

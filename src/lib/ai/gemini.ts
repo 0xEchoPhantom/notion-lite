@@ -341,6 +341,16 @@ ${tasks
   private async handleSpecialCommands(message: string, context: ChatContext): Promise<AIResponse | null> {
     const lowerMessage = message.toLowerCase();
     
+    // Inbox Processing
+    if (lowerMessage.includes('clean inbox') || lowerMessage.includes('process inbox')) {
+      return this.cleanInbox(context);
+    }
+    
+    // Morning Brief
+    if (lowerMessage.includes('morning brief') || lowerMessage.includes('morning check')) {
+      return this.generateMorningBrief(context);
+    }
+    
     // Daily Planning
     if (lowerMessage.includes('plan my day') || lowerMessage.includes('daily plan')) {
       return this.generateDailyPlan(context);
@@ -379,6 +389,11 @@ ${tasks
     // Time Audit
     if (lowerMessage.includes('time audit') || lowerMessage.includes('where is my time')) {
       return this.performTimeAudit(context);
+    }
+    
+    // Smart Task Creation
+    if (lowerMessage.startsWith('add task:') || lowerMessage.startsWith('create task:')) {
+      return this.createSmartTask(message, context);
     }
     
     return null;
@@ -896,6 +911,240 @@ ${tasks
       'Testing and quality review',
       'Final delivery and documentation'
     ];
+  }
+
+  // New intelligent methods inspired by Todoist + Claude MCP
+  private async cleanInbox(context: ChatContext): Promise<AIResponse> {
+    const { tasks } = context;
+    const inboxTasks = tasks.filter(t => !t.status || t.status === 'someday');
+    
+    if (inboxTasks.length === 0) {
+      return {
+        reply: '✅ Inbox is clean! No tasks need processing.',
+        suggestions: []
+      };
+    }
+    
+    let response = `📥 INBOX PROCESSING (${inboxTasks.length} items)\n\n`;
+    
+    // Categorize inbox items
+    const quickWins = inboxTasks.filter(t => t.effort && t.effort <= 0.5);
+    const needsEstimates = inboxTasks.filter(t => !t.value || !t.effort);
+    const highValue = inboxTasks.filter(t => t.value && t.value >= 1000);
+    
+    response += `⚡ QUICK WINS (< 30 min):\n`;
+    quickWins.forEach(t => {
+      response += `• ${t.content} → Do now!\n`;
+    });
+    
+    if (needsEstimates.length > 0) {
+      response += `\n📊 NEEDS ESTIMATES:\n`;
+      needsEstimates.slice(0, 5).forEach(t => {
+        response += `• ${t.content} → Add value/effort\n`;
+      });
+    }
+    
+    if (highValue.length > 0) {
+      response += `\n💰 HIGH VALUE:\n`;
+      highValue.forEach(t => {
+        response += `• ${t.content} → Move to Next Step\n`;
+      });
+    }
+    
+    response += `\n🎯 RECOMMENDED ACTIONS:\n`;
+    response += `1. Complete ${quickWins.length} quick wins immediately\n`;
+    response += `2. Estimate ${needsEstimates.length} tasks for better prioritization\n`;
+    response += `3. Schedule ${highValue.length} high-value tasks\n`;
+    
+    return {
+      reply: response,
+      suggestions: [
+        {
+          type: 'estimate',
+          title: 'Estimate tasks',
+          description: 'Add value and effort to tasks'
+        },
+        {
+          type: 'prioritize',
+          title: 'Move to Next Step',
+          description: 'Promote high-value tasks'
+        }
+      ]
+    };
+  }
+
+  private async generateMorningBrief(context: ChatContext): Promise<AIResponse> {
+    const { tasks } = context;
+    const now = new Date();
+    
+    // Get today's tasks
+    const todayTasks = tasks.filter(t => {
+      if (t.dueDate) {
+        const due = new Date(t.dueDate);
+        return due.toDateString() === now.toDateString();
+      }
+      return false;
+    });
+    
+    // Get overdue tasks
+    const overdueTasks = tasks.filter(t => {
+      if (t.dueDate && t.status !== 'done') {
+        return new Date(t.dueDate) < now;
+      }
+      return false;
+    });
+    
+    // Get top 3 Next Step tasks
+    const nextStepTasks = tasks
+      .filter(t => t.status === 'next')
+      .sort((a, b) => (b.roi || 0) - (a.roi || 0))
+      .slice(0, 3);
+    
+    let brief = `☀️ MORNING BRIEF - ${now.toLocaleDateString()}\n\n`;
+    
+    if (overdueTasks.length > 0) {
+      brief += `🔴 OVERDUE (${overdueTasks.length}):\n`;
+      overdueTasks.slice(0, 3).forEach(t => {
+        const daysOverdue = Math.floor((now.getTime() - new Date(t.dueDate!).getTime()) / 86400000);
+        brief += `• ${t.content} (${daysOverdue} days overdue)\n`;
+      });
+      brief += `\n`;
+    }
+    
+    if (todayTasks.length > 0) {
+      brief += `📅 DUE TODAY (${todayTasks.length}):\n`;
+      todayTasks.forEach(t => {
+        brief += `• ${t.content} (${t.effort || 2}h)\n`;
+      });
+      brief += `\n`;
+    }
+    
+    brief += `🎯 TOP 3 NEXT STEPS:\n`;
+    nextStepTasks.forEach((t, i) => {
+      brief += `${i + 1}. ${t.content} ($${Math.round(t.roi || 0)}/h)\n`;
+    });
+    
+    const totalEffortToday = [...todayTasks, ...nextStepTasks]
+      .reduce((sum, t) => sum + (t.effort || 2), 0);
+    
+    brief += `\n⏰ TIME COMMITMENT: ${totalEffortToday.toFixed(1)} hours\n`;
+    
+    // Suggested focus blocks
+    brief += `\n📌 SUGGESTED FOCUS BLOCKS:\n`;
+    brief += `• 09:00-11:00: Deep work (highest ROI task)\n`;
+    brief += `• 11:00-12:00: Clear overdue/urgent items\n`;
+    brief += `• 14:00-16:00: Collaboration & meetings\n`;
+    
+    // Smart next prompt
+    const nextPrompt = overdueTasks.length > 0 
+      ? "Handle overdue tasks"
+      : todayTasks.length > 0
+      ? "Start with today's deadlines"
+      : "Focus on highest ROI task";
+    
+    return {
+      reply: brief,
+      suggestions: [
+        {
+          type: 'focus',
+          title: nextPrompt,
+          description: 'Start your productive day'
+        },
+        {
+          type: 'daily-plan',
+          title: 'Full daily plan',
+          description: 'Get detailed time blocks'
+        }
+      ]
+    };
+  }
+
+  private async createSmartTask(message: string, context: ChatContext): Promise<AIResponse> {
+    // Extract task content from message
+    const taskContent = message.replace(/^(add task:|create task:)/i, '').trim();
+    
+    // Smart parsing for natural language
+    const dueDateMatch = taskContent.match(/by|before|on|due\s+(\w+\s+\d+|\w+|tomorrow|today)/i);
+    const valueMatch = taskContent.match(/\$(\d+k?)/i);
+    const effortMatch = taskContent.match(/(\d+)\s*h(?:ours?)?/i);
+    
+    let suggestedTask = {
+      content: taskContent.replace(/by.*|before.*|on.*|\$\d+k?|\d+\s*h(?:ours?)?/gi, '').trim(),
+      dueDate: dueDateMatch ? this.parseDueDate(dueDateMatch[1]) : undefined,
+      value: valueMatch ? this.parseValue(valueMatch[1]) : undefined,
+      effort: effortMatch ? parseFloat(effortMatch[1]) : undefined,
+      status: 'next' as const
+    };
+    
+    // Calculate ROI if we have both value and effort
+    const roi = (suggestedTask.value && suggestedTask.effort) 
+      ? suggestedTask.value / suggestedTask.effort
+      : undefined;
+    
+    // Determine if it's a quick win
+    const isQuickWin = suggestedTask.effort && suggestedTask.effort <= 0.5;
+    
+    let response = `📝 SMART TASK CREATED:\n\n`;
+    response += `Task: "${suggestedTask.content}"\n`;
+    if (suggestedTask.dueDate) response += `Due: ${new Date(suggestedTask.dueDate).toLocaleDateString()}\n`;
+    if (suggestedTask.value) response += `Value: $${suggestedTask.value}\n`;
+    if (suggestedTask.effort) response += `Effort: ${suggestedTask.effort}h\n`;
+    if (roi) response += `ROI: $${Math.round(roi)}/h\n`;
+    
+    response += `\n`;
+    
+    if (isQuickWin) {
+      response += `⚡ This is a quick win! Consider doing it now.\n`;
+    } else if (roi && roi > 200) {
+      response += `💰 High ROI task! Prioritize this.\n`;
+    }
+    
+    // Suggest subtasks if it's complex
+    if (suggestedTask.effort && suggestedTask.effort > 4) {
+      response += `\n📋 SUGGESTED SUBTASKS:\n`;
+      response += `• Research and planning (${(suggestedTask.effort * 0.2).toFixed(1)}h)\n`;
+      response += `• Core implementation (${(suggestedTask.effort * 0.5).toFixed(1)}h)\n`;
+      response += `• Review and polish (${(suggestedTask.effort * 0.2).toFixed(1)}h)\n`;
+      response += `• Documentation (${(suggestedTask.effort * 0.1).toFixed(1)}h)\n`;
+    }
+    
+    return {
+      reply: response,
+      suggestions: [
+        {
+          type: 'breakdown',
+          title: 'Break down task',
+          description: 'Create detailed subtasks'
+        },
+        {
+          type: 'estimate',
+          title: 'Refine estimates',
+          description: 'Adjust value and effort'
+        }
+      ]
+    };
+  }
+
+  private parseDueDate(dateStr: string): Date {
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    const lower = dateStr.toLowerCase();
+    if (lower === 'today') return today;
+    if (lower === 'tomorrow') return tomorrow;
+    
+    // Try to parse natural dates
+    const parsed = new Date(dateStr);
+    return isNaN(parsed.getTime()) ? tomorrow : parsed;
+  }
+
+  private parseValue(valueStr: string): number {
+    const lower = valueStr.toLowerCase();
+    if (lower.includes('k')) {
+      return parseFloat(lower.replace('k', '')) * 1000;
+    }
+    return parseFloat(valueStr);
   }
 }
 

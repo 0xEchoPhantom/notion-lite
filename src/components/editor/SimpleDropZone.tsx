@@ -27,21 +27,24 @@ export const SimpleDropZone: React.FC<SimpleDropZoneProps> = ({
     const rect = dropZoneRef.current?.getBoundingClientRect();
     if (!rect) return;
     
-    // We can't read dataTransfer data during dragOver, only during drop
-    // So we'll use a simpler approach for determining if it can be a child
-    const draggedBlockType = 'todo-list'; // Assume todo for now
     const mouseY = e.clientY;
     const mouseX = e.clientX;
     
     // Check if we can drop as child (for todo-list blocks)
-    const canBeChild = block?.type === 'todo-list' && 
-                      draggedBlockType === 'todo-list' &&
-                      mouseX > rect.left + 40; // Indented position
+    // Allow dropping as child when hovering over the right half of a todo block
+    const canBeChild = block?.type === 'todo-list';
     
     let position: 'above' | 'below' | 'child';
     
-    if (canBeChild && mouseY > rect.top + rect.height * 0.3 && mouseY < rect.top + rect.height * 0.7) {
-      // Middle area with indent - drop as child
+    // More intuitive child detection:
+    // - If mouse is in the right 60% of the block
+    // - And within the middle 60% vertically
+    const isInChildZone = mouseX > rect.left + rect.width * 0.4;
+    const isInMiddleVertically = mouseY > rect.top + rect.height * 0.2 && 
+                                  mouseY < rect.top + rect.height * 0.8;
+    
+    if (canBeChild && isInChildZone && isInMiddleVertically) {
+      // Drop as child when hovering on the right side
       position = 'child';
     } else {
       // Determine if drop should be above or below
@@ -116,7 +119,8 @@ export const SimpleDropZone: React.FC<SimpleDropZoneProps> = ({
       {/* The actual block content */}
       <div className={clsx(
         'transition-all duration-200',
-        isDragOver && 'transform scale-[0.98]'
+        isDragOver && dropPosition === 'child' && 'ml-8 ring-2 ring-blue-400 ring-offset-2 rounded-lg',
+        isDragOver && dropPosition !== 'child' && 'transform scale-[0.98]'
       )}>
         {children}
       </div>
@@ -124,6 +128,13 @@ export const SimpleDropZone: React.FC<SimpleDropZoneProps> = ({
       {/* Drop indicator line - below */}
       {isDragOver && dropPosition === 'below' && (
         <div className="drop-indicator-line below" />
+      )}
+      
+      {/* Child drop indicator */}
+      {isDragOver && dropPosition === 'child' && (
+        <div className="absolute left-8 top-1/2 -translate-y-1/2 text-blue-500 text-xs font-medium pointer-events-none">
+          ↳ Drop as subtask
+        </div>
       )}
     </div>
   );

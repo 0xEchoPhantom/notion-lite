@@ -80,8 +80,8 @@ export const TASK_RULES = {
   
   // Multi-symbol patterns for different token types
   TOKEN_PATTERNS: {
-    // @ for people/assignees
-    ASSIGNEE: /@([\w\s]+)/gi,
+    // @ for people/assignees - supports Vietnamese characters
+    ASSIGNEE: /@([a-zA-ZÀ-ỹĐđ\s]+)/gi,
     // $ for money/values
     VALUE: /\$([\d.,]+[kmb]?)/gi,
     // # for dates/due dates
@@ -96,7 +96,8 @@ export const TASK_RULES = {
   
   // Single combined pattern to find any token
   // Matches: @word, $number[KMB], #date-pattern, ~number[mhdw], &CAPS
-  TOKEN_PATTERN: /(?:@[\w]+(?::[\w]+)?|\$[\d.,]+[KMB]?|#[\w\-\/+]+(?:\s+(?:week|month|days?|weeks?|months?|ngày|tuần|tháng))?|~[\d.]+[mhdw]|&[A-Z]+)/gi,
+  // Updated to support Vietnamese characters with diacritics
+  TOKEN_PATTERN: /(?:@[a-zA-ZÀ-ỹĐđ]+(?::[a-zA-ZÀ-ỹĐđ]+)?|\$[\d.,]+[KMB]?|#[\w\-\/+]+(?:\s+(?:week|month|days?|weeks?|months?|ngày|tuần|tháng))?|~[\d.]+[mhdw]|&[A-Z]+)/gi,
   
   // Conversion factors
   VALUE_MULTIPLIERS: {
