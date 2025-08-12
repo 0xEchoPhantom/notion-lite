@@ -65,20 +65,64 @@ export default function TokenManagerPage() {
   };
 
   const saveSettings = async () => {
-    if (!user) return;
+    if (!user) {
+      setMessage({ type: 'error', text: 'You must be logged in to save settings' });
+      return;
+    }
+    
     setSaving(true);
     setMessage(null);
     
     try {
-      const settingsRef = doc(db, 'users', user.uid, 'settings', 'tokens');
-      await setDoc(settingsRef, {
-        ...settings,
-        updatedAt: serverTimestamp()
-      }, { merge: true });
+      // Ensure we have a valid user ID
+      const userId = user.uid;
+      if (!userId) {
+        throw new Error('User ID is missing');
+      }
+      
+      const settingsRef = doc(db, 'users', userId, 'settings', 'tokens');
+      
+      // Prepare data ensuring all values are serializable
+      const dataToSave = {
+        assignees: settings.assignees || [],
+        companies: settings.companies || DEFAULT_COMPANIES,
+        commonValues: settings.commonValues || DEFAULT_VALUES,
+        commonEfforts: settings.commonEfforts || DEFAULT_EFFORTS,
+        defaultCompany: settings.defaultCompany || null,
+        updatedAt: serverTimestamp(),
+        userId: userId
+      };
+      
+      // Log what we're trying to save
+      console.log('Saving settings:', {
+        path: `users/${userId}/settings/tokens`,
+        data: dataToSave,
+        user: user.email
+      });
+      
+      // Use set instead of setDoc with merge to ensure clean save
+      await setDoc(settingsRef, dataToSave);
       
       setMessage({ type: 'success', text: 'Settings saved successfully!' });
+      
+      // Reload settings to confirm save
+      setTimeout(() => loadSettings(), 500);
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to save settings' });
+      console.error('Failed to save settings:', error);
+      
+      // Provide more detailed error messages
+      let errorMessage = 'Failed to save settings';
+      if (error instanceof Error) {
+        if (error.message.includes('permission')) {
+          errorMessage = 'Permission denied. Please ensure you are logged in.';
+        } else if (error.message.includes('network')) {
+          errorMessage = 'Network error. Please check your connection.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      setMessage({ type: 'error', text: errorMessage });
     } finally {
       setSaving(false);
     }
