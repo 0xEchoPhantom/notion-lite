@@ -3,7 +3,7 @@ import clsx from 'clsx';
 
 interface SimpleDropZoneProps {
   blockId: string;
-  block?: any; // Block data for determining if it can be a parent
+  block?: { id: string; type: string; content: string; indentLevel: number }; // Block data for determining if it can be a parent
   children: React.ReactNode;
   onDrop: (draggedBlockId: string, targetBlockId: string, position: 'above' | 'below' | 'child', childBlockIds?: string[]) => void;
   className?: string;

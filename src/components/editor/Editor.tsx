@@ -328,7 +328,7 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId, mode = 'notes' }) => 
     
     // Handle different drop positions
     let insertIndex: number;
-    const updates: { id: string; order?: number; indentLevel?: number; taskMetadata?: any }[] = [];
+    const updates: { id: string; order?: number; indentLevel?: number; taskMetadata?: Record<string, unknown> }[] = [];
     
     if (position === 'child') {
       // Dropping as a child of the target block
