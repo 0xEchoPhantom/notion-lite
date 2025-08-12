@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Block } from '@/types/index';
 import { formatValue, formatEffort, formatDueDate } from '@/utils/smartTokenParser';
+import { formatROI } from '@/types/task';
 import { 
   isStatusConsistentWithPage, 
   getStatusForPage
@@ -294,7 +295,7 @@ function TaskCard({ task, dragEnabled = true }: {
         <div className={`text-xs font-medium mb-2 ${
           (task.taskMetadata?.roi || 0) > 0 ? 'text-green-600' : 'text-gray-500'
         }`}>
-          ROI: {(task.taskMetadata?.roi || 0) > 0 ? `$${Math.round(task.taskMetadata?.roi || 0).toLocaleString()}/h` : 'Incomplete'}
+          ROI: {formatROI(task.taskMetadata?.roi)}
         </div>
       )}
       
@@ -338,7 +339,7 @@ function TaskTableRow({ task }: { task: Block }) {
         </span>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-        {task.taskMetadata?.roi && task.taskMetadata.roi > 0 ? `$${Math.round(task.taskMetadata.roi).toLocaleString()}/h` : '-'}
+        {formatROI(task.taskMetadata?.roi)}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
         {task.taskMetadata?.value ? formatValue(task.taskMetadata.value) : '-'}
@@ -386,7 +387,7 @@ function TaskPriorityRow({ task }: { task: Block }) {
         {task.taskMetadata?.roi && task.taskMetadata.roi > 0 && (
           <div className="text-right">
             <div className="text-lg font-bold text-green-600">
-              ${Math.round(task.taskMetadata?.roi || 0).toLocaleString()}/h
+              {formatROI(task.taskMetadata?.roi).replace('/mo', '')}
             </div>
           </div>
         )}

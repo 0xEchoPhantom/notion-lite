@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Task, TaskStatus, getTaskUrgency, canMoveToNext } from '@/types/task';
+import { Task, TaskStatus, getTaskUrgency, canMoveToNext, formatROI } from '@/types/task';
 import { formatValue, formatEffort, formatDueDate } from '@/utils/smartTokenParser';
 import { useAuth } from '@/contexts/AuthContext';
 import { collection, onSnapshot, doc, updateDoc, serverTimestamp, addDoc } from 'firebase/firestore';
@@ -336,7 +336,7 @@ function TaskROIRow({ task }: { task: Task }) {
         {task.roi && (
           <div className="text-right">
             <div className="text-lg font-bold text-green-600">
-              ${Math.round(task.roi).toLocaleString()}
+              {formatROI(task.roi).replace('/mo', '')}
             </div>
             <div className="text-xs text-gray-500">per hour</div>
           </div>
@@ -486,7 +486,7 @@ function TaskCard({ task, onDragStart, isDragging = false }: TaskCardProps) {
         <div className={`mt-1 text-xs font-medium ${
           task.roi > 0 ? 'text-green-600' : 'text-gray-500'
         }`}>
-          ROI: {task.roi > 0 ? `$${Math.round(task.roi).toLocaleString()}/h` : 'No value/effort'}
+          ROI: {formatROI(task.roi)}
         </div>
       )}
       

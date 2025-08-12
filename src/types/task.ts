@@ -144,9 +144,40 @@ export function calculateROI(task: Task): number | null {
   return task.value / task.effort;
 }
 
+// Calculate ROI as money per month (assuming 160 working hours per month)
+export function calculateMonthlyROI(task: Task): number | null {
+  const hourlyROI = calculateROI(task);
+  if (hourlyROI === null) return null;
+  return hourlyROI * 160; // 160 hours = 4 weeks * 40 hours/week
+}
+
+// Format ROI for display - standardized as $/month
+export function formatROI(roi: number | null | undefined): string {
+  if (roi === null || roi === undefined || !isFinite(roi)) {
+    return 'No data';
+  }
+  
+  // Convert hourly ROI to monthly (160 hours/month)
+  const monthlyROI = roi * 160;
+  
+  if (monthlyROI >= 1000000) {
+    return `$${(monthlyROI / 1000000).toFixed(1)}M/mo`;
+  }
+  if (monthlyROI >= 1000) {
+    return `$${Math.round(monthlyROI / 1000)}K/mo`;
+  }
+  return `$${Math.round(monthlyROI)}/mo`;
+}
+
+// Format ROI from task directly - accepts different task structures
+export function formatTaskROI(task: { roi?: number; taskMetadata?: { roi?: number } }): string {
+  const roi = 'roi' in task ? task.roi : task.taskMetadata?.roi;
+  return formatROI(roi);
+}
+
 export function isHighROITask(task: Task): boolean {
-  const roi = calculateROI(task);
-  return roi !== null && roi > 1000; // $1000+ per hour
+  const monthlyROI = calculateMonthlyROI(task);
+  return monthlyROI !== null && monthlyROI > 160000; // $160K+ per month (was $1000/hour)
 }
 
 export function getTaskUrgency(task: Task): 'urgent' | 'soon' | 'normal' | null {

@@ -1,5 +1,5 @@
 import { getAI, getGenerativeModel, VertexAIBackend } from '@firebase/ai';
-import { Task } from '@/types/task';
+import { Task, formatROI } from '@/types/task';
 import app from '@/firebase/client';
 
 // Initialize Firebase AI Logic with Vertex AI backend
@@ -203,7 +203,7 @@ Provide 3-5 specific, actionable subtasks. Format as a simple list.`;
 Task: "${taskContent}"
 
 Similar completed tasks for context:
-${similarTasks.slice(0, 3).map(t => `- "${t.content}" (Value: $${t.value || 0}, Effort: ${t.effort || 0}h, ROI: $${Math.round(t.roi || 0)}/h)`).join('\n')}
+${similarTasks.slice(0, 3).map(t => `- "${t.content}" (Value: $${t.value || 0}, Effort: ${t.effort || 0}h, ROI: ${formatROI(t.roi)})`).join('\n')}
 
 Provide estimates in this exact format:
 VALUE: [dollar amount]
@@ -277,7 +277,7 @@ Provide specific, actionable insights in under 300 words.`;
     return `Task Overview:
 - Total: ${tasks.length} tasks
 - Status: ${Object.entries(byStatus).map(([k, v]) => `${k}(${v})`).join(', ')}
-- High ROI (>$100/h): ${highROI}
+- High ROI (>$16K/mo): ${highROI}
 - Missing data: ${missingData}
 - Urgent (≤2 days): ${urgent}
 
@@ -286,7 +286,7 @@ ${tasks
   .filter(t => t.roi && t.roi > 0)
   .sort((a, b) => (b.roi || 0) - (a.roi || 0))
   .slice(0, 3)
-  .map(t => `- "${t.content}" ($${Math.round(t.roi || 0)}/h)`)
+  .map(t => `- "${t.content}" (${formatROI(t.roi)})`)
   .join('\n')}`;
   }
 
@@ -435,7 +435,7 @@ ${tasks
     if (highROITasks.length > 0) {
       plan += `💰 HIGH VALUE:\n`;
       highROITasks.forEach(t => {
-        plan += `• ${t.content} ($${Math.round(t.roi || 0)}/h, ${t.effort || 2}h)\n`;
+        plan += `• ${t.content} (${formatROI(t.roi)}, ${t.effort || 2}h)\n`;
       });
       plan += `\n`;
     }
@@ -485,7 +485,7 @@ ${tasks
     review += `✅ Completed: ${completedTasks.length} tasks\n`;
     review += `💰 Value Delivered: $${totalValue.toLocaleString()}\n`;
     review += `⏱️ Time Invested: ${totalEffort.toFixed(1)} hours\n`;
-    review += `📈 Average ROI: $${Math.round(avgROI)}/hour\n\n`;
+    review += `📈 Average ROI: ${formatROI(avgROI)}\n\n`;
     
     if (overdueTasks.length > 0) {
       review += `⚠️ OVERDUE (${overdueTasks.length}):\n`;
@@ -610,17 +610,17 @@ ${tasks
     
     top10.forEach((t, i) => {
       response += `${i + 1}. ${t.content}\n`;
-      response += `   ROI: $${Math.round(t.roi || 0)}/h | Value: $${t.value} | Time: ${t.effort}h\n\n`;
+      response += `   ROI: ${formatROI(t.roi)} | Value: $${t.value} | Time: ${t.effort}h\n\n`;
     });
     
     response += `📈 SUMMARY:\n`;
     response += `• Total Value: $${totalValue.toLocaleString()}\n`;
     response += `• Total Time: ${totalEffort.toFixed(1)} hours\n`;
-    response += `• Average ROI: $${Math.round(totalValue / totalEffort)}/hour\n\n`;
+    response += `• Average ROI: ${formatROI(totalValue / totalEffort)}\n\n`;
     
     response += `💡 RECOMMENDATIONS:\n`;
     response += `• Focus exclusively on top 5 ROI tasks this week\n`;
-    response += `• Delegate or delete tasks with ROI < $50/hour\n`;
+    response += `• Delegate or delete tasks with ROI < $8K/month\n`;
     response += `• Batch similar low-ROI tasks together\n`;
     response += `• Say no to new low-value requests\n`;
     
@@ -661,7 +661,7 @@ ${tasks
     response += `📋 DELEGATE IMMEDIATELY:\n`;
     delegatable.slice(0, 5).forEach(t => {
       response += `• ${t.content}\n`;
-      response += `  Why: ${t.roi ? `Low ROI ($${Math.round(t.roi)}/h)` : 'Routine task'}\n\n`;
+      response += `  Why: ${t.roi ? `Low ROI (${formatROI(t.roi)})` : 'Routine task'}\n\n`;
     });
     
     response += `📝 DELEGATION TEMPLATE:\n`;
@@ -867,7 +867,7 @@ ${tasks
       if (highROITasks.length > 0) {
         const topTask = highROITasks[0];
         return {
-          reply: `Based on ROI analysis, I recommend starting with "${topTask.content}" ($${Math.round(topTask.roi || 0)}/hour). It offers the best return on your time investment.`,
+          reply: `Based on ROI analysis, I recommend starting with "${topTask.content}" (${formatROI(topTask.roi)}). It offers the best return on your time investment.`,
           suggestions: [{
             type: 'prioritize',
             title: 'Start highest ROI task',
@@ -1021,7 +1021,7 @@ ${tasks
     
     brief += `🎯 TOP 3 NEXT STEPS:\n`;
     nextStepTasks.forEach((t, i) => {
-      brief += `${i + 1}. ${t.content} ($${Math.round(t.roi || 0)}/h)\n`;
+      brief += `${i + 1}. ${t.content} (${formatROI(t.roi)})\n`;
     });
     
     const totalEffortToday = [...todayTasks, ...nextStepTasks]
@@ -1089,7 +1089,7 @@ ${tasks
     if (suggestedTask.dueDate) response += `Due: ${new Date(suggestedTask.dueDate).toLocaleDateString()}\n`;
     if (suggestedTask.value) response += `Value: $${suggestedTask.value}\n`;
     if (suggestedTask.effort) response += `Effort: ${suggestedTask.effort}h\n`;
-    if (roi) response += `ROI: $${Math.round(roi)}/h\n`;
+    if (roi) response += `ROI: ${formatROI(roi)}\n`;
     
     response += `\n`;
     

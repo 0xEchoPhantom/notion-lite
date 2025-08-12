@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { TaskCompany, TASK_RULES } from '@/types/task';
+import { TaskCompany, TASK_RULES, formatROI } from '@/types/task';
 import { TaskMetadata } from '@/types/index';
 import { formatValue, formatEffort, formatDueDate } from '@/utils/smartTokenParser';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
@@ -176,7 +176,7 @@ export function TaskChips({ taskMetadata, blockId, onUpdate }: TaskChipsProps) {
               ? 'bg-emerald-100 text-emerald-700' 
               : 'bg-gray-100 text-gray-600'
           }`}>
-            ROI: {roi > 0 ? `$${Math.round(roi).toLocaleString()}/h` : 'Incomplete'}
+            ROI: {formatROI(roi)}
           </span>
         );
       })()}
