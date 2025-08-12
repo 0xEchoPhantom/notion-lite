@@ -18,6 +18,7 @@
     "@firebase/ai": "^2.1.0",
     "@google/generative-ai": "^0.24.1",
     "@heroicons/react": "^2.2.0",
+    "@notionhq/client": "^4.0.1",
     "@tiptap/extension-bullet-list": "^3.0.9",
     "@tiptap/extension-list-item": "^3.0.9",
     "@tiptap/extension-placeholder": "^3.0.9",

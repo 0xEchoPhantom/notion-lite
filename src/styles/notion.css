@@ -1,0 +1,126 @@
+/* Notion Embed Styles */
+.notion-embed {
+  @apply w-full;
+}
+
+.notion-embed-block {
+  @apply mb-4;
+}
+
+.notion-embed.loading {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.notion-embed .notion-block {
+  @apply leading-relaxed;
+}
+
+.notion-embed .notion-block h1 {
+  @apply text-xl font-bold mb-3;
+}
+
+.notion-embed .notion-block h2 {
+  @apply text-lg font-semibold mb-2;
+}
+
+.notion-embed .notion-block h3 {
+  @apply text-base font-medium mb-2;
+}
+
+.notion-embed .notion-block p {
+  @apply mb-2;
+}
+
+.notion-embed .notion-block ul,
+.notion-embed .notion-block ol {
+  @apply pl-4 space-y-1;
+}
+
+.notion-embed .notion-block blockquote {
+  @apply border-l-4 border-gray-200 pl-4 italic text-gray-600;
+}
+
+.notion-embed .notion-block pre {
+  @apply bg-gray-100 p-3 rounded text-sm font-mono overflow-x-auto;
+}
+
+.notion-embed .notion-block img {
+  @apply max-w-full h-auto rounded;
+}
+
+.notion-embed .notion-block hr {
+  @apply border-gray-200 my-4;
+}
+
+/* Responsive design */
+@media (max-width: 640px) {
+  .notion-embed {
+    @apply text-sm;
+  }
+  
+  .notion-embed .notion-block h1 {
+    @apply text-lg;
+  }
+  
+  .notion-embed .notion-block h2 {
+    @apply text-base;
+  }
+  
+  .notion-embed .notion-block h3 {
+    @apply text-sm font-medium;
+  }
+}
+
+/* Animation for loading state */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: .5;
+  }
+}
+
+/* Hover effects */
+.notion-embed:hover {
+  @apply shadow-sm;
+}
+
+.notion-embed .border {
+  transition: border-color 0.2s ease-in-out;
+}
+
+.notion-embed .border:hover {
+  @apply border-gray-300;
+}
+
+/* Dark mode support (if needed) */
+@media (prefers-color-scheme: dark) {
+  .notion-embed {
+    @apply text-gray-200;
+  }
+  
+  .notion-embed .bg-white {
+    @apply bg-gray-800;
+  }
+  
+  .notion-embed .bg-gray-50 {
+    @apply bg-gray-700;
+  }
+  
+  .notion-embed .border-gray-200 {
+    @apply border-gray-600;
+  }
+  
+  .notion-embed .text-gray-900 {
+    @apply text-gray-100;
+  }
+  
+  .notion-embed .text-gray-700 {
+    @apply text-gray-200;
+  }
+  
+  .notion-embed .text-gray-500 {
+    @apply text-gray-400;
+  }
+}

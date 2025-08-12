@@ -21,6 +21,8 @@ import {
   addEffortToSettings,
   loadTokenSettings 
 } from '@/lib/tokenSettings';
+import { parseNotionContent } from '@/utils/notionDetection';
+import { NotionEmbed } from '@/components/notion/NotionEmbed';
 
 interface SimpleBlockProps {
   block: BlockType;
@@ -671,6 +673,22 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
           </div>
         </div>
       </BlockWrapper>
+
+      {/* Notion Embed */}
+      {(() => {
+        const notionContent = parseNotionContent(localContent);
+        if (notionContent.type === 'notion-only' && notionContent.notionUrls.length > 0) {
+          return (
+            <div className="mt-2">
+              <NotionEmbed 
+                url={notionContent.notionUrls[0]} 
+                className="notion-embed-block"
+              />
+            </div>
+          );
+        }
+        return null;
+      })()}
 
       <SlashMenu
         ref={slashMenuRef}

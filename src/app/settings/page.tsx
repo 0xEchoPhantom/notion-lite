@@ -10,7 +10,7 @@ import { auth } from '@/firebase/client';
 import type { TaskCompany } from '@/types/task';
 
 // Tab types
-type TabType = 'general' | 'tokens' | 'admin' | 'account';
+type TabType = 'general' | 'tokens' | 'notion' | 'admin' | 'account';
 
 interface TokenSettings {
   assignees: string[];
@@ -304,6 +304,16 @@ export default function SettingsPage() {
               Token Manager
             </button>
             <button
+              onClick={() => setActiveTab('notion')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'notion'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Notion Integration
+            </button>
+            <button
               onClick={() => setActiveTab('admin')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'admin'
@@ -548,6 +558,28 @@ export default function SettingsPage() {
                   >
                     {saving ? 'Saving...' : 'Save Token Settings'}
                   </button>
+                </div>
+              </div>
+            )}
+
+            {/* Notion Integration Tab */}
+            {activeTab === 'notion' && (
+              <div className="bg-white shadow rounded-lg p-6">
+                <div className="text-center py-8">
+                  <div className="text-6xl mb-4">🔗</div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Notion Integration</h3>
+                  <p className="text-gray-600 mb-6">
+                    Configure your Notion API to embed private pages and blocks
+                  </p>
+                  <button
+                    onClick={() => window.open('/settings/notion', '_blank')}
+                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+                  >
+                    Open Notion Settings
+                  </button>
+                  <p className="text-xs text-gray-500 mt-3">
+                    Configure API key, test connection, and manage integration settings
+                  </p>
                 </div>
               </div>
             )}
