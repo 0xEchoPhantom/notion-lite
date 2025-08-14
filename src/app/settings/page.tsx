@@ -9,6 +9,7 @@ import { db } from '@/firebase/client';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/firebase/client';
 import type { TaskCompany } from '@/types/task';
+import { DarkModeDebug } from '@/components/DarkModeDebug';
 
 // Tab types
 type TabType = 'general' | 'tokens' | 'notion' | 'capture' | 'admin' | 'account';
@@ -27,7 +28,20 @@ const DEFAULT_EFFORTS = [0.25, 0.5, 1, 2, 4, 8, 16, 40, 80, 160];
 
 // Standalone Theme Toggle Component
 function ThemeToggle() {
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme, mounted } = useTheme();
+
+  if (!mounted) {
+    return (
+      <button
+        className="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200 dark:bg-gray-700 transition-colors opacity-50"
+        disabled
+        aria-label="Loading theme toggle"
+      >
+        <span className="sr-only">Loading theme toggle</span>
+        <span className="translate-x-1 inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm" />
+      </button>
+    );
+  }
 
   return (
     <button
@@ -714,6 +728,7 @@ export default function SettingsPage() {
           </>
         )}
       </div>
+      <DarkModeDebug />
     </div>
   );
 }

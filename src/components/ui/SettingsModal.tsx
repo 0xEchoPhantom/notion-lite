@@ -21,7 +21,20 @@ interface TeamMember {
 
 // Theme Toggle Component for Settings Modal
 function ThemeToggleSwitch() {
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme, mounted } = useTheme();
+
+  if (!mounted) {
+    return (
+      <button
+        className="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200 dark:bg-gray-700 transition-colors opacity-50"
+        disabled
+        aria-label="Loading theme toggle"
+      >
+        <span className="sr-only">Loading theme toggle</span>
+        <span className="translate-x-1 inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm" />
+      </button>
+    );
+  }
 
   return (
     <button
