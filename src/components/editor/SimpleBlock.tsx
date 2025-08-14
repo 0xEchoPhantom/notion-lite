@@ -21,7 +21,7 @@ import {
   addEffortToSettings,
   loadTokenSettings 
 } from '@/lib/tokenSettings';
-import { parseNotionContent } from '@/utils/notionDetection';
+import { parseNotionContent, extractNotionUrls } from '@/utils/notionDetection';
 import { NotionEmbed } from '@/components/notion/NotionEmbed';
 
 interface SimpleBlockProps {
@@ -159,11 +159,12 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
       
       if (lastTokenIndex !== -1) {
         // Remove the symbol and everything after it up to cursor from content
-        const newContent = 
+        let newContent = 
           content.substring(0, lastTokenIndex) + 
           content.substring(cursorPos);
         
-        // Update the input value directly (removing the token)
+        // No need to preserve URLs - they're in metadata now
+        
         inputRef.current.value = newContent;
         
         // Parse the selected token to extract metadata
@@ -422,6 +423,21 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
     }
   };
 
+  // Use block's notionUrls metadata
+  const notionUrls = block.notionUrls || [];
+  const hasNotionUrls = notionUrls.length > 0;
+  
+  // Handle removing a specific Notion link
+  const handleRemoveNotionLink = async (urlToRemove: string) => {
+    // Remove from metadata
+    const updatedUrls = notionUrls.filter(url => url !== urlToRemove);
+    
+    // Update the block with new metadata
+    await updateBlockContent(block.id, { 
+      notionUrls: updatedUrls 
+    });
+  };
+
   return (
     <>
       <BlockWrapper
@@ -454,8 +470,39 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
               localContent={localContent}
               isFocused={isFocused}
               inputRef={inputRef}
-              onChange={(e) => {
-                handleChange(e);
+              onChange={async (e) => {
+                const inputValue = e.target.value;
+                
+                // Check for new Notion URLs that were just typed/pasted
+                const detectedUrls = extractNotionUrls(inputValue);
+                const newUrls = detectedUrls.filter(url => !notionUrls.includes(url));
+                
+                if (newUrls.length > 0) {
+                  // Remove URLs from content
+                  let cleanContent = inputValue;
+                  newUrls.forEach(url => {
+                    cleanContent = cleanContent.replace(url, '').trim();
+                  });
+                  
+                  // Update input to show clean content
+                  if (inputRef.current) {
+                    const cursorPos = e.target.selectionStart || 0;
+                    inputRef.current.value = cleanContent;
+                    // Keep cursor in reasonable position
+                    const newPos = Math.min(cursorPos, cleanContent.length);
+                    inputRef.current.setSelectionRange(newPos, newPos);
+                  }
+                  
+                  // Save to metadata
+                  await updateBlockContent(block.id, {
+                    content: cleanContent,
+                    notionUrls: [...notionUrls, ...newUrls]
+                  });
+                } else {
+                  // Normal change handling
+                  handleChange(e);
+                }
+                
                 // Check for @ trigger
                 const target = e.target as HTMLTextAreaElement;
                 handleTokenTrigger(target.value, target.selectionStart, target);
@@ -518,7 +565,10 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
                       }
                       
                       if (lastTokenIndex !== -1) {
-                        const newContent = content.substring(0, lastTokenIndex) + content.substring(cursorPos);
+                        let newContent = content.substring(0, lastTokenIndex) + content.substring(cursorPos);
+                        
+                        // No need to preserve URLs - they're in metadata now
+                        
                         inputRef.current.value = newContent;
                         inputRef.current.setSelectionRange(lastTokenIndex, lastTokenIndex);
                         // Trigger change event
@@ -671,24 +721,22 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
               </div>
             )}
           </div>
+          
+          {/* Notion link attachments as tokens/chips */}
+          {hasNotionUrls && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {notionUrls.map((url, index) => (
+                <NotionEmbed 
+                  key={`notion-${block.id}-${index}`}
+                  url={url} 
+                  className="notion-attachment"
+                  onRemove={() => handleRemoveNotionLink(url)}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </BlockWrapper>
-
-      {/* Notion Embed */}
-      {(() => {
-        const notionContent = parseNotionContent(localContent);
-        if (notionContent.type === 'notion-only' && notionContent.notionUrls.length > 0) {
-          return (
-            <div className="mt-2">
-              <NotionEmbed 
-                url={notionContent.notionUrls[0]} 
-                className="notion-embed-block"
-              />
-            </div>
-          );
-        }
-        return null;
-      })()}
 
       <SlashMenu
         ref={slashMenuRef}

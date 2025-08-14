@@ -3,6 +3,8 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
+import { ThemeScript } from "@/components/ThemeScript";
 
 // Inter font has excellent Vietnamese support out of the box
 const inter = Inter({
@@ -31,13 +33,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi">
+    <html lang="vi" suppressHydrationWarning>
+      <head>
+        <ThemeScript />
+      </head>
       <body className={`${inter.variable} ${inter.className} antialiased`}>
-        <AuthProvider>
-          <WorkspaceProvider>
-            {children}
-          </WorkspaceProvider>
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <WorkspaceProvider>
+              {children}
+            </WorkspaceProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

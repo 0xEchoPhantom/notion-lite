@@ -26,10 +26,10 @@ function AppContent() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Setting up your workspaces...</p>
+          <p className="text-gray-600 dark:text-gray-400">Setting up your workspaces...</p>
         </div>
       </div>
     );
@@ -37,10 +37,10 @@ function AppContent() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center max-w-md">
           <div className="text-red-500 text-4xl mb-4">⚠️</div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Workspace Error</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">Workspace Error</h2>
           <p className="text-gray-600 mb-4">{error}</p>
           <button 
             onClick={() => window.location.reload()} 
@@ -65,7 +65,7 @@ export default function AppPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     );
@@ -73,9 +73,9 @@ export default function AppPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Welcome to Notion Lite</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Welcome to Notion Lite</h1>
           <p className="text-gray-600 mb-6">Please sign in to access your workspaces</p>
           <a 
             href="/login" 

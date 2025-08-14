@@ -44,6 +44,7 @@ export interface Block {
   order: number;
   // Single source of truth for task data
   taskMetadata?: TaskMetadata; // Only present for todo-list blocks
+  notionUrls?: string[]; // Notion URLs attached to this block
   createdAt: Date;
   updatedAt: Date;
 }

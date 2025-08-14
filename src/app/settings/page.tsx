@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { useRouter } from 'next/navigation';
 import { doc, getDoc, setDoc, serverTimestamp, collection, query, getDocs, deleteDoc } from 'firebase/firestore';
 import { db } from '@/firebase/client';
@@ -10,7 +11,7 @@ import { auth } from '@/firebase/client';
 import type { TaskCompany } from '@/types/task';
 
 // Tab types
-type TabType = 'general' | 'tokens' | 'notion' | 'admin' | 'account';
+type TabType = 'general' | 'tokens' | 'notion' | 'capture' | 'admin' | 'account';
 
 interface TokenSettings {
   assignees: string[];
@@ -23,6 +24,32 @@ interface TokenSettings {
 const DEFAULT_COMPANIES: TaskCompany[] = ['AIC', 'WN', 'BXV', 'EA', 'PERSONAL'];
 const DEFAULT_VALUES = [10000, 50000, 100000, 500000, 1000000, 5000000, 10000000];
 const DEFAULT_EFFORTS = [0.25, 0.5, 1, 2, 4, 8, 16, 40, 80, 160];
+
+// Standalone Theme Toggle Component
+function ThemeToggle() {
+  const { theme, toggleTheme } = useTheme();
+
+  return (
+    <button
+      onClick={toggleTheme}
+      className="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200 dark:bg-gray-700 transition-colors"
+      aria-label="Toggle theme"
+    >
+      <span className="sr-only">Toggle theme</span>
+      <span
+        className={`${
+          theme === 'dark' ? 'translate-x-6' : 'translate-x-1'
+        } inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm`}
+      />
+      <span className="absolute left-1 flex items-center text-xs">
+        {theme === 'light' ? '☀️' : ''}
+      </span>
+      <span className="absolute right-1 flex items-center text-xs">
+        {theme === 'dark' ? '🌙' : ''}
+      </span>
+    </button>
+  );
+}
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -261,34 +288,34 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => router.push('/app')}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               >
                 ← Back
               </button>
-              <h1 className="text-xl font-semibold text-gray-900">Settings</h1>
+              <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Settings</h1>
             </div>
           </div>
         </div>
       </div>
 
       {/* Tab Navigation */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <nav className="flex space-x-8" aria-label="Tabs">
             <button
               onClick={() => setActiveTab('general')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'general'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-600'
               }`}
             >
               General
@@ -297,8 +324,8 @@ export default function SettingsPage() {
               onClick={() => setActiveTab('tokens')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'tokens'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-600'
               }`}
             >
               Token Manager
@@ -307,18 +334,28 @@ export default function SettingsPage() {
               onClick={() => setActiveTab('notion')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'notion'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-600'
               }`}
             >
               Notion Integration
             </button>
             <button
+              onClick={() => setActiveTab('capture')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'capture'
+                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-600'
+              }`}
+            >
+              Quick Capture
+            </button>
+            <button
               onClick={() => setActiveTab('admin')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'admin'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-600'
               }`}
             >
               Admin Dashboard
@@ -327,8 +364,8 @@ export default function SettingsPage() {
               onClick={() => setActiveTab('account')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'account'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-600'
               }`}
             >
               Account
@@ -358,26 +395,23 @@ export default function SettingsPage() {
             {/* General Tab */}
             {activeTab === 'general' && (
               <div className="space-y-6">
-                <div className="bg-white shadow rounded-lg p-6">
-                  <h2 className="text-lg font-medium text-gray-900 mb-4">General Settings</h2>
+                <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                  <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">General Settings</h2>
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Default View
                       </label>
-                      <select className="border rounded-lg px-3 py-2 w-full max-w-xs">
+                      <select className="border dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg px-3 py-2 w-full max-w-xs">
                         <option>Notes</option>
                         <option>GTD Tasks</option>
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-300 mb-2">
                         Theme
                       </label>
-                      <select className="border rounded-lg px-3 py-2 w-full max-w-xs">
-                        <option>Light</option>
-                        <option>Dark (Coming Soon)</option>
-                      </select>
+                      <ThemeToggle />
                     </div>
                   </div>
                 </div>
@@ -388,13 +422,13 @@ export default function SettingsPage() {
             {activeTab === 'tokens' && (
               <div className="space-y-6">
                 {/* Team Members */}
-                <div className="bg-white shadow rounded-lg p-6">
-                  <h2 className="text-lg font-medium text-gray-900 mb-4">👤 Team Members</h2>
-                  <p className="text-sm text-gray-600 mb-4">People who can be assigned to tasks</p>
+                <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                  <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">👤 Team Members</h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">People who can be assigned to tasks</p>
                   
                   <div className="flex gap-2 mb-4">
                     <input
-                      className="flex-1 border rounded-lg px-3 py-2"
+                      className="flex-1 border dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg px-3 py-2"
                       placeholder="Enter name (e.g., John, Sarah)"
                       value={newAssignee}
                       onChange={(e) => setNewAssignee(e.target.value)}
@@ -424,19 +458,19 @@ export default function SettingsPage() {
                       </span>
                     ))}
                     {tokenSettings.assignees.length === 0 && (
-                      <span className="text-gray-400 text-sm">No team members added yet</span>
+                      <span className="text-gray-400 dark:text-gray-500 text-sm">No team members added yet</span>
                     )}
                   </div>
                 </div>
 
                 {/* Common Values */}
-                <div className="bg-white shadow rounded-lg p-6">
-                  <h2 className="text-lg font-medium text-gray-900 mb-4">💵 Common Values</h2>
-                  <p className="text-sm text-gray-600 mb-4">Frequently used monetary values</p>
+                <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                  <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">💵 Common Values</h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Frequently used monetary values</p>
                   
                   <div className="flex gap-2 mb-4">
                     <input
-                      className="flex-1 border rounded-lg px-3 py-2"
+                      className="flex-1 border dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg px-3 py-2"
                       placeholder="Enter value (e.g., 10k, 1M, 500000)"
                       value={newValue}
                       onChange={(e) => setNewValue(e.target.value)}
@@ -469,13 +503,13 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Common Efforts */}
-                <div className="bg-white shadow rounded-lg p-6">
-                  <h2 className="text-lg font-medium text-gray-900 mb-4">⏱️ Common Efforts</h2>
-                  <p className="text-sm text-gray-600 mb-4">Frequently used time estimates</p>
+                <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                  <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">⏱️ Common Efforts</h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Frequently used time estimates</p>
                   
                   <div className="flex gap-2 mb-4">
                     <input
-                      className="flex-1 border rounded-lg px-3 py-2"
+                      className="flex-1 border dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg px-3 py-2"
                       placeholder="Enter effort (e.g., 30m, 2h, 3d, 1w)"
                       value={newEffort}
                       onChange={(e) => setNewEffort(e.target.value)}
@@ -508,13 +542,13 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Companies/Organizations */}
-                <div className="bg-white shadow rounded-lg p-6">
-                  <h2 className="text-lg font-medium text-gray-900 mb-4">🏢 Organizations</h2>
-                  <p className="text-sm text-gray-600 mb-4">Company codes for task categorization</p>
+                <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                  <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">🏢 Organizations</h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Company codes for task categorization</p>
                   
                   <div className="flex gap-2 mb-4">
                     <input
-                      className="flex-1 border rounded-lg px-3 py-2"
+                      className="flex-1 border dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg px-3 py-2"
                       placeholder="Enter company code (e.g., ACME, IBM)"
                       value={newCompany}
                       onChange={(e) => setNewCompany(e.target.value.toUpperCase())}
@@ -544,7 +578,7 @@ export default function SettingsPage() {
                       </span>
                     ))}
                     {tokenSettings.companies.length === 0 && (
-                      <span className="text-gray-400 text-sm">No organizations added yet</span>
+                      <span className="text-gray-400 dark:text-gray-500 text-sm">No organizations added yet</span>
                     )}
                   </div>
                 </div>
@@ -567,8 +601,8 @@ export default function SettingsPage() {
               <div className="bg-white shadow rounded-lg p-6">
                 <div className="text-center py-8">
                   <div className="text-6xl mb-4">🔗</div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Notion Integration</h3>
-                  <p className="text-gray-600 mb-6">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Notion Integration</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-6">
                     Configure your Notion API to embed private pages and blocks
                   </p>
                   <button
@@ -577,8 +611,30 @@ export default function SettingsPage() {
                   >
                     Open Notion Settings
                   </button>
-                  <p className="text-xs text-gray-500 mt-3">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
                     Configure API key, test connection, and manage integration settings
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Quick Capture Tab */}
+            {activeTab === 'capture' && (
+              <div className="bg-white shadow rounded-lg p-6">
+                <div className="text-center py-8">
+                  <div className="text-6xl mb-4">⚡</div>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Quick Capture API</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-6">
+                    Set up external apps to send quick thoughts to your inbox
+                  </p>
+                  <button
+                    onClick={() => window.open('/settings/capture', '_blank')}
+                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+                  >
+                    Configure Quick Capture
+                  </button>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
+                    Get your API key and User ID for integration with external apps
                   </p>
                 </div>
               </div>
@@ -589,27 +645,27 @@ export default function SettingsPage() {
               <div className="space-y-6">
                 {/* Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="bg-white shadow rounded-lg p-6">
-                    <div className="text-2xl font-bold text-gray-900">{stats.totalPages}</div>
-                    <div className="text-sm text-gray-500">Total Pages</div>
+                  <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                    <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.totalPages}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">Total Pages</div>
                   </div>
-                  <div className="bg-white shadow rounded-lg p-6">
-                    <div className="text-2xl font-bold text-gray-900">{stats.totalBlocks}</div>
-                    <div className="text-sm text-gray-500">Total Blocks</div>
+                  <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                    <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.totalBlocks}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">Total Blocks</div>
                   </div>
-                  <div className="bg-white shadow rounded-lg p-6">
-                    <div className="text-2xl font-bold text-gray-900">{stats.todoBlocks}</div>
-                    <div className="text-sm text-gray-500">Todo Items</div>
+                  <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                    <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.todoBlocks}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">Todo Items</div>
                   </div>
-                  <div className="bg-white shadow rounded-lg p-6">
-                    <div className="text-2xl font-bold text-gray-900">{stats.completedTodos}</div>
-                    <div className="text-sm text-gray-500">Completed</div>
+                  <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                    <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.completedTodos}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">Completed</div>
                   </div>
                 </div>
 
                 {/* Maintenance */}
-                <div className="bg-white shadow rounded-lg p-6">
-                  <h2 className="text-lg font-medium text-gray-900 mb-4">Maintenance</h2>
+                <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                  <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Maintenance</h2>
                   <div className="space-y-4">
                     <div>
                       <button
@@ -618,7 +674,7 @@ export default function SettingsPage() {
                       >
                         Clean Orphaned Blocks
                       </button>
-                      <p className="text-sm text-gray-500 mt-2">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
                         Remove blocks that are not associated with any page
                       </p>
                     </div>
@@ -630,22 +686,22 @@ export default function SettingsPage() {
             {/* Account Tab */}
             {activeTab === 'account' && (
               <div className="space-y-6">
-                <div className="bg-white shadow rounded-lg p-6">
-                  <h2 className="text-lg font-medium text-gray-900 mb-4">Account Information</h2>
+                <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                  <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Account Information</h2>
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Email</label>
-                      <div className="mt-1 text-sm text-gray-900">{user.email}</div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
+                      <div className="mt-1 text-sm text-gray-900 dark:text-gray-100">{user.email}</div>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">User ID</label>
-                      <div className="mt-1 text-sm text-gray-900 font-mono">{user.uid}</div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">User ID</label>
+                      <div className="mt-1 text-sm text-gray-900 dark:text-gray-100 font-mono">{user.uid}</div>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-white shadow rounded-lg p-6">
-                  <h2 className="text-lg font-medium text-gray-900 mb-4">Sign Out</h2>
+                <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                  <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Sign Out</h2>
                   <button
                     onClick={handleSignOut}
                     className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"

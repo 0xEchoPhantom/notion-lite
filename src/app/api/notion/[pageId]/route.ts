@@ -8,8 +8,11 @@ export async function GET(
   { params }: { params: { pageId: string } }
 ) {
   try {
+    console.log('[Notion API] Received request for page:', params.pageId);
+    
     // Get user from the request (you might need to implement auth middleware)
     const userId = request.headers.get('x-user-id');
+    console.log('[Notion API] User ID:', userId);
     
     if (!userId) {
       return NextResponse.json(
@@ -21,6 +24,7 @@ export async function GET(
     // Get user's Notion API key from their settings
     const settingsRef = doc(db, 'users', userId, 'settings', 'notion');
     const settingsDoc = await getDoc(settingsRef);
+    console.log('[Notion API] Settings doc exists:', settingsDoc.exists());
     
     if (!settingsDoc.exists()) {
       return NextResponse.json(

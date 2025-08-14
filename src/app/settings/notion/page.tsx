@@ -4,7 +4,6 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/firebase/client';
-import { initializeNotionService } from '@/lib/notion';
 
 interface NotionSettings {
   apiKey?: string;
@@ -40,8 +39,6 @@ export default function NotionSettingsPage() {
         setSettings(data);
         if (data.apiKey) {
           setApiKey(data.apiKey);
-          // Initialize the service with the saved API key
-          initializeNotionService(data.apiKey);
         }
       }
     } catch (error) {
@@ -58,18 +55,34 @@ export default function NotionSettingsPage() {
       return;
     }
 
+    if (!user) {
+      setMessage({ type: 'error', text: 'Please sign in first' });
+      return;
+    }
+
     setTesting(true);
     setMessage(null);
 
     try {
-      const service = initializeNotionService(apiKey.trim());
-      const isConnected = await service.testConnection();
+      // Test connection using API route
+      const response = await fetch('/api/notion/test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          apiKey: apiKey.trim(),
+          userId: user.uid,
+        }),
+      });
+
+      const result = await response.json();
       
-      if (isConnected) {
+      if (response.ok && result.valid) {
         setMessage({ type: 'success', text: 'Connection successful!' });
         setSettings(prev => ({ ...prev, isConnected: true }));
       } else {
-        setMessage({ type: 'error', text: 'Connection failed. Please check your API key.' });
+        setMessage({ type: 'error', text: result.error || 'Connection failed. Please check your API key.' });
         setSettings(prev => ({ ...prev, isConnected: false }));
       }
     } catch (error) {
@@ -102,11 +115,6 @@ export default function NotionSettingsPage() {
 
       setSettings(settingsToSave);
       setMessage({ type: 'success', text: 'Settings saved successfully!' });
-
-      // Initialize service with new API key
-      if (apiKey.trim()) {
-        initializeNotionService(apiKey.trim());
-      }
     } catch (error) {
       console.error('Failed to save settings:', error);
       setMessage({ type: 'error', text: 'Failed to save settings' });

@@ -222,21 +222,21 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
   return (
     <div
       ref={menuRef}
-      className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-2 min-w-[280px] max-h-60 overflow-y-auto"
+      className="fixed z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-2 min-w-[280px] max-h-60 overflow-y-auto"
       style={{
         left: position.x,
         top: position.y,
       }}
     >
-      <div className="px-3 py-2 text-xs text-gray-500 font-medium uppercase tracking-wide">
+      <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wide">
         BASIC BLOCKS
       </div>
       {filteredItems.map((item, index) => (
         <button
           key={item.id}
           ref={selectedIndex === index ? selectedItemRef : null}
-          className={`w-full px-3 py-2 text-left hover:bg-gray-50 flex items-start gap-3 ${
-            selectedIndex === index ? 'bg-blue-50 border-l-2 border-blue-500' : ''
+          className={`w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 flex items-start gap-3 ${
+            selectedIndex === index ? 'bg-blue-50 dark:bg-blue-900/30 border-l-2 border-blue-500 dark:border-blue-400' : ''
           }`}
           onClick={() => {
             onSelectType(item.id);
@@ -246,8 +246,8 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
         >
           <span className="text-lg mt-0.5 w-6 text-center">{item.icon}</span>
           <div className="flex-1">
-            <div className="font-medium text-gray-900">{item.label}</div>
-            <div className="text-sm text-gray-500">{item.description}</div>
+            <div className="font-medium text-gray-900 dark:text-gray-100">{item.label}</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">{item.description}</div>
           </div>
         </button>
       ))}

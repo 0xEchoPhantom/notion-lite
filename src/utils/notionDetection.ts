@@ -1,21 +1,25 @@
-import { getNotionService } from '@/lib/notion';
+import { extractPageId as extractPageIdHelper } from '@/lib/notionHelpers';
 
-// Regex patterns for different Notion URL formats
+// Regex patterns for different Notion URL formats (with optional query parameters)
 const NOTION_URL_PATTERNS = [
-  // Standard Notion URLs
-  /https:\/\/www\.notion\.so\/[^\/\s]+\/[a-f0-9]{32}/gi,
-  /https:\/\/www\.notion\.so\/[a-f0-9]{32}/gi,
+  // Standard Notion URLs with workspace name (with optional slug)
+  /https:\/\/www\.notion\.so\/[^\/\s]+\/[^\/\s]*[a-f0-9]{32}(?:\?[^\s]*)?/gi,
   
-  // Short Notion URLs
-  /https:\/\/notion\.so\/[a-f0-9]{32}/gi,
+  // Standard Notion URLs without workspace (with optional slug)
+  /https:\/\/www\.notion\.so\/[^\/\s]*[a-f0-9]{32}(?:\?[^\s]*)?/gi,
   
-  // URLs with dashes (UUID format)
-  /https:\/\/www\.notion\.so\/[^\/\s]+\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/gi,
-  /https:\/\/www\.notion\.so\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/gi,
+  // Short Notion URLs (with optional slug)
+  /https:\/\/notion\.so\/[^\/\s]*[a-f0-9]{32}(?:\?[^\s]*)?/gi,
+  
+  // URLs with dashes (UUID format) with workspace
+  /https:\/\/www\.notion\.so\/[^\/\s]+\/[^\/\s]*[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}(?:\?[^\s]*)?/gi,
+  
+  // URLs with dashes (UUID format) without workspace
+  /https:\/\/www\.notion\.so\/[^\/\s]*[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}(?:\?[^\s]*)?/gi,
   
   // Custom domain patterns
-  /https:\/\/[^\/\s]+\.notion\.site\/[^\/\s]+\/[a-f0-9]{32}/gi,
-  /https:\/\/[^\/\s]+\.notion\.site\/[a-f0-9]{32}/gi,
+  /https:\/\/[^\/\s]+\.notion\.site\/[^\/\s]+\/[a-f0-9]{32}(?:\?[^\s]*)?/gi,
+  /https:\/\/[^\/\s]+\.notion\.site\/[a-f0-9]{32}(?:\?[^\s]*)?/gi,
 ];
 
 /**
@@ -32,6 +36,8 @@ export function extractNotionUrls(text: string): string[] {
   const urls: string[] = [];
   
   for (const pattern of NOTION_URL_PATTERNS) {
+    // Reset regex state before matching
+    pattern.lastIndex = 0;
     const matches = text.match(pattern);
     if (matches) {
       urls.push(...matches);
@@ -46,24 +52,17 @@ export function extractNotionUrls(text: string): string[] {
  * Check if a URL is a valid Notion URL
  */
 export function isNotionUrl(url: string): boolean {
-  try {
-    const service = getNotionService();
-    return service.isNotionUrl(url);
-  } catch {
-    return NOTION_URL_PATTERNS.some(pattern => pattern.test(url));
-  }
+  return NOTION_URL_PATTERNS.some(pattern => {
+    pattern.lastIndex = 0; // Reset regex state
+    return pattern.test(url);
+  });
 }
 
 /**
  * Extract page ID from Notion URL
  */
 export function extractNotionPageId(url: string): string | null {
-  try {
-    const service = getNotionService();
-    return service.extractPageId(url);
-  } catch {
-    return null;
-  }
+  return extractPageIdHelper(url);
 }
 
 /**

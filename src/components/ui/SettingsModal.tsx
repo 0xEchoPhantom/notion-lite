@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { db } from '@/firebase/client';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
@@ -16,6 +17,32 @@ interface TeamMember {
   email: string;
   role: string;
   responsibilities: string;
+}
+
+// Theme Toggle Component for Settings Modal
+function ThemeToggleSwitch() {
+  const { theme, toggleTheme } = useTheme();
+
+  return (
+    <button
+      onClick={toggleTheme}
+      className="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200 dark:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+      aria-label="Toggle theme"
+    >
+      <span className="sr-only">Toggle theme</span>
+      <span
+        className={`${
+          theme === 'dark' ? 'translate-x-6' : 'translate-x-1'
+        } inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm`}
+      />
+      <span className="absolute left-1 flex items-center text-xs">
+        {theme === 'light' ? '☀️' : ''}
+      </span>
+      <span className="absolute right-1 flex items-center text-xs">
+        {theme === 'dark' ? '🌙' : ''}
+      </span>
+    </button>
+  );
 }
 
 interface DelegationSettings {
@@ -81,18 +108,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
       <div 
-        className="absolute inset-0 bg-black bg-opacity-30"
+        className="absolute inset-0 bg-black bg-opacity-30 dark:bg-opacity-50"
         onClick={onClose}
       />
       
       {/* Modal */}
-      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+      <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Settings</h2>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Settings</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -101,13 +128,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-200 px-6">
+        <div className="flex border-b border-gray-200 dark:border-gray-700 px-6">
           <button
             onClick={() => setActiveTab('general')}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'general'
                 ? 'text-blue-600 border-blue-600'
-                : 'text-gray-600 border-transparent hover:text-gray-900'
+                : 'text-gray-600 dark:text-gray-400 border-transparent hover:text-gray-900 dark:hover:text-gray-200'
             }`}
           >
             General
@@ -117,7 +144,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'delegation'
                 ? 'text-blue-600 border-blue-600'
-                : 'text-gray-600 border-transparent hover:text-gray-900'
+                : 'text-gray-600 dark:text-gray-400 border-transparent hover:text-gray-900 dark:hover:text-gray-200'
             }`}
           >
             Delegation
@@ -125,7 +152,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-4">
+        <div className="flex-1 overflow-y-auto px-6 py-4 dark:bg-gray-800">
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -149,24 +176,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   </div>
 
                   <div>
-                    <h3 className="text-sm font-medium text-gray-900 mb-3">Preferences</h3>
+                    <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Preferences</h3>
                     <div className="space-y-3">
                       <label className="flex items-center justify-between">
-                        <span className="text-sm text-gray-700">Dark Mode</span>
-                        <input
-                          type="checkbox"
-                          disabled
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Dark Mode</span>
+                        <ThemeToggleSwitch />
                       </label>
                       <label className="flex items-center justify-between">
-                        <span className="text-sm text-gray-700">Compact View</span>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Compact View</span>
                         <input
                           type="checkbox"
                           disabled
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 opacity-50"
                         />
                       </label>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Compact view coming soon</p>
                     </div>
                   </div>
                 </div>
