@@ -92,17 +92,6 @@ export default function SettingsPage() {
     completedTodos: 0
   });
 
-  useEffect(() => {
-    if (!user) {
-      router.push('/login');
-      return;
-    }
-    loadSettings();
-    if (activeTab === 'admin') {
-      loadAdminStats();
-    }
-  }, [user, activeTab, router, loadSettings, loadAdminStats]);
-
   const loadSettings = useCallback(async () => {
     if (!user) return;
     setLoading(true);
@@ -163,6 +152,17 @@ export default function SettingsPage() {
       console.error('Error loading admin stats:', error);
     }
   }, [user]);
+
+  useEffect(() => {
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+    loadSettings();
+    if (activeTab === 'admin') {
+      loadAdminStats();
+    }
+  }, [user, activeTab, router, loadSettings, loadAdminStats]);
 
   const saveTokenSettings = async () => {
     if (!user) return;

@@ -261,12 +261,16 @@ export class NotionService {
         children = await this.getBlocks(id);
       }
 
+      const richTextData = blockData[type] && typeof blockData[type] === 'object' && 'rich_text' in (blockData[type] as object) 
+        ? (blockData[type] as { rich_text: unknown }).rich_text
+        : undefined;
+      
       return {
         id,
         type,
         content,
         children,
-        rich_text: block[type]?.rich_text
+        rich_text: richTextData as NotionBlock['rich_text']
       };
     } catch (error) {
       console.error(`Failed to process block ${id}:`, error);

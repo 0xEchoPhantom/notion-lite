@@ -5,10 +5,11 @@ import { NotionService } from '@/lib/notion';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { pageId: string } }
+  { params }: { params: Promise<{ pageId: string }> }
 ) {
   try {
-    console.log('[Notion API] Received request for page:', params.pageId);
+    const { pageId } = await params;
+    console.log('[Notion API] Received request for page:', pageId);
     
     // Get user from the request (you might need to implement auth middleware)
     const userId = request.headers.get('x-user-id');
@@ -47,7 +48,7 @@ export async function GET(
     const notionService = new NotionService(apiKey);
     
     // Fetch page content
-    const pageContent = await notionService.getPage(params.pageId);
+    const pageContent = await notionService.getPage(pageId);
     
     if (!pageContent) {
       return NextResponse.json(

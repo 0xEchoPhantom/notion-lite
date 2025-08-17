@@ -10,7 +10,7 @@ export default function CaptureTestPage() {
   const [testContent, setTestContent] = useState('[] Test capture from debug page');
   const [apiKey, setApiKey] = useState('quick-capture-dev-key');
   const [customUserId, setCustomUserId] = useState('');
-  const [response, setResponse] = useState<unknown>(null);
+  const [response, setResponse] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
 
