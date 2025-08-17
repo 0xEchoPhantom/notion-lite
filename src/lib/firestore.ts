@@ -437,7 +437,8 @@ export const updateTaskMetadata = async (
   // Get current block to merge metadata
   const blockDoc = await getDoc(blockRef);
   if (!blockDoc.exists()) {
-    throw new Error('Block not found');
+    console.warn(`Block ${blockId} not found when updating task metadata`);
+    return; // Silently return instead of throwing error
   }
   
   const currentMetadata = blockDoc.data().taskMetadata || {};
@@ -471,7 +472,9 @@ export const archiveBlockById = async (
   const blockDoc = await getDoc(blockRef);
   
   if (!blockDoc.exists()) {
-    throw new Error('Block not found');
+    // Block already deleted, likely from rapid deletion - silently return
+    console.log(`Block ${blockId} already deleted, skipping archive`);
+    return;
   }
   
   const blockData = blockDoc.data() as Block;

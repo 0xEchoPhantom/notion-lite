@@ -131,6 +131,12 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId, mode = 'gtd' }) => {
   const handleDeleteBlock = useCallback(async (blockId: string) => {
     const currentBlockIndex = blocks.findIndex(b => b.id === blockId);
     
+    // Check if block exists before attempting deletion
+    if (currentBlockIndex === -1) {
+      console.log(`Block ${blockId} not found in blocks list, skipping deletion`);
+      return;
+    }
+    
     if (blocks.length === 1) {
       // Don't delete the last block, just clear its content
       await updateBlockContent(blockId, { content: '' });
