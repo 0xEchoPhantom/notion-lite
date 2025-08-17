@@ -1,4 +1,4 @@
-import { initializeApp, getApps, cert, type ServiceAccount } from 'firebase-admin/app';
+import { initializeApp, getApps, cert, type ServiceAccount, type App } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 
@@ -43,7 +43,7 @@ const initAdmin = () => {
 };
 
 // Get or initialize admin app
-let adminApp: any;
+let adminApp: App | null = null;
 try {
   adminApp = initAdmin();
 } catch (error) {

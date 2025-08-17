@@ -30,9 +30,9 @@ export const SimpleDragHandle: React.FC<SimpleDragHandleProps> = ({
         className={clsx(
           'transition-all cursor-pointer',
           'flex items-center justify-center w-6 h-6',
-          'hover:bg-gray-200 rounded flex-shrink-0 mr-1 active:bg-gray-300',
+          'hover:bg-gray-200 dark:hover:bg-gray-700 rounded flex-shrink-0 mr-1 active:bg-gray-300 dark:active:bg-gray-600',
           isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-60 hover:!opacity-100',
-          'text-gray-500 hover:text-gray-700'
+          'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
         )}
         onClick={(e) => {
           e.stopPropagation();
@@ -51,11 +51,11 @@ export const SimpleDragHandle: React.FC<SimpleDragHandleProps> = ({
       </div>
       
       {showMenu && (
-        <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-50 min-w-[200px]">
+        <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50 min-w-[200px]">
           {/* GTD Page Options */}
           {availableGTDPages.length > 0 && (
             <>
-              <div className="px-3 py-2 text-xs font-semibold text-gray-700 border-b border-gray-100 bg-gray-50">
+              <div className="px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-300 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
                 Move to GTD Status
               </div>
               {availableGTDPages.map((page) => (
@@ -66,13 +66,13 @@ export const SimpleDragHandle: React.FC<SimpleDragHandleProps> = ({
                     onMoveToGTDPage?.(block.id, page.id);
                     setShowMenu(false);
                   }}
-                  className="w-full text-left px-3 py-2.5 text-sm hover:bg-blue-50 hover:text-blue-700 flex items-center gap-3 text-gray-800 transition-colors border-b border-gray-50 last:border-b-0"
+                  className="w-full text-left px-3 py-2.5 text-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-3 text-gray-800 dark:text-gray-100 transition-colors border-b border-gray-50 dark:border-gray-800 last:border-b-0"
                 >
                   <span className="text-base">{page.emoji}</span>
                   <span className="font-medium">{page.title}</span>
                 </button>
               ))}
-              <div className="border-t border-gray-200 my-1"></div>
+              <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
             </>
           )}
           
@@ -83,7 +83,7 @@ export const SimpleDragHandle: React.FC<SimpleDragHandleProps> = ({
               onSelect?.();
               setShowMenu(false);
             }}
-            className="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 flex items-center gap-3 text-gray-800 font-medium"
+            className="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3 text-gray-800 dark:text-gray-100 font-medium"
           >
             <span className="text-base">✏️</span>
             <span>Select</span>

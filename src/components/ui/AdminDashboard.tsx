@@ -148,9 +148,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthorized, us
 
   if (!isAuthorized) {
     return (
-      <div className="p-6 bg-red-50 border border-red-200 rounded-lg">
-        <h2 className="text-xl font-bold text-red-800 mb-2">Access Denied</h2>
-        <p className="text-red-600">Only admin@dev.vn can access this dashboard.</p>
+      <div className="p-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+        <h2 className="text-xl font-bold text-red-800 dark:text-red-300 mb-2">Access Denied</h2>
+        <p className="text-red-600 dark:text-red-400">Only admin@dev.vn can access this dashboard.</p>
       </div>
     );
   }
@@ -159,7 +159,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthorized, us
     return (
       <div className="text-center py-12">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-        <p className="text-gray-600">Loading admin dashboard...</p>
+        <p className="text-gray-600 dark:text-gray-400">Loading admin dashboard...</p>
       </div>
     );
   }
@@ -170,21 +170,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthorized, us
       {/* Stats */}
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-2xl font-bold text-gray-900">{stats.totalUsers || 0}</div>
-            <div className="text-sm text-gray-500">Total Users</div>
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow p-6">
+            <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.totalUsers || 0}</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">Total Users</div>
           </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-2xl font-bold text-gray-900">{stats.totalDocuments || 0}</div>
-            <div className="text-sm text-gray-500">Total Documents</div>
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow p-6">
+            <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.totalDocuments || 0}</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">Total Documents</div>
           </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-2xl font-bold text-gray-900">{stats.totalBlocks || 0}</div>
-            <div className="text-sm text-gray-500">Total Blocks</div>
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow p-6">
+            <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.totalBlocks || 0}</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">Total Blocks</div>
           </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-2xl font-bold text-gray-900">{stats.totalTasks || 0}</div>
-            <div className="text-sm text-gray-500">Total Tasks</div>
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow p-6">
+            <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.totalTasks || 0}</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">Total Tasks</div>
           </div>
         </div>
       )}
@@ -192,15 +192,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthorized, us
       {/* Message */}
       {message && (
         <div className={`p-4 rounded-lg ${
-          message.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+          message.type === 'success'
+            ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800'
+            : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800'
         }`}>
           {message.text}
         </div>
       )}
 
       {/* Quick Actions */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h2>
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow p-6">
+        <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Quick Actions</h2>
         <div className="flex flex-wrap gap-4">
           <button
             onClick={handleCleanupAll}
@@ -217,54 +219,54 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthorized, us
             🔄 Refresh Data
           </button>
         </div>
-        <p className="text-sm text-gray-500 mt-2">
+  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
           Protected: admin@dev.vn, quangvust201@gmail.com
         </p>
       </div>
 
       {/* Users Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900">Users ({users.length})</h2>
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Users ({users.length})</h2>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">User ID</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Documents</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last Sign In</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Email</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">User ID</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Documents</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Last Sign In</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
               {users.map(user => {
                 const isProtected = user.email === 'admin@dev.vn' || user.email === 'quangvust201@gmail.com';
                 return (
-                  <tr key={user.uid} className={isProtected ? 'bg-blue-50' : ''}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  <tr key={user.uid} className={isProtected ? 'bg-blue-50 dark:bg-blue-900/20' : ''}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                       {user.email}
                       {isProtected && (
-                        <span className="ml-2 px-2 py-1 text-xs bg-blue-200 text-blue-800 rounded">
+                        <span className="ml-2 px-2 py-1 text-xs bg-blue-200 dark:bg-blue-800/40 text-blue-800 dark:text-blue-300 rounded">
                           Protected
                         </span>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">{user.uid}</code>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      <code className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-1 py-0.5 rounded">{user.uid}</code>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {user.documentsCount || 0}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {user.lastSignInTime ? new Date(user.lastSignInTime).toLocaleDateString() : 'Never'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <button
                         onClick={() => handleDeleteUserData(user.uid, user.email)}
                         disabled={actionLoading}
-                        className="text-yellow-600 hover:text-yellow-900 mr-4 disabled:opacity-50"
+                        className="text-yellow-600 hover:text-yellow-900 dark:text-yellow-400 dark:hover:text-yellow-300 mr-4 disabled:opacity-50"
                       >
                         Clear Data
                       </button>
@@ -272,7 +274,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isAuthorized, us
                         <button
                           onClick={() => handleDeleteUser(user.uid, user.email)}
                           disabled={actionLoading}
-                          className="text-red-600 hover:text-red-900 disabled:opacity-50"
+                          className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 disabled:opacity-50"
                         >
                           Delete Account
                         </button>

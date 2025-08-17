@@ -165,7 +165,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 dark:bg-gray-800">
+  <div className="flex-1 overflow-y-auto px-6 py-4 dark:bg-gray-800">
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -175,15 +175,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               {activeTab === 'general' && (
                 <div className="space-y-6">
                   <div>
-                    <h3 className="text-sm font-medium text-gray-900 mb-3">Account</h3>
-                    <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Account</h3>
+                    <div className="bg-gray-50 dark:bg-gray-900/30 rounded-lg p-4">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm text-gray-600">Email</span>
-                        <span className="text-sm font-medium text-gray-900">{user?.email}</span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">Email</span>
+                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{user?.email}</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">User ID</span>
-                        <span className="text-xs font-mono text-gray-500">{user?.uid}</span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">User ID</span>
+                        <span className="text-xs font-mono text-gray-500 dark:text-gray-400">{user?.uid}</span>
                       </div>
                     </div>
                   </div>
@@ -212,11 +212,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               {activeTab === 'delegation' && (
                 <div className="space-y-6">
                   {/* Token Manager Link */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="text-sm font-medium text-blue-900">Token Manager</h3>
-                        <p className="text-xs text-blue-700 mt-1">Manage all @ token presets including team members, values, and efforts</p>
+        <h3 className="text-sm font-medium text-blue-900 dark:text-blue-300">Token Manager</h3>
+        <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">Manage all @ token presets including team members, values, and efforts</p>
                       </div>
                       <a
                         href="/settings/tokens"
@@ -232,8 +232,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   <div>
                     <div className="flex items-center justify-between mb-4">
                       <div>
-                        <h3 className="text-sm font-medium text-gray-900">Quick Team Setup</h3>
-                        <p className="text-xs text-gray-500 mt-1">Quickly add team members here or use Token Manager for full control</p>
+                        <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">Quick Team Setup</h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Quickly add team members here or use Token Manager for full control</p>
                       </div>
                       <button
                         onClick={() => {
@@ -254,17 +254,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
                     {/* Team Members List */}
                     {settings.teamMembers.length === 0 ? (
-                      <div className="bg-gray-50 rounded-lg p-6 text-center">
-                        <svg className="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="bg-gray-50 dark:bg-gray-900/30 rounded-lg p-6 text-center">
+                        <svg className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                         </svg>
-                        <p className="text-sm text-gray-500">No team members defined</p>
-                        <p className="text-xs text-gray-400 mt-1">Add team members to enable @ mentions in tasks</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">No team members defined</p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Add team members to enable @ mentions in tasks</p>
                       </div>
                     ) : (
                       <div className="space-y-2">
                         {settings.teamMembers.map((member) => (
-                          <div key={member.id} className="bg-white border border-gray-200 rounded-lg p-3">
+                          <div key={member.id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
                                 <div className="flex items-center space-x-2">
@@ -272,13 +272,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                     {member.name?.[0]?.toUpperCase() || 'U'}
                                   </div>
                                   <div>
-                                    <h4 className="text-sm font-medium text-gray-900">{member.name}</h4>
-                                    <p className="text-xs text-gray-500">{member.email}</p>
+                                    <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">{member.name}</h4>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">{member.email}</p>
                                   </div>
                                 </div>
                                 <div className="mt-2 ml-10">
-                                  <p className="text-xs font-medium text-gray-700">{member.role}</p>
-                                  <p className="text-xs text-gray-600 mt-1">{member.responsibilities}</p>
+                                  <p className="text-xs font-medium text-gray-700 dark:text-gray-300">{member.role}</p>
+                                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{member.responsibilities}</p>
                                 </div>
                               </div>
                               <div className="flex space-x-1">
@@ -287,7 +287,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                     setEditingMember(member);
                                     setShowAddMember(true);
                                   }}
-                                  className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                                  className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                                 >
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -317,48 +317,48 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   {/* Add/Edit Member Form */}
                   {showAddMember && editingMember && (
                     <div className="fixed inset-0 z-60 flex items-center justify-center">
-                      <div className="absolute inset-0 bg-black bg-opacity-30" onClick={() => setShowAddMember(false)} />
-                      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                      <div className="absolute inset-0 bg-black bg-opacity-30 dark:bg-opacity-50" onClick={() => setShowAddMember(false)} />
+                      <div className="relative bg-white dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-md p-6">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
                           {settings.teamMembers.find(m => m.id === editingMember.id) ? 'Edit' : 'Add'} Team Member
                         </h3>
                         <div className="space-y-4">
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
                             <input
                               type="text"
                               value={editingMember.name}
                               onChange={(e) => setEditingMember({ ...editingMember, name: e.target.value })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                               placeholder="John Doe"
                             />
                           </div>
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
                             <input
                               type="email"
                               value={editingMember.email}
                               onChange={(e) => setEditingMember({ ...editingMember, email: e.target.value })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                               placeholder="john@example.com"
                             />
                           </div>
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role</label>
                             <input
                               type="text"
                               value={editingMember.role}
                               onChange={(e) => setEditingMember({ ...editingMember, role: e.target.value })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                               placeholder="Frontend Developer"
                             />
                           </div>
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Responsibilities</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Responsibilities</label>
                             <textarea
                               value={editingMember.responsibilities}
                               onChange={(e) => setEditingMember({ ...editingMember, responsibilities: e.target.value })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                               rows={3}
                               placeholder="Responsible for UI/UX implementation, React components, and frontend performance..."
                             />
@@ -370,7 +370,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                               setShowAddMember(false);
                               setEditingMember(null);
                             }}
-                            className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+                            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
                           >
                             Cancel
                           </button>
@@ -404,10 +404,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200">
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
           >
             Cancel
           </button>

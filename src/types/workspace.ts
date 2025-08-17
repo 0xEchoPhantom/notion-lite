@@ -1,6 +1,6 @@
 // ===== WORKSPACE TYPES =====
 
-export type WorkspaceMode = 'gtd' | 'notes';
+export type WorkspaceMode = 'gtd';
 
 export interface Workspace {
   id: string;

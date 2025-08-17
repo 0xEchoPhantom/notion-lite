@@ -285,7 +285,6 @@ export const getPageReferences = async (gtdWorkspaceId: string): Promise<PageRef
 
 export const initializeUserWorkspaces = async (userId: string): Promise<{
   gtdWorkspace: Workspace;
-  notesWorkspace: Workspace;
 }> => {
   try {
     console.log('Initializing workspaces for user:', userId);
@@ -293,20 +292,14 @@ export const initializeUserWorkspaces = async (userId: string): Promise<{
     // Check if workspaces already exist
     const existingWorkspaces = await getUserWorkspaces(userId);
     
-    let gtdWorkspace = existingWorkspaces.find(w => w.mode === 'gtd');
-    let notesWorkspace = existingWorkspaces.find(w => w.mode === 'notes');
+  let gtdWorkspace = existingWorkspaces.find(w => w.mode === 'gtd');
 
     // Create GTD workspace if it doesn't exist
     if (!gtdWorkspace) {
       gtdWorkspace = await createWorkspace(userId, 'GTD Workflow', 'gtd', false);
     }
 
-    // Create Notes workspace if it doesn't exist
-    if (!notesWorkspace) {
-      notesWorkspace = await createWorkspace(userId, 'Notes & Ideas', 'notes', true);
-    }
-
-    return { gtdWorkspace, notesWorkspace };
+  return { gtdWorkspace };
   } catch (error) {
     console.error('Error initializing user workspaces:', error);
     throw error;

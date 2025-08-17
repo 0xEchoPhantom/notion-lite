@@ -23,34 +23,34 @@ export const FixedPagesSidebar: React.FC<FixedPagesSidebarProps> = ({
       onClick={() => onPageSelect(page.id)}
       className={`w-full text-left p-3 rounded-lg transition-all duration-200 border ${
         isActive 
-          ? 'bg-blue-50 text-blue-700 border-blue-200 shadow-sm' 
-          : 'hover:bg-gray-50 border-transparent'
+          ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800 shadow-sm' 
+          : 'hover:bg-gray-50 dark:hover:bg-gray-800 border-transparent'
       }`}
     >
       <div className="flex items-center space-x-3">
         <div className={`w-3 h-3 rounded-full ${
           isActive 
             ? 'bg-blue-500'
-            : 'bg-gray-300'
+            : 'bg-gray-300 dark:bg-gray-600'
         }`}>
         </div>
         <div className="flex-1">
           <div className="flex items-center space-x-2">
             <span className="text-lg">{page.emoji}</span>
-            <span className="font-medium">{page.title}</span>
+            <span className="font-medium text-gray-900 dark:text-gray-100">{page.title}</span>
           </div>
-          <p className="text-xs text-gray-500 mt-1">{page.description}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{page.description}</p>
         </div>
       </div>
     </button>
   );
 
   return (
-    <div className="w-64 bg-white border-r border-gray-200 h-full p-4">
+    <div className="w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 h-full p-4">
       {/* Header */}
       <div className="mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-2">Workflow</h2>
-        <p className="text-sm text-gray-600">Organized task management</p>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Workflow</h2>
+        <p className="text-sm text-gray-600 dark:text-gray-400">Organized task management</p>
       </div>
 
       {/* Tasks Overview */}
@@ -60,8 +60,8 @@ export const FixedPagesSidebar: React.FC<FixedPagesSidebarProps> = ({
             onClick={onTasksViewSelect}
             className={`w-full text-left p-3 rounded-lg transition-all duration-200 border ${
               showTasksView
-                ? 'bg-blue-100 text-blue-700 border-blue-200 shadow-sm'
-                : 'hover:bg-gray-50 border-transparent'
+                ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800 shadow-sm'
+                : 'hover:bg-gray-50 dark:hover:bg-gray-800 border-transparent'
             }`}
           >
             <div className="flex items-center space-x-3">
@@ -71,9 +71,9 @@ export const FixedPagesSidebar: React.FC<FixedPagesSidebarProps> = ({
               <div className="flex-1">
                 <div className="flex items-center space-x-2">
                   <span className="text-lg">📊</span>
-                  <span className="font-medium">All Tasks</span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">All Tasks</span>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">Overview & analytics</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Overview & analytics</p>
               </div>
             </div>
           </button>
@@ -82,7 +82,7 @@ export const FixedPagesSidebar: React.FC<FixedPagesSidebarProps> = ({
 
       {/* Fixed Pages */}
       <div className="space-y-2">
-        <h3 className="text-sm font-medium text-gray-700 mb-3">Pages</h3>
+  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Pages</h3>
         {GTD_PAGES.map(page => (
           <PageItem
             key={page.id}
@@ -94,24 +94,24 @@ export const FixedPagesSidebar: React.FC<FixedPagesSidebarProps> = ({
 
       {/* Settings Note */}
       {/* settings.isGTDMode && */ false && (
-        <div className="mt-8 p-3 bg-gray-50 rounded-lg">
-          <p className="text-xs text-gray-600">
+        <div className="mt-8 p-3 bg-gray-50 dark:bg-gray-900/30 rounded-lg">
+          <p className="text-xs text-gray-600 dark:text-gray-400">
             <span className="font-medium">GTD mode:</span> Using fixed workflow pages.
           </p>
         </div>
       )}
 
       {/* Quick Stats */}
-      <div className="mt-6 pt-4 border-t border-gray-200">
-        <h3 className="text-sm font-medium text-gray-700 mb-2">Quick Stats</h3>
-        <div className="space-y-1 text-xs text-gray-600">
+      <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Quick Stats</h3>
+        <div className="space-y-1 text-xs text-gray-600 dark:text-gray-400">
           <div className="flex justify-between">
             <span>Active pages:</span>
             <span>{GTD_PAGES.length}</span>
           </div>
           <div className="flex justify-between">
             <span>Mode:</span>
-            <span className={'text-blue-600'}>
+            <span className={'text-blue-600 dark:text-blue-400'}>
               {'GTD'}
             </span>
           </div>

@@ -124,3 +124,44 @@
     @apply text-gray-400;
   }
 }
+
+/* Dark mode via .dark class (app uses manual .dark toggling) */
+.dark .notion-embed {
+  @apply text-gray-200;
+}
+
+.dark .notion-embed .bg-white {
+  @apply bg-gray-900;
+}
+
+.dark .notion-embed .bg-gray-50 {
+  @apply bg-gray-800;
+}
+
+.dark .notion-embed .border-gray-200 {
+  @apply border-gray-700;
+}
+
+.dark .notion-embed .text-gray-900 {
+  @apply text-gray-100;
+}
+
+.dark .notion-embed .text-gray-700 {
+  @apply text-gray-200;
+}
+
+.dark .notion-embed .text-gray-500 {
+  @apply text-gray-400;
+}
+
+.dark .notion-embed .notion-block blockquote {
+  @apply border-gray-700 text-gray-300;
+}
+
+.dark .notion-embed .notion-block pre {
+  @apply bg-gray-800 text-gray-100;
+}
+
+.dark .notion-embed .notion-block hr {
+  @apply border-gray-700;
+}

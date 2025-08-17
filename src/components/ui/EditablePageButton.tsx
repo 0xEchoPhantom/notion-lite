@@ -146,13 +146,14 @@ export const EditablePageButton: React.FC<EditablePageButtonProps> = ({
         onDoubleClick={handleDoubleClick}
         className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
           isActive
-            ? 'bg-gray-200/70 text-gray-900'
+            ? 'bg-gray-200/70 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
             : isHovered && isDragging
-            ? 'bg-green-100 text-green-900 border-2 border-green-300'
-            : isDraggingPage
-            ? 'opacity-50'
-            : 'text-gray-700 hover:bg-gray-100'
+            ? 'bg-blue-100 dark:bg-blue-900/50'
+            : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50'
         }`}
+        draggable={!isEditing}
+        onDragStart={handlePageDragStart}
+        onDragEnd={handlePageDragEnd}
       >
         <div className="flex items-center justify-between">
           {isEditing ? (
@@ -176,13 +177,13 @@ export const EditablePageButton: React.FC<EditablePageButtonProps> = ({
               draggable
               onDragStart={handlePageDragStart}
               onDragEnd={handlePageDragEnd}
-              className={`p-1 hover:bg-gray-200 rounded cursor-grab active:cursor-grabbing transition-opacity ${
+              className={`p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded cursor-grab active:cursor-grabbing transition-opacity ${
                 isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
               }`}
               title="Drag to reorder or delete page"
               onClick={(e) => e.stopPropagation()}
             >
-              <svg className="w-3 h-3 text-gray-400" fill="currentColor" viewBox="0 0 8 8">
+              <svg className="w-3 h-3 text-gray-400 dark:text-gray-500" fill="currentColor" viewBox="0 0 8 8">
                 <circle cx="2" cy="2" r="1" />
                 <circle cx="6" cy="2" r="1" />
                 <circle cx="2" cy="6" r="1" />
@@ -192,7 +193,7 @@ export const EditablePageButton: React.FC<EditablePageButtonProps> = ({
           )}
         </div>
         {isHovered && isDragging && (
-          <span className="ml-2 text-xs text-green-600">(Drop block here)</span>
+          <span className="ml-2 text-xs text-blue-600 dark:text-blue-400">(Drop block here)</span>
         )}
       </button>
     </div>

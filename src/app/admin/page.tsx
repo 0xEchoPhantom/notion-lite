@@ -20,10 +20,10 @@ export default function AdminPage() {
 
   if (!user || !isAdmin) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-white p-8 rounded-lg shadow-md">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Admin Access</h1>
-          <p className="text-gray-600 mb-4">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-8 rounded-lg shadow-md">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Admin Access</h1>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">
             {!user ? 'Please log in to access the admin dashboard.' : 'Access denied. This page is only for admin@dev.vn'}
           </p>
           <a
@@ -38,13 +38,13 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <header className="bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-gray-900">Notion Lite Admin</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Notion Lite Admin</h1>
             <div className="flex items-center space-x-4">
-              <span className="text-gray-700">Welcome, {user.email}</span>
+              <span className="text-gray-700 dark:text-gray-300">Welcome, {user.email}</span>
               <a
                 href="/app"
                 className="px-3 py-2 text-sm bg-gray-600 text-white rounded-lg hover:bg-gray-700"
@@ -60,9 +60,9 @@ export default function AdminPage() {
         <AdminDashboard isAuthorized={isAdmin} userEmail={user.email || ''} />
       </main>
 
-      <footer className="bg-white border-t mt-12">
+    <footer className="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 mt-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <p className="text-center text-gray-500 text-sm">
+      <p className="text-center text-gray-500 dark:text-gray-400 text-sm">
             ⚠️ Admin Dashboard - Use with extreme caution. All operations are logged.
           </p>
         </div>

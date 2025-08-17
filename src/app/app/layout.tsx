@@ -34,7 +34,7 @@ export default function AppLayout({
 
   return (
     <SimpleDragProvider>
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-white dark:bg-slate-900">
         {/* Main content with sidebar handled by workspace components */}
         {children}
         {/* AI Chat Widget */}

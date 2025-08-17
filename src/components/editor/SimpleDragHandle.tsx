@@ -54,12 +54,14 @@ export const SimpleDragHandle: React.FC<SimpleDragHandleProps> = ({
     const childBlocksList = childBlocks || [];
     
     // Set drag data for native drag and drop
-    e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('blockId', block.id);
     e.dataTransfer.setData('blockContent', block.content || '');
     e.dataTransfer.setData('sourcePageId', pageId);
     e.dataTransfer.setData('blockType', block.type);
     e.dataTransfer.setData('indentLevel', block.indentLevel.toString());
+  // Provide a standard type for broader compatibility
+  try { e.dataTransfer.setData('text/plain', block.id); } catch {}
     
     // Store child block IDs if dragging a parent
     if (childBlocksList.length > 0) {

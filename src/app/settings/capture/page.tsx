@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/firebase/client';
@@ -21,12 +21,7 @@ export default function CaptureSettingsPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [showPythonCode, setShowPythonCode] = useState(false);
 
-  useEffect(() => {
-    if (!user) return;
-    loadSettings();
-  }, [user]);
-
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     if (!user) return;
     setLoading(true);
 
@@ -51,7 +46,12 @@ export default function CaptureSettingsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    loadSettings();
+  }, [user, loadSettings]);
 
   const generateApiKey = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -143,30 +143,30 @@ quick_capture("[] Your task here")`;
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+  <div className="p-6 max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Quick Capture API</h1>
-        <p className="text-gray-600">Configure external quick capture to send thoughts directly to your inbox</p>
+    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Quick Capture API</h1>
+    <p className="text-gray-600 dark:text-gray-400">Configure external quick capture to send thoughts directly to your inbox</p>
       </div>
 
       {message && (
         <div className={`p-3 rounded-lg ${
           message.type === 'success' 
-            ? 'bg-green-50 border border-green-200 text-green-700'
-            : 'bg-red-50 border border-red-200 text-red-700'
+            ? 'bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300'
+            : 'bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
         }`}>
           {message.text}
         </div>
       )}
 
       {/* User Information */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">Your Information</h2>
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Your Information</h2>
         <div className="space-y-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">User ID</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">User ID</label>
             <div className="flex items-center gap-2">
-              <code className="flex-1 px-3 py-2 bg-gray-100 rounded font-mono text-sm">
+              <code className="flex-1 px-3 py-2 bg-gray-100 dark:bg-gray-800 rounded font-mono text-sm text-gray-900 dark:text-gray-100">
                 {user.uid}
               </code>
               <button
@@ -182,12 +182,12 @@ quick_capture("[] Your task here")`;
       </div>
 
       {/* API Key Configuration */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">API Key</h2>
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">API Key</h2>
         
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Your API Key
             </label>
             <div className="flex items-center gap-2">
@@ -195,7 +195,7 @@ quick_capture("[] Your task here")`;
                 type="text"
                 value={apiKey}
                 readOnly
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm bg-gray-50"
+                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg font-mono text-sm bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
               />
               <button
                 onClick={() => copyToClipboard(apiKey)}
@@ -210,7 +210,7 @@ quick_capture("[] Your task here")`;
                 Regenerate
               </button>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Keep this key secure. Regenerate if compromised.
             </p>
           </div>
@@ -228,28 +228,28 @@ quick_capture("[] Your task here")`;
       </div>
 
       {/* API Usage */}
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">API Usage</h2>
+      <div className="bg-gray-50 dark:bg-gray-900/30 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">API Usage</h2>
         
         <div className="space-y-4">
           <div>
-            <h3 className="font-medium text-gray-700 mb-2">Endpoint</h3>
-            <code className="block px-3 py-2 bg-white border rounded text-sm">
+            <h3 className="font-medium text-gray-700 dark:text-gray-300 mb-2">Endpoint</h3>
+            <code className="block px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-sm text-gray-900 dark:text-gray-100">
               POST {window.location.origin}/api/capture
             </code>
           </div>
 
           <div>
-            <h3 className="font-medium text-gray-700 mb-2">Headers</h3>
-            <pre className="px-3 py-2 bg-white border rounded text-sm overflow-x-auto">{`{
+            <h3 className="font-medium text-gray-700 dark:text-gray-300 mb-2">Headers</h3>
+            <pre className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-sm overflow-x-auto text-gray-900 dark:text-gray-100">{`{
   "x-api-key": "${apiKey}",
   "Content-Type": "application/json"
 }`}</pre>
           </div>
 
           <div>
-            <h3 className="font-medium text-gray-700 mb-2">Body</h3>
-            <pre className="px-3 py-2 bg-white border rounded text-sm overflow-x-auto">{`{
+            <h3 className="font-medium text-gray-700 dark:text-gray-300 mb-2">Body</h3>
+            <pre className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-sm overflow-x-auto text-gray-900 dark:text-gray-100">{`{
   "content": "Your thought or task",
   "userId": "${user.uid}",
   "pageTitle": "Inbox"  // optional
@@ -257,8 +257,8 @@ quick_capture("[] Your task here")`;
           </div>
 
           <div>
-            <h3 className="font-medium text-gray-700 mb-2">Content Formats</h3>
-            <ul className="text-sm text-gray-600 space-y-1">
+            <h3 className="font-medium text-gray-700 dark:text-gray-300 mb-2">Content Formats</h3>
+            <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
               <li>• Plain text → Creates paragraph block</li>
               <li>• Start with <code>[]</code> or <code>TODO:</code> → Creates todo item</li>
               <li>• Start with <code>[x]</code> → Creates completed todo</li>
@@ -269,7 +269,7 @@ quick_capture("[] Your task here")`;
         <div className="mt-4">
           <button
             onClick={() => setShowPythonCode(!showPythonCode)}
-            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+            className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium"
           >
             {showPythonCode ? 'Hide' : 'Show'} Python Example
           </button>
@@ -277,7 +277,7 @@ quick_capture("[] Your task here")`;
           {showPythonCode && (
             <div className="mt-3">
               <div className="flex items-center justify-between mb-2">
-                <h3 className="font-medium text-gray-700">Python Integration Code</h3>
+                <h3 className="font-medium text-gray-700 dark:text-gray-300">Python Integration Code</h3>
                 <button
                   onClick={() => copyToClipboard(getPythonCode())}
                   className="text-sm px-2 py-1 bg-gray-600 text-white rounded hover:bg-gray-700"
@@ -294,9 +294,9 @@ quick_capture("[] Your task here")`;
       </div>
 
       {/* Instructions */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-        <h2 className="text-lg font-semibold text-blue-900 mb-4">🚀 Integration with Your Python App</h2>
-        <ol className="list-decimal list-inside space-y-2 text-blue-800">
+      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
+        <h2 className="text-lg font-semibold text-blue-900 dark:text-blue-300 mb-4">🚀 Integration with Your Python App</h2>
+        <ol className="list-decimal list-inside space-y-2 text-blue-800 dark:text-blue-300">
           <li>Copy your User ID and API Key from above</li>
           <li>Update your Python app to use the endpoint shown</li>
           <li>Replace Notion API calls with our capture endpoint</li>
@@ -304,8 +304,8 @@ quick_capture("[] Your task here")`;
           <li>Check the Python example code for implementation details</li>
         </ol>
         
-        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
-          <p className="text-sm text-yellow-700">
+        <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded">
+          <p className="text-sm text-yellow-700 dark:text-yellow-300">
             <strong>Tip:</strong> The API automatically detects todo items. Start your capture with [] for todos!
           </p>
         </div>

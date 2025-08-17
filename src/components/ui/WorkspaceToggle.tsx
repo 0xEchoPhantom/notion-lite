@@ -5,9 +5,9 @@ import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { WorkspaceMode } from '@/types/workspace';
 
 export function WorkspaceToggle() {
-  const { currentMode, switchMode, isLoading, gtdWorkspace, notesWorkspace } = useWorkspace();
+  const { currentMode, switchMode, isLoading, gtdWorkspace } = useWorkspace();
 
-  if (isLoading || !gtdWorkspace || !notesWorkspace) {
+  if (isLoading || !gtdWorkspace) {
     return (
       <div className="flex items-center gap-2">
         <div className="animate-pulse">
@@ -36,16 +36,7 @@ export function WorkspaceToggle() {
         >
           🎯 GTD
         </button>
-        <button
-          onClick={() => handleModeChange('notes')}
-          className={`px-3 py-1.5 text-sm font-medium transition-colors border-l border-gray-300 flex items-center gap-2 ${
-            currentMode === 'notes'
-              ? 'bg-green-600 text-white'
-              : 'bg-white text-gray-700 hover:bg-gray-50'
-          }`}
-        >
-          📝 Notes
-        </button>
+        {/* Notes mode disabled */}
       </div>
     </div>
   );

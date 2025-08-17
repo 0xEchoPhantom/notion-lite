@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/firebase/client';
@@ -21,12 +21,7 @@ export default function NotionSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
-  useEffect(() => {
-    if (!user) return;
-    loadSettings();
-  }, [user]);
-
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     if (!user) return;
     setLoading(true);
 
@@ -47,7 +42,12 @@ export default function NotionSettingsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    loadSettings();
+  }, [user, loadSettings]);
 
   const testConnection = async () => {
     if (!apiKey.trim()) {
@@ -159,8 +159,8 @@ export default function NotionSettingsPage() {
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Notion Integration</h1>
-        <p className="text-gray-600">Connect your Notion workspace to embed pages and blocks</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Notion Integration</h1>
+        <p className="text-gray-600 dark:text-gray-400">Connect your Notion workspace to embed pages and blocks</p>
       </div>
 
       {message && (

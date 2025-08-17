@@ -55,7 +55,6 @@ export function TokenSuggest({ isOpen, position, searchQuery, onSelect, onClose 
   
   // Determine type based on symbol - STRICT filtering
   let symbolType: Suggestion['type'] | undefined;
-  let strictFilter = true; // Only show suggestions for this symbol's type
   
   switch (tokenSymbol) {
     case '$': 
@@ -73,12 +72,10 @@ export function TokenSuggest({ isOpen, position, searchQuery, onSelect, onClose 
     case '@': 
       symbolType = 'assignee'; 
       // @ is STRICTLY for assignees only - no type inference
-      strictFilter = true; // Always strict for @
       break;
     default: 
       // For unknown symbols, don't suggest anything
       symbolType = undefined;
-      strictFilter = true;
       break;
   }
   
@@ -535,7 +532,7 @@ export function TokenSuggest({ isOpen, position, searchQuery, onSelect, onClose 
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, suggestions, selectedIndex, onSelect, onClose]);
+  }, [isOpen, suggestions, selectedIndex, onSelect, onClose, searchQuery]);
 
   // Click outside to close
   useEffect(() => {
@@ -558,26 +555,26 @@ export function TokenSuggest({ isOpen, position, searchQuery, onSelect, onClose 
   return (
     <div
       ref={menuRef}
-      className="fixed z-50 bg-white rounded-lg shadow-lg border border-gray-200 py-2 w-72"
+      className="fixed z-50 bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 w-72"
       style={{
         left: `${position.x}px`,
         top: `${position.y}px`,
       }}
     >
-      <div className="px-3 py-1.5 text-xs font-medium text-gray-500 border-b border-gray-100">
+      <div className="px-3 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-800">
         {suggestions.length > 0 ? 'Suggestions' : 'Type to create'}
       </div>
       
       {suggestions.length === 0 ? (
-        <div className="px-3 py-3 text-sm text-gray-500">
+        <div className="px-3 py-3 text-sm text-gray-500 dark:text-gray-400">
           Type a value and press Enter to create
         </div>
       ) : (
         suggestions.map((suggestion, index) => (
         <button
           key={`${suggestion.type}-${suggestion.value}-${suggestion.source}`}
-          className={`w-full px-3 py-2 flex items-center gap-3 hover:bg-gray-50 transition-colors ${
-            index === selectedIndex ? 'bg-blue-50' : ''
+          className={`w-full px-3 py-2 flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${
+            index === selectedIndex ? 'bg-blue-50 dark:bg-blue-900/20' : ''
           }`}
           onClick={() => onSelect(suggestion.value)}
           onMouseEnter={() => setSelectedIndex(index)}
@@ -585,32 +582,32 @@ export function TokenSuggest({ isOpen, position, searchQuery, onSelect, onClose 
           <span className="text-lg flex-shrink-0">{suggestion.icon}</span>
           <div className="flex-1 text-left">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-900">{suggestion.label}</span>
+              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{suggestion.label}</span>
               {suggestion.source === 'configured' && (
-                <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded">Manager</span>
+                <span className="text-xs px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">Manager</span>
               )}
               {suggestion.source === 'historical' && suggestion.count && suggestion.count >= 5 && (
-                <span className="text-xs px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded">Frequent</span>
+                <span className="text-xs px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded">Frequent</span>
               )}
               {suggestion.action === 'create' && (
-                <span className="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded">New</span>
+                <span className="text-xs px-1.5 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded">New</span>
               )}
             </div>
             {suggestion.description && (
-              <div className="text-xs text-gray-500">{suggestion.description}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">{suggestion.description}</div>
             )}
           </div>
           {suggestion.action === 'add-to-manager' && (
-            <span className="text-xs text-purple-600">📍 Add</span>
+            <span className="text-xs text-purple-600 dark:text-purple-300">📍 Add</span>
           )}
           {index === selectedIndex && (
-            <span className="text-xs text-gray-400">↵</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">↵</span>
           )}
         </button>
       ))
       )}
       
-      <div className="px-3 py-1.5 text-xs text-gray-400 border-t border-gray-100 mt-1">
+      <div className="px-3 py-1.5 text-xs text-gray-400 dark:text-gray-500 border-t border-gray-100 dark:border-gray-800 mt-1">
         Use ↑↓ to navigate, Enter to select
       </div>
     </div>
@@ -665,21 +662,6 @@ function coerceToDate(input: unknown): Date {
   return new Date(NaN);
 }
 // DEPRECATED: No longer infer types - each symbol has strict meaning
-// @ = assignee, $ = value, # = date, ~ = effort, & = company
-function inferType(q: string): Suggestion['type'] | undefined {
-  // Only used for legacy explicit prefixes
-  if (!q) return undefined;
-  // explicit prefixes only - no pattern matching
-  if (q.startsWith('value:') || q.startsWith('v:')) return 'value';
-  if (q.startsWith('effort:') || q.startsWith('e:')) return 'effort';
-  if (q.startsWith('due:') || q.startsWith('d:')) return 'due';
-  if (q.startsWith('company:') || q.startsWith('c:')) return 'company';
-  if (q.startsWith('assignee:') || q.startsWith('a:')) return 'assignee';
-  
-  // NO PATTERN MATCHING - symbols determine type
-  return undefined;
-}
-
 function getCompanyIcon(company: TaskCompany): string {
   const icons: Record<TaskCompany, string> = {
     'AIC': '🏢',

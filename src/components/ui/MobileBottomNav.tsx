@@ -4,7 +4,7 @@ import React from 'react';
 import { Inbox, CheckSquare, Plus, FileText, MoreHorizontal } from 'lucide-react';
 
 interface MobileBottomNavProps {
-  activeView: 'inbox' | 'tasks' | 'notes' | 'smart' | string;
+  activeView: 'inbox' | 'tasks' | 'smart' | string;
   onNavigate: (view: string) => void;
   onQuickAdd?: () => void;
   onMenuToggle?: () => void;
@@ -50,17 +50,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           <Plus className="w-6 h-6" />
         </button>
 
-        <button
-          onClick={() => onNavigate('notes')}
-          className={`flex flex-col items-center justify-center py-2 px-1 min-h-[56px] transition-colors ${
-            activeView === 'notes' 
-              ? 'text-blue-600' 
-              : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <FileText className="w-5 h-5 mb-1" />
-          <span className="text-xs">Notes</span>
-        </button>
+  {/* Notes tab removed */}
 
         <button
           onClick={onMenuToggle}

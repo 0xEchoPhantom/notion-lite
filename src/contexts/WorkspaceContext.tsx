@@ -12,7 +12,6 @@ interface WorkspaceContextType {
   
   // Workspaces
   gtdWorkspace: Workspace | null;
-  notesWorkspace: Workspace | null;
   
   // Actions
   switchMode: (mode: WorkspaceMode) => void;
@@ -28,9 +27,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   
   // State
-  const [currentMode, setCurrentMode] = useState<WorkspaceMode>('notes'); // Default to notes
+  const [currentMode, setCurrentMode] = useState<WorkspaceMode>('gtd'); // Default to GTD; notes mode disabled
   const [gtdWorkspace, setGtdWorkspace] = useState<Workspace | null>(null);
-  const [notesWorkspace, setNotesWorkspace] = useState<Workspace | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,14 +46,12 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         
         console.log('WorkspaceProvider: Initializing workspaces for user:', user.uid);
         
-        const { gtdWorkspace, notesWorkspace } = await initializeUserWorkspaces(user.uid);
+        const { gtdWorkspace } = await initializeUserWorkspaces(user.uid);
         
         setGtdWorkspace(gtdWorkspace);
-        setNotesWorkspace(notesWorkspace);
         
         console.log('WorkspaceProvider: Workspaces initialized', {
-          gtd: gtdWorkspace.name,
-          notes: notesWorkspace.name
+          gtd: gtdWorkspace.name
         });
         
       } catch (error) {
@@ -71,14 +67,19 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
   // Switch workspace mode
   const switchMode = (mode: WorkspaceMode) => {
+    // Notes mode is disabled; only allow GTD
+    if (mode !== 'gtd') {
+      console.warn('Notes mode is disabled. Staying in GTD mode.');
+      return;
+    }
     if (mode === currentMode) return; // Prevent unnecessary switches
-    
+
     console.log('WorkspaceProvider: Switching to mode:', mode);
-    setCurrentMode(mode);
-    
+    setCurrentMode('gtd');
+
     // Persist preference to localStorage
     if (typeof window !== 'undefined') {
-      localStorage.setItem('workspace-mode', mode);
+      localStorage.setItem('workspace-mode', 'gtd');
     }
   };
 
@@ -86,20 +87,21 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const savedMode = localStorage.getItem('workspace-mode') as WorkspaceMode;
-      if (savedMode === 'gtd' || savedMode === 'notes') {
-        setCurrentMode(savedMode);
+      // Force GTD regardless of saved value; notes mode disabled
+      if (savedMode !== 'gtd') {
+        localStorage.setItem('workspace-mode', 'gtd');
       }
+      setCurrentMode('gtd');
     }
   }, []);
 
   // Calculate current workspace
-  const currentWorkspace = currentMode === 'gtd' ? gtdWorkspace : notesWorkspace;
+  const currentWorkspace = gtdWorkspace;
 
   const value: WorkspaceContextType = {
     currentMode,
     currentWorkspace,
-    gtdWorkspace,
-    notesWorkspace,
+  gtdWorkspace,
     switchMode,
     isLoading,
     error

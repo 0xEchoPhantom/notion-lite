@@ -21,7 +21,7 @@ import {
   addEffortToSettings,
   loadTokenSettings 
 } from '@/lib/tokenSettings';
-import { parseNotionContent, extractNotionUrls } from '@/utils/notionDetection';
+import { extractNotionUrls } from '@/utils/notionDetection';
 import { NotionEmbed } from '@/components/notion/NotionEmbed';
 
 interface SimpleBlockProps {
@@ -41,7 +41,7 @@ interface SimpleBlockProps {
   onDeleteBlock: () => void;
   onDuplicateBlock: () => void;
   onMoveToGTDPage?: (blockId: string, targetPageId: string) => void;
-  mode?: 'notes' | 'gtd';
+  mode?: 'gtd';
   childBlocks?: BlockType[]; // Child blocks for drag-drop
 }
 
@@ -62,8 +62,8 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
     onOutdent,
     onDeleteBlock,
     onDuplicateBlock,
-    onMoveToGTDPage,
-    mode = 'notes',
+  onMoveToGTDPage,
+  mode = 'gtd',
     childBlocks = [],
   } = props;
 
@@ -159,7 +159,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
       
       if (lastTokenIndex !== -1) {
         // Remove the symbol and everything after it up to cursor from content
-        let newContent = 
+        const newContent = 
           content.substring(0, lastTokenIndex) + 
           content.substring(cursorPos);
         
@@ -565,7 +565,7 @@ export const SimpleBlock: React.FC<SimpleBlockProps> = (props) => {
                       }
                       
                       if (lastTokenIndex !== -1) {
-                        let newContent = content.substring(0, lastTokenIndex) + content.substring(cursorPos);
+                        const newContent = content.substring(0, lastTokenIndex) + content.substring(cursorPos);
                         
                         // No need to preserve URLs - they're in metadata now
                         

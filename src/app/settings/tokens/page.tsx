@@ -401,28 +401,28 @@ export default function TokenManagerPage() {
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Token Manager</h1>
-        <p className="text-gray-600">Manage predefined values for @ tokens in your tasks</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Token Manager</h1>
+        <p className="text-gray-600 dark:text-gray-400">Manage predefined values for @ tokens in your tasks</p>
       </div>
 
       {message && (
         <div className={`p-3 rounded-lg ${
           message.type === 'success' 
-            ? 'bg-green-50 border border-green-200 text-green-700'
-            : 'bg-red-50 border border-red-200 text-red-700'
+            ? 'bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300'
+            : 'bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
         }`}>
           {message.text}
         </div>
       )}
 
       {/* Team Members Section */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">👤 Team Members</h2>
-        <p className="text-sm text-gray-600 mb-4">People who can be assigned to tasks</p>
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">👤 Team Members</h2>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">People who can be assigned to tasks</p>
         
         <div className="flex gap-2 mb-4">
           <input
-            className="flex-1 border rounded-lg px-3 py-2"
+            className="flex-1 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
             placeholder="Enter name (e.g., John, Sarah)"
             value={newAssignee}
             onChange={(e) => setNewAssignee(e.target.value)}
@@ -452,19 +452,19 @@ export default function TokenManagerPage() {
             </span>
           ))}
           {settings.assignees.length === 0 && (
-            <span className="text-gray-400 text-sm">No team members added yet</span>
+            <span className="text-gray-400 dark:text-gray-500 text-sm">No team members added yet</span>
           )}
         </div>
       </div>
 
       {/* Common Values Section */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">💵 Common Values</h2>
-        <p className="text-sm text-gray-600 mb-4">Frequently used monetary values</p>
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">💵 Common Values</h2>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Frequently used monetary values</p>
         
         <div className="flex gap-2 mb-4">
           <input
-            className="flex-1 border rounded-lg px-3 py-2"
+            className="flex-1 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
             placeholder="Enter value (e.g., 10k, 1M, 500000)"
             value={newValue}
             onChange={(e) => setNewValue(e.target.value)}
@@ -497,13 +497,13 @@ export default function TokenManagerPage() {
       </div>
 
       {/* Common Efforts Section */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">⏱️ Common Efforts</h2>
-        <p className="text-sm text-gray-600 mb-4">Frequently used time estimates</p>
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">⏱️ Common Efforts</h2>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Frequently used time estimates</p>
         
         <div className="flex gap-2 mb-4">
           <input
-            className="flex-1 border rounded-lg px-3 py-2"
+            className="flex-1 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
             placeholder="Enter effort (e.g., 30m, 2h, 3d, 1w)"
             value={newEffort}
             onChange={(e) => setNewEffort(e.target.value)}
@@ -536,9 +536,9 @@ export default function TokenManagerPage() {
       </div>
 
       {/* Companies Section */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">🏢 Companies</h2>
-        <p className="text-sm text-gray-600 mb-4">Company codes for categorization</p>
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">🏢 Companies</h2>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Company codes for categorization</p>
         
         <div className="flex flex-wrap gap-2 mb-4">
           {DEFAULT_COMPANIES.map(company => (
@@ -556,11 +556,11 @@ export default function TokenManagerPage() {
         </div>
         
         <div className="mt-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Default Company
           </label>
           <select
-            className="border rounded-lg px-3 py-2 w-full max-w-xs"
+            className="border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 w-full max-w-xs bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
             value={settings.defaultCompany || ''}
             onChange={async (e) => {
               const newCompany = e.target.value as TaskCompany || undefined;
@@ -580,7 +580,7 @@ export default function TokenManagerPage() {
       </div>
 
       {/* Auto-save indicator */}
-      <div className="text-center text-sm text-gray-500">
+  <div className="text-center text-sm text-gray-500 dark:text-gray-400">
         <span className="inline-flex items-center gap-2">
           <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />

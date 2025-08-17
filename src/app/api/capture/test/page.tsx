@@ -10,7 +10,7 @@ export default function CaptureTestPage() {
   const [testContent, setTestContent] = useState('[] Test capture from debug page');
   const [apiKey, setApiKey] = useState('quick-capture-dev-key');
   const [customUserId, setCustomUserId] = useState('');
-  const [response, setResponse] = useState<any>(null);
+  const [response, setResponse] = useState<unknown>(null);
   const [loading, setLoading] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
 
@@ -82,9 +82,9 @@ export default function CaptureTestPage() {
         addLog(`❌ Capture failed: ${data.error}`);
       }
 
-    } catch (error: any) {
-      addLog(`❌ Network error: ${error.message}`);
-      setResponse({ error: error.message });
+    } catch (error) {
+      addLog(`❌ Network error: ${error instanceof Error ? error.message : String(error)}`);
+      setResponse({ error: error instanceof Error ? error.message : String(error) });
     } finally {
       setLoading(false);
     }
@@ -108,9 +108,9 @@ export default function CaptureTestPage() {
       setResponse(data);
       addLog('✅ API is accessible');
 
-    } catch (error: any) {
-      addLog(`❌ Network error: ${error.message}`);
-      setResponse({ error: error.message });
+    } catch (error) {
+      addLog(`❌ Network error: ${error instanceof Error ? error.message : String(error)}`);
+      setResponse({ error: error instanceof Error ? error.message : String(error) });
     } finally {
       setLoading(false);
     }
@@ -200,7 +200,7 @@ print(f"Response: {response.json()}")
             placeholder="Enter test content"
           />
           <p className="text-xs text-gray-500 mt-1">
-            Try: "[] Test todo", "[x] Done", or plain text
+            Try: &quot;[] Test todo&quot;, &quot;[x] Done&quot;, or plain text
           </p>
         </div>
       </div>
@@ -270,9 +270,9 @@ print(f"Response: {response.json()}")
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
         <h2 className="text-lg font-semibold text-blue-900 mb-4">Debugging Steps</h2>
         <ol className="list-decimal list-inside space-y-2 text-blue-800">
-          <li>First, click "Check API Status" to verify the API is accessible</li>
+          <li>First, click &quot;Check API Status&quot; to verify the API is accessible</li>
           <li>Ensure your User ID and API Key are correct</li>
-          <li>Click "Test Capture" to send a test capture</li>
+          <li>Click &quot;Test Capture&quot; to send a test capture</li>
           <li>Check the Debug Logs for any errors</li>
           <li>Open browser DevTools (F12) → Network tab to see the request</li>
           <li>Check the Console for server-side logs</li>

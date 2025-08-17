@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useRouter } from 'next/navigation';
@@ -9,7 +9,6 @@ import { db } from '@/firebase/client';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/firebase/client';
 import type { TaskCompany } from '@/types/task';
-import { DarkModeDebug } from '@/components/DarkModeDebug';
 
 // Tab types
 type TabType = 'general' | 'tokens' | 'notion' | 'capture' | 'admin' | 'account';
@@ -102,9 +101,9 @@ export default function SettingsPage() {
     if (activeTab === 'admin') {
       loadAdminStats();
     }
-  }, [user, activeTab]);
+  }, [user, activeTab, router, loadSettings, loadAdminStats]);
 
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
@@ -121,14 +120,14 @@ export default function SettingsPage() {
           defaultCompany: data.defaultCompany
         });
       }
-    } catch (error) {
+    } catch {  // error unused
       setMessage({ type: 'error', text: 'Failed to load settings' });
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
-  const loadAdminStats = async () => {
+  const loadAdminStats = useCallback(async () => {
     if (!user) return;
     try {
       // Get total blocks
@@ -163,7 +162,7 @@ export default function SettingsPage() {
     } catch (error) {
       console.error('Error loading admin stats:', error);
     }
-  };
+  }, [user]);
 
   const saveTokenSettings = async () => {
     if (!user) return;
@@ -178,7 +177,7 @@ export default function SettingsPage() {
       }, { merge: true });
       
       setMessage({ type: 'success', text: 'Settings saved successfully!' });
-    } catch (error) {
+    } catch {  // error unused
       setMessage({ type: 'error', text: 'Failed to save settings' });
     } finally {
       setSaving(false);
@@ -189,7 +188,7 @@ export default function SettingsPage() {
     try {
       await signOut(auth);
       router.push('/login');
-    } catch (error) {
+    } catch {  // error unused
       setMessage({ type: 'error', text: 'Failed to sign out' });
     }
   };
@@ -220,7 +219,7 @@ export default function SettingsPage() {
       
       setMessage({ type: 'success', text: `Cleaned up ${deletedCount} orphaned blocks` });
       loadAdminStats();
-    } catch (error) {
+    } catch {  // error unused
       setMessage({ type: 'error', text: 'Failed to cleanup blocks' });
     }
   };
@@ -728,7 +727,6 @@ export default function SettingsPage() {
           </>
         )}
       </div>
-      <DarkModeDebug />
     </div>
   );
 }

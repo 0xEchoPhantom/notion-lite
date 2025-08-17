@@ -11,7 +11,7 @@ export interface NotionPageContent {
   cover?: string;
   url: string;
   lastEdited: Date;
-  properties: Record<string, any>;
+  properties: Record<string, unknown>;
   blocks: NotionBlock[];
 }
 
@@ -100,11 +100,14 @@ export class NotionService {
       let title = 'Untitled';
       if ('properties' in page && page.properties) {
         const titleProperty = Object.values(page.properties).find(
-          (prop: any) => prop.type === 'title'
-        ) as any;
+          (prop) => prop && typeof prop === 'object' && 'type' in prop && prop.type === 'title'
+        );
         
-        if (titleProperty && titleProperty.title && titleProperty.title[0]) {
-          title = titleProperty.title[0].plain_text;
+        if (titleProperty && 'title' in titleProperty && Array.isArray(titleProperty.title) && titleProperty.title[0]) {
+          const firstTitle = titleProperty.title[0];
+          if ('plain_text' in firstTitle && typeof firstTitle.plain_text === 'string') {
+            title = firstTitle.plain_text;
+          }
         }
       }
 
@@ -150,7 +153,7 @@ export class NotionService {
       
       for (const block of response.results) {
         if ('type' in block) {
-          const notionBlock = await this.processBlock(block as any);
+          const notionBlock = await this.processBlock(block);
           if (notionBlock) {
             blocks.push(notionBlock);
           }
@@ -165,8 +168,12 @@ export class NotionService {
   }
 
   // Process individual block
-  private async processBlock(block: any): Promise<NotionBlock | null> {
-    const { id, type } = block;
+  private async processBlock(block: unknown): Promise<NotionBlock | null> {
+    if (!block || typeof block !== 'object' || !('id' in block) || !('type' in block)) {
+      return null;
+    }
+    const { id, type } = block as { id: string; type: string; [key: string]: unknown };
+    const blockData = block as Record<string, unknown>;
     let content = '';
     let children: NotionBlock[] = [];
 
@@ -182,20 +189,46 @@ export class NotionService {
         case 'to_do':
         case 'quote':
         case 'callout':
-          if (block[type].rich_text) {
-            content = block[type].rich_text.map((rt: any) => rt.plain_text).join('');
+          if (blockData[type] && typeof blockData[type] === 'object' && 'rich_text' in (blockData[type] as object)) {
+            const richTextData = (blockData[type] as { rich_text: unknown }).rich_text;
+            if (Array.isArray(richTextData)) {
+              content = richTextData.map((rt) => {
+                if (rt && typeof rt === 'object' && 'plain_text' in rt && typeof rt.plain_text === 'string') {
+                  return rt.plain_text;
+                }
+                return '';
+              }).join('');
+            }
           }
           break;
         
         case 'code':
-          content = block.code.rich_text.map((rt: any) => rt.plain_text).join('');
+          if ('code' in blockData && blockData.code && typeof blockData.code === 'object' && 'rich_text' in blockData.code) {
+            const richTextData = (blockData.code as { rich_text: unknown }).rich_text;
+            if (Array.isArray(richTextData)) {
+              content = richTextData.map((rt) => {
+                if (rt && typeof rt === 'object' && 'plain_text' in rt && typeof rt.plain_text === 'string') {
+                  return rt.plain_text;
+                }
+                return '';
+              }).join('');
+            }
+          }
           break;
         
         case 'image':
-          const imageUrl = block.image.type === 'file' ? 
-            block.image.file.url : 
-            block.image.external?.url;
-          content = imageUrl || '';
+          if ('image' in blockData && blockData.image && typeof blockData.image === 'object') {
+            const imageData = blockData.image as Record<string, unknown>;
+            let imageUrl = '';
+            if ('type' in imageData) {
+              if (imageData.type === 'file' && 'file' in imageData && imageData.file && typeof imageData.file === 'object' && 'url' in imageData.file) {
+                imageUrl = String(imageData.file.url);
+              } else if (imageData.type === 'external' && 'external' in imageData && imageData.external && typeof imageData.external === 'object' && 'url' in imageData.external) {
+                imageUrl = String(imageData.external.url);
+              }
+            }
+            content = imageUrl;
+          }
           break;
         
         case 'divider':
@@ -203,18 +236,28 @@ export class NotionService {
           break;
         
         case 'embed':
-          content = block.embed.url;
+          if ('embed' in blockData && blockData.embed && typeof blockData.embed === 'object' && 'url' in blockData.embed) {
+            content = String(blockData.embed.url);
+          }
           break;
         
         default:
           // For unsupported blocks, try to extract any text
-          if (block[type]?.rich_text) {
-            content = block[type].rich_text.map((rt: any) => rt.plain_text).join('');
+          if (blockData[type] && typeof blockData[type] === 'object' && 'rich_text' in (blockData[type] as object)) {
+            const richTextData = (blockData[type] as { rich_text: unknown }).rich_text;
+            if (Array.isArray(richTextData)) {
+              content = richTextData.map((rt) => {
+                if (rt && typeof rt === 'object' && 'plain_text' in rt && typeof rt.plain_text === 'string') {
+                  return rt.plain_text;
+                }
+                return '';
+              }).join('');
+            }
           }
       }
 
       // Get children blocks if they exist
-      if (block.has_children) {
+      if ('has_children' in blockData && blockData.has_children) {
         children = await this.getBlocks(id);
       }
 

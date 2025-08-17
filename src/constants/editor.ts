@@ -144,7 +144,7 @@ export const BLOCK_TYPE_CONFIG = {
 export const VISUAL_CONFIG = {
   SELECTION_BORDER_COLOR: 'border-l-blue-500',
   SELECTION_BACKGROUND: 'bg-blue-50',
-  HOVER_BACKGROUND: 'hover:bg-gray-50',
+  HOVER_BACKGROUND: 'hover:bg-gray-50 dark:hover:bg-gray-800',
   DRAG_HANDLE_SIZE: 'w-4 h-6',
   TRANSITION_DURATION: 'duration-150',
 } as const;

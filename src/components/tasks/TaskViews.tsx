@@ -57,23 +57,23 @@ export function TopROIView() {
   }, [user]);
 
   if (loading) {
-    return <div className="p-4 text-gray-500">Loading top ROI tasks...</div>;
+    return <div className="p-4 text-gray-500 dark:text-gray-400">Loading top ROI tasks...</div>;
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200">
-      <div className="p-4 border-b border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-900">💰 Top ROI Tasks</h3>
-        <p className="text-sm text-gray-500 mt-1">Highest return on investment</p>
+    <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">💰 Top ROI Tasks</h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Highest return on investment</p>
       </div>
       
-      <div className="divide-y divide-gray-100">
+      <div className="divide-y divide-gray-100 dark:divide-gray-800">
         {tasks.length > 0 ? (
           tasks.map((task) => (
             <TaskROIRow key={task.id} task={task} />
           ))
         ) : (
-          <div className="p-4 text-center text-gray-500">
+          <div className="p-4 text-center text-gray-500 dark:text-gray-400">
             No tasks with value and effort data
           </div>
         )}
@@ -113,23 +113,23 @@ export function MissingDataView() {
   }, [user]);
 
   if (loading) {
-    return <div className="p-4 text-gray-500">Loading incomplete tasks...</div>;
+    return <div className="p-4 text-gray-500 dark:text-gray-400">Loading incomplete tasks...</div>;
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200">
-      <div className="p-4 border-b border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-900">📊 Missing Data</h3>
-        <p className="text-sm text-gray-500 mt-1">Tasks needing value or effort estimates</p>
+    <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">📊 Missing Data</h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Tasks needing value or effort estimates</p>
       </div>
       
-      <div className="divide-y divide-gray-100">
+      <div className="divide-y divide-gray-100 dark:divide-gray-800">
         {tasks.length > 0 ? (
           tasks.map((task) => (
             <TaskMissingDataRow key={task.id} task={task} />
           ))
         ) : (
-          <div className="p-4 text-center text-gray-500">
+          <div className="p-4 text-center text-gray-500 dark:text-gray-400">
             All tasks have complete data! 🎉
           </div>
         )}
@@ -193,7 +193,7 @@ export function TaskBoardView() {
   }, [user]);
 
   if (loading) {
-    return <div className="p-4 text-gray-500">Loading task board...</div>;
+    return <div className="p-4 text-gray-500 dark:text-gray-400">Loading task board...</div>;
   }
 
   const handleDragStart = (task: Task) => {
@@ -266,8 +266,8 @@ export function TaskBoardView() {
       {moveError && (
         <div className={`mx-4 mb-4 p-3 rounded-lg text-sm ${
           moveError.startsWith('✅') 
-            ? 'bg-green-50 border border-green-200 text-green-700'
-            : 'bg-red-50 border border-red-200 text-red-700'
+            ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300'
+            : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
         }`}>
           {moveError}
         </div>
@@ -295,23 +295,23 @@ function TaskROIRow({ task }: { task: Task }) {
   const urgency = getTaskUrgency(task);
   
   return (
-    <div className="p-4 hover:bg-gray-50 transition-colors">
+    <div className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-900">{task.content}</span>
+            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{task.content}</span>
             {urgency && (
               <span className={`text-xs px-2 py-0.5 rounded-full ${
                 urgency === 'urgent' ? 'bg-red-100 text-red-700' :
                 urgency === 'soon' ? 'bg-yellow-100 text-yellow-700' :
-                'bg-gray-100 text-gray-600'
+                'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
               }`}>
                 {urgency}
               </span>
             )}
           </div>
           
-          <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+          <div className="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
             {task.value && (
               <span className="flex items-center gap-1">
                 <span className="text-green-600">💵</span>
@@ -338,7 +338,7 @@ function TaskROIRow({ task }: { task: Task }) {
             <div className="text-lg font-bold text-green-600">
               {formatROI(task.roi).replace('/mo', '')}
             </div>
-            <div className="text-xs text-gray-500">per hour</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">per hour</div>
           </div>
         )}
       </div>
@@ -353,12 +353,12 @@ function TaskMissingDataRow({ task }: { task: Task }) {
   if (!task.dueDate) missingFields.push('due date');
   
   return (
-    <div className="p-4 hover:bg-gray-50 transition-colors">
+    <div className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          <div className="text-sm font-medium text-gray-900">{task.content}</div>
+          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{task.content}</div>
           <div className="flex items-center gap-2 mt-2">
-            <span className="text-xs text-gray-500">Missing:</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400">Missing:</span>
             {missingFields.map((field) => (
               <span 
                 key={field}
@@ -370,7 +370,7 @@ function TaskMissingDataRow({ task }: { task: Task }) {
           </div>
         </div>
         
-        <button className="text-xs px-3 py-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors">
+        <button className="text-xs px-3 py-1 bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-300 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
           Add data
         </button>
       </div>
@@ -410,8 +410,8 @@ function TaskColumn({
   
   return (
     <div 
-      className={`bg-white rounded-lg border-2 transition-all ${
-        isDraggedOver ? 'border-blue-400 bg-blue-50' : 'border-gray-200'
+      className={`bg-white dark:bg-gray-900 rounded-lg border-2 transition-all ${
+        isDraggedOver ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/10' : 'border-gray-200 dark:border-gray-700'
       }`}
       onDragOver={(e) => onDragOver?.(e, status)}
       onDrop={(e) => onDrop?.(e, status)}
@@ -422,14 +422,14 @@ function TaskColumn({
         }
       }}
     >
-      <div className={`p-3 border-b border-gray-200 bg-${config.color}-50`}>
+      <div className={`p-3 border-b border-gray-200 dark:border-gray-700 bg-${config.color}-50 dark:bg-gray-800/30`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-lg">{config.emoji}</span>
-            <h3 className="font-medium text-gray-900">{config.title}</h3>
+            <h3 className="font-medium text-gray-900 dark:text-gray-100">{config.title}</h3>
           </div>
           <span className={`text-xs px-2 py-0.5 rounded-full ${
-            isOverLimit ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600'
+            isOverLimit ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
           }`}>
             {tasks.length}
             {config.limit !== null && ` / ${config.limit}`}
@@ -442,7 +442,7 @@ function TaskColumn({
         )}
       </div>
       
-      <div className="divide-y divide-gray-100 min-h-[100px] max-h-96 overflow-y-auto">
+      <div className="divide-y divide-gray-100 dark:divide-gray-800 min-h-[100px] max-h-96 overflow-y-auto">
         {tasks.length > 0 ? (
           tasks.map((task) => (
             <TaskCard 
@@ -453,7 +453,7 @@ function TaskColumn({
             />
           ))
         ) : (
-          <div className="p-4 text-center text-xs text-gray-400">
+          <div className="p-4 text-center text-xs text-gray-400 dark:text-gray-500">
             {isDraggedOver ? 'Drop here' : 'No tasks'}
           </div>
         )}
@@ -471,7 +471,7 @@ interface TaskCardProps {
 function TaskCard({ task, onDragStart, isDragging = false }: TaskCardProps) {
   return (
     <div 
-      className={`p-3 hover:bg-gray-50 transition-all cursor-move ${
+      className={`p-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all cursor-move ${
         isDragging ? 'opacity-50' : ''
       }`}
       draggable
@@ -480,7 +480,7 @@ function TaskCard({ task, onDragStart, isDragging = false }: TaskCardProps) {
         e.dataTransfer.effectAllowed = 'move';
       }}
     >
-      <div className="text-sm text-gray-900 line-clamp-2">{task.content}</div>
+      <div className="text-sm text-gray-900 dark:text-gray-100 line-clamp-2">{task.content}</div>
       
       {(task.roi !== undefined && isFinite(task.roi)) && (
         <div className={`mt-1 text-xs font-medium ${
@@ -495,13 +495,13 @@ function TaskCard({ task, onDragStart, isDragging = false }: TaskCardProps) {
           <span className={`text-xs px-1.5 py-0.5 rounded ${
             getTaskUrgency(task) === 'urgent' ? 'bg-red-100 text-red-600' :
             getTaskUrgency(task) === 'soon' ? 'bg-yellow-100 text-yellow-600' :
-            'bg-gray-100 text-gray-600'
+            'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
           }`}>
             {formatDueDate(task.dueDate)}
           </span>
         )}
         {task.company && (
-          <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded">
+          <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-600 dark:bg-blue-900/20 dark:text-blue-300 rounded">
             {task.company}
           </span>
         )}

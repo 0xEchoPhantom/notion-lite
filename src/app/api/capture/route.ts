@@ -179,14 +179,14 @@ export async function POST(request: NextRequest) {
     console.log('[Capture API] Success! Response:', response);
     return NextResponse.json(response);
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('[Capture API] ERROR:', error);
-    console.error('[Capture API] Error stack:', error.stack);
+    console.error('[Capture API] Error stack:', error instanceof Error ? error.stack : undefined);
     return NextResponse.json(
       { 
-        error: error.message || 'Failed to capture content',
-        details: error.toString(),
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        error: error instanceof Error ? error.message : 'Failed to capture content',
+        details: error instanceof Error ? error.toString() : String(error),
+        stack: process.env.NODE_ENV === 'development' && error instanceof Error ? error.stack : undefined
       },
       { status: 500 }
     );
@@ -194,7 +194,7 @@ export async function POST(request: NextRequest) {
 }
 
 // GET endpoint to check API status
-export async function GET(request: NextRequest) {
+export async function GET() {
   return NextResponse.json({
     status: 'ok',
     message: 'Quick capture API is running',

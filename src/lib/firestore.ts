@@ -52,10 +52,11 @@ export const normalizePageId = (pageId: string): string => {
  * Gets the workspace ID for a page
  */
 export const getWorkspaceId = (pageId: string): string => {
+  // Notes mode disabled; treat non-gtd-prefixed IDs as user pages without notes workspace label
   if (pageId.startsWith('gtd-')) {
     return 'gtd';
   }
-  return 'notes';
+  return 'gtd';
 };
 
 // ===== PAGE OPERATIONS =====
@@ -72,7 +73,8 @@ export const createPage = async (userId: string, title: string): Promise<string>
   const docRef = await addDoc(pagesRef, {
     title,
     order: maxOrder + 1,
-    workspaceId: 'notes',
+    // Notes mode disabled; omit or set to gtd-neutral value
+    workspaceId: 'gtd',
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
   });
@@ -569,7 +571,7 @@ export const archivePage = async (
     originalId: pageId,
     title: pageData.title,
     order: pageData.order,
-    workspaceId: pageData.workspaceId || 'notes',
+  workspaceId: pageData.workspaceId || 'gtd',
     archivedAt: Timestamp.now(),
     originalCreatedAt: pageData.createdAt,
     originalUpdatedAt: pageData.updatedAt,

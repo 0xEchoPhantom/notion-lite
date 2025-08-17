@@ -58,18 +58,18 @@ export async function GET(
 
     return NextResponse.json(pageContent);
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Notion API error:', error);
     
     // Handle specific Notion API errors
-    if (error.code === 'object_not_found') {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'object_not_found') {
       return NextResponse.json(
         { error: 'Page not found or not accessible' },
         { status: 404 }
       );
     }
     
-    if (error.code === 'unauthorized') {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'unauthorized') {
       return NextResponse.json(
         { error: 'Invalid API key or insufficient permissions' },
         { status: 401 }
@@ -101,10 +101,10 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json({ valid: isValid });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Notion connection test error:', error);
     return NextResponse.json(
-      { error: error.message || 'Connection test failed' },
+      { error: error instanceof Error ? error.message : 'Connection test failed' },
       { status: 500 }
     );
   }

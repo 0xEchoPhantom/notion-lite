@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { geminiAssistant, ActionSuggestion, ChatContext } from '@/lib/ai/gemini';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -69,14 +69,7 @@ export function ChatWidget() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Load todo blocks on mount
-  useEffect(() => {
-    if (user) {
-      loadTodoBlocks();
-    }
-  }, [user]);
-
-  const loadTodoBlocks = async () => {
+  const loadTodoBlocks = useCallback(async () => {
     if (!user) return;
     try {
       const todoBlocks = await getTodoBlocks(user.uid);
@@ -85,7 +78,14 @@ export function ChatWidget() {
     } catch (error) {
       console.error('Error loading todo blocks:', error);
     }
-  };
+  }, [user]);
+
+  // Load todo blocks on mount
+  useEffect(() => {
+    if (user) {
+      loadTodoBlocks();
+    }
+  }, [user, loadTodoBlocks]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -269,24 +269,24 @@ export function ChatWidget() {
   }
 
   return (
-    <div className={`fixed ${isMinimized ? 'bottom-20 lg:bottom-6 right-4 lg:right-6 w-72 lg:w-80 h-14' : 'inset-4 lg:inset-auto lg:bottom-6 lg:right-6 lg:w-96 lg:h-[600px]'} bg-white rounded-lg shadow-2xl border border-gray-200 z-50 transition-all flex flex-col`}>
+    <div className={`fixed ${isMinimized ? 'bottom-20 lg:bottom-6 right-4 lg:right-6 w-72 lg:w-80 h-14' : 'inset-4 lg:inset-auto lg:bottom-6 lg:right-6 lg:w-96 lg:h-[600px]'} bg-white dark:bg-gray-900 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 z-50 transition-all flex flex-col`}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+  <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-t-lg">
         <div className="flex items-center space-x-2">
           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-          <h3 className="font-semibold text-sm lg:text-base text-gray-800">AI Assistant</h3>
+          <h3 className="font-semibold text-sm lg:text-base text-gray-800 dark:text-gray-100">AI Assistant</h3>
         </div>
         <div className="flex items-center space-x-2">
           <button
             onClick={() => setIsMinimized(!isMinimized)}
-            className="text-gray-500 hover:text-gray-700 transition-colors"
+            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
             title={isMinimized ? 'Maximize' : 'Minimize'}
           >
             {isMinimized ? <Maximize2 className="w-4 h-4 lg:w-5 lg:h-5" /> : <Minimize2 className="w-4 h-4 lg:w-5 lg:h-5" />}
           </button>
           <button
             onClick={() => setIsOpen(false)}
-            className="text-gray-500 hover:text-gray-700 transition-colors"
+            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
             title="Close"
           >
             <X className="w-4 h-4 lg:w-5 lg:h-5" />
@@ -303,10 +303,10 @@ export function ChatWidget() {
                 key={message.id}
                 className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                <div className={`max-w-[80%] ${
+        <div className={`max-w-[80%] ${
                   message.type === 'user'
                     ? 'bg-blue-600 text-white rounded-l-lg rounded-br-lg'
-                    : 'bg-gray-100 text-gray-800 rounded-r-lg rounded-bl-lg'
+          : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-r-lg rounded-bl-lg'
                 } px-3 py-2`}>
                   <div className="text-sm">
                     {message.type === 'assistant' ? (
@@ -325,10 +325,10 @@ export function ChatWidget() {
                         <button
                           key={idx}
                           onClick={() => handleSuggestionClick(suggestion)}
-                          className={`block w-full text-left px-2 py-1 text-xs rounded transition-colors ${
+              className={`block w-full text-left px-2 py-1 text-xs rounded transition-colors ${
                             message.type === 'user' 
-                              ? 'bg-white/10 hover:bg-white/20 text-white'
-                              : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                ? 'bg-white/10 hover:bg-white/20 text-white'
+                : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-100'
                           }`}
                         >
                           <div className="font-medium">{suggestion.title}</div>
@@ -344,11 +344,11 @@ export function ChatWidget() {
             ))}
             {isLoading && (
               <div className="flex justify-start">
-                <div className="bg-gray-100 text-gray-800 rounded-r-lg rounded-bl-lg px-3 py-2">
+                <div className="bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-r-lg rounded-bl-lg px-3 py-2">
                   <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                    <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce"></div>
+                    <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                    <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                   </div>
                 </div>
               </div>
@@ -357,59 +357,59 @@ export function ChatWidget() {
           </div>
 
           {/* Quick Commands */}
-          <div className="border-t border-gray-200 px-3 py-2 flex gap-2 overflow-x-auto flex-shrink-0 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+      <div className="border-t border-gray-200 dark:border-gray-700 px-3 py-2 flex gap-2 overflow-x-auto flex-shrink-0 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             <button
               onClick={() => handleSuggestionClick({ type: 'daily-plan', title: 'Plan my day', description: '' })}
-              className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-xs whitespace-nowrap"
+        className="px-3 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full text-xs whitespace-nowrap text-gray-900 dark:text-gray-100"
               disabled={isLoading}
             >
               📅 Daily
             </button>
             <button
               onClick={() => handleSuggestionClick({ type: 'weekly-review', title: 'Weekly review', description: '' })}
-              className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-xs whitespace-nowrap"
+              className="px-3 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full text-xs whitespace-nowrap text-gray-900 dark:text-gray-100"
               disabled={isLoading}
             >
               📊 Weekly
             </button>
             <button
               onClick={() => handleSuggestionClick({ type: 'prioritize', title: 'Optimize ROI', description: '' })}
-              className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-xs whitespace-nowrap"
+              className="px-3 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full text-xs whitespace-nowrap text-gray-900 dark:text-gray-100"
               disabled={isLoading}
             >
               💰 ROI
             </button>
             <button
               onClick={() => handleSuggestionClick({ type: 'crisis', title: "I'm overwhelmed", description: '' })}
-              className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-xs whitespace-nowrap"
+              className="px-3 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full text-xs whitespace-nowrap text-gray-900 dark:text-gray-100"
               disabled={isLoading}
             >
               🚨 Crisis
             </button>
             <button
               onClick={() => handleSuggestionClick({ type: 'delegate', title: 'What to delegate', description: '' })}
-              className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-xs whitespace-nowrap"
+              className="px-3 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full text-xs whitespace-nowrap text-gray-900 dark:text-gray-100"
               disabled={isLoading}
             >
               👥 Delegate
             </button>
             <button
               onClick={() => handleSuggestionClick({ type: 'report', title: 'Status report', description: '' })}
-              className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-xs whitespace-nowrap"
+              className="px-3 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full text-xs whitespace-nowrap text-gray-900 dark:text-gray-100"
               disabled={isLoading}
             >
               📋 Report
             </button>
             <button
               onClick={() => handleSuggestionClick({ type: 'procrastination', title: "I'm procrastinating", description: '' })}
-              className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-xs whitespace-nowrap"
+              className="px-3 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full text-xs whitespace-nowrap text-gray-900 dark:text-gray-100"
               disabled={isLoading}
             >
               🎯 Unstuck
             </button>
             <button
               onClick={() => handleSuggestionClick({ type: 'time-audit', title: 'Time audit', description: '' })}
-              className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-xs whitespace-nowrap"
+              className="px-3 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full text-xs whitespace-nowrap text-gray-900 dark:text-gray-100"
               disabled={isLoading}
             >
               ⏱️ Time
@@ -417,7 +417,7 @@ export function ChatWidget() {
           </div>
           
           {/* Input */}
-          <div className="border-t border-gray-200 px-4 py-3 flex-shrink-0">
+      <div className="border-t border-gray-200 dark:border-gray-700 px-4 py-3 flex-shrink-0">
             <div className="flex space-x-2">
               <input
                 ref={inputRef}
@@ -425,8 +425,8 @@ export function ChatWidget() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-                placeholder="Try: 'Plan my day', 'Weekly review', 'I'm overwhelmed', 'Time audit'..."
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+        placeholder="Try: 'Plan my day', 'Weekly review', 'I'm overwhelmed', 'Time audit'..."
+        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 disabled={isLoading}
               />
               <button

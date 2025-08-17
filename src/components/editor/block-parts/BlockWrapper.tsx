@@ -1,7 +1,6 @@
 import React from 'react';
 import clsx from 'clsx';
 import { Block } from '@/types/index';
-import { isSubTodo } from '@/utils/editor';
 // Drag-to-select removed; normal click behavior retained
 
 interface BlockWrapperProps {
@@ -20,9 +19,6 @@ interface BlockWrapperProps {
 
 export const BlockWrapper: React.FC<BlockWrapperProps> = ({
   blockId,
-  block,
-  isSelected,
-  isMultiSelected,
   isDragging = false,
   isDraggedOver = false,
   dropPosition = null,

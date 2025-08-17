@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import { Block } from '@/types/index';
 import { useAuth } from './AuthContext';
 import { moveBlockToPage, reorderBlocks } from '@/lib/firestore';
@@ -242,7 +242,7 @@ export const BlockDragProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       {dragPreview && draggedBlock && (
         <div
           ref={dragImageRef}
-          className="fixed pointer-events-none z-[9999] px-3 py-2 bg-white border border-gray-200 rounded-md shadow-lg text-sm max-w-xs truncate"
+          className="fixed pointer-events-none z-[9999] px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg text-sm text-gray-900 dark:text-gray-100 max-w-xs truncate"
           style={{
             left: `${dragPreview.x + 10}px`,
             top: `${dragPreview.y + 10}px`,

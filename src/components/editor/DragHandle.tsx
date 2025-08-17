@@ -127,11 +127,11 @@ export const DragHandle: React.FC<DragHandleProps> = ({
       {/* Action Menu Dropdown */}
       {showMenu && (
         <>
-          <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-50 min-w-[220px] py-1">
+          <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-50 min-w-[220px] py-1">
             {/* GTD Page Options */}
             {availableGTDPages.length > 0 && (
               <>
-                <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Move to GTD
                 </div>
                 {availableGTDPages.map((page) => (
@@ -142,13 +142,13 @@ export const DragHandle: React.FC<DragHandleProps> = ({
                       onMoveToGTDPage?.(block.id, page.id);
                       setShowMenu(false);
                     }}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 text-gray-700 transition-colors"
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-2 text-gray-700 dark:text-gray-100 transition-colors"
                   >
                     <span className="text-base">{page.emoji}</span>
                     <span>{page.title}</span>
                   </button>
                 ))}
-                <div className="border-t border-gray-100 my-1"></div>
+                <div className="border-t border-gray-100 dark:border-gray-800 my-1"></div>
               </>
             )}
             
@@ -159,7 +159,7 @@ export const DragHandle: React.FC<DragHandleProps> = ({
                 onSelect?.();
                 setShowMenu(false);
               }}
-              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 text-gray-700"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-2 text-gray-700 dark:text-gray-100"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <rect x="3" y="3" width="10" height="10" stroke="currentColor" strokeWidth="1.5" rx="1" />
@@ -173,7 +173,7 @@ export const DragHandle: React.FC<DragHandleProps> = ({
                 // Copy block logic can be added here
                 setShowMenu(false);
               }}
-              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 text-gray-700"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-2 text-gray-700 dark:text-gray-100"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <rect x="5" y="5" width="8" height="8" stroke="currentColor" strokeWidth="1.5" rx="1" />
@@ -182,7 +182,7 @@ export const DragHandle: React.FC<DragHandleProps> = ({
               <span>Duplicate</span>
             </button>
             
-            <div className="border-t border-gray-100 my-1"></div>
+            <div className="border-t border-gray-100 dark:border-gray-800 my-1"></div>
             
             <button
               onClick={(e) => {

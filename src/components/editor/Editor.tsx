@@ -13,11 +13,11 @@ import { SelectionProvider, useSelection } from '@/contexts/SelectionContext';
 import { Block, BlockType as BType } from '@/types/index';
 import { useFocusManager, useKeystrokeProtection } from '@/hooks/useKeystrokeLock';
 import { KeystrokeIndicator } from '@/components/ui/KeystrokeIndicator';
-import { moveBlockToPage } from '@/lib/firestore';
+import { moveBlockToPage, moveBlocksToPage } from '@/lib/firestore';
 
 interface EditorProps {
   pageId: string;
-  mode?: 'notes' | 'gtd';
+  mode?: 'gtd';
 }
 
 interface EditorInnerProps {
@@ -26,7 +26,7 @@ interface EditorInnerProps {
 }
 
 // Inner editor component that uses selection context
-const EditorInner: React.FC<EditorInnerProps> = ({ pageId, mode = 'notes' }) => {
+const EditorInner: React.FC<EditorInnerProps> = ({ pageId, mode = 'gtd' }) => {
   const { blocks, loading } = useBlocks();
   const { user } = useAuth();
   const focusManager = useFocusManager();
@@ -42,7 +42,7 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId, mode = 'notes' }) => 
     reorderBlocks
   } = useBlocksWithKeyboard();
   
-  const { updateBlockContent: updateBlock } = useBlocks();
+  const { updateBlockContent: updateBlock, convertBlockType } = useBlocks();
   
   // Selection context
   const {
@@ -285,7 +285,7 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId, mode = 'notes' }) => 
       console.log(`  with children:`, childBlockIds);
     }
     
-    // Find source and target blocks
+  // Find source and target blocks
     const sourceBlock = blocks.find(b => b.id === draggedBlockId);
     const targetBlock = blocks.find(b => b.id === targetBlockId);
     
@@ -316,6 +316,22 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId, mode = 'notes' }) => 
     
     console.log(`Moving ${blocksToMove.length} blocks total (parent + ${blocksToMove.length - 1} children)`);
 
+    // Prevent dropping into own subtree: both direct child id and any position inside source subtree
+    if (blocksToMove.some(b => b.id === targetBlockId)) {
+      console.warn('Cannot drop a block into its own subtree');
+      return;
+    }
+    // Also prevent when target lies within the contiguous subtree range of source
+    const ordered = [...blocks];
+    const srcIdx = ordered.findIndex(b => b.id === sourceBlock.id);
+    let endIdx = srcIdx + 1;
+    while (endIdx < ordered.length && ordered[endIdx].indentLevel > sourceBlock.indentLevel) endIdx++;
+    const targetIdx = ordered.findIndex(b => b.id === targetBlockId);
+    if (targetIdx > srcIdx && targetIdx < endIdx) {
+      console.warn('Cannot drop into own subtree region');
+      return;
+    }
+
     // Sort blocks by order
     const sortedBlocks = [...blocks].sort((a, b) => (a.order || 0) - (b.order || 0));
     
@@ -333,13 +349,28 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId, mode = 'notes' }) => 
     if (position === 'child') {
       // Dropping as a child of the target block
       insertIndex = targetIndex + 1;
-      
-      // Update source block to be a child of target
-      const newIndentLevel = targetBlock.indentLevel + 1;
-      
-      // Update parent-child relationships for todo-list blocks
-      if (sourceBlock.type === 'todo-list' && targetBlock.type === 'todo-list') {
-        // Add to parent's subtaskIds
+
+  const targetIndent = targetBlock.indentLevel;
+  const newIndentLevel = Math.max(0, targetIndent + 1);
+
+      // Ensure we remove from old parent if exists
+      if (sourceBlock.taskMetadata?.parentTaskId) {
+        const oldParentId = sourceBlock.taskMetadata.parentTaskId;
+        const oldParent = oldParentId ? blocks.find(b => b.id === oldParentId) : undefined;
+        if (oldParent && oldParent.type === 'todo-list') {
+          const parentSubtaskIds = oldParent.taskMetadata?.subtaskIds || [];
+          updates.push({
+            id: oldParent.id,
+            taskMetadata: {
+              ...oldParent.taskMetadata,
+              subtaskIds: parentSubtaskIds.filter(id => id !== draggedBlockId)
+            }
+          });
+        }
+      }
+
+      // Add to new parent's subtaskIds if parent is todo
+      if (targetBlock.type === 'todo-list') {
         const parentSubtaskIds = targetBlock.taskMetadata?.subtaskIds || [];
         if (!parentSubtaskIds.includes(draggedBlockId)) {
           updates.push({
@@ -350,8 +381,10 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId, mode = 'notes' }) => 
             }
           });
         }
-        
-        // Update source block's parent and indent
+      }
+
+      // Update source block indent and (conditionally) metadata
+      if (targetBlock.type === 'todo-list') {
         updates.push({
           id: draggedBlockId,
           indentLevel: newIndentLevel,
@@ -360,13 +393,22 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId, mode = 'notes' }) => 
             parentTaskId: targetBlockId
           }
         });
-        
-        // Update children's indent levels
+      } else {
+        updates.push({ id: draggedBlockId, indentLevel: newIndentLevel });
+      }
+
+      // Optionally convert the source to todo if parenting under a todo
+      if (targetBlock.type === 'todo-list' && sourceBlock.type !== 'todo-list') {
+        await convertBlockType(draggedBlockId, 'todo-list');
+      }
+
+      // Update children's indent levels relative to new parent
+      const indentDiff = newIndentLevel - sourceBlock.indentLevel;
+      if (indentDiff !== 0) {
         blocksToMove.slice(1).forEach(child => {
-          const indentDiff = newIndentLevel - sourceBlock.indentLevel;
           updates.push({
             id: child.id,
-            indentLevel: child.indentLevel + indentDiff
+            indentLevel: Math.max(0, child.indentLevel + indentDiff)
           });
         });
       }
@@ -420,7 +462,7 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId, mode = 'notes' }) => 
       }
     });
     
-    if (updates.length > 0) {
+  if (updates.length > 0) {
       // Batch reorder updates
       const orderUpdates = updates.filter(u => u.order !== undefined).map(u => ({ id: u.id, order: u.order! }));
       if (orderUpdates.length > 0) {
@@ -437,32 +479,41 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId, mode = 'notes' }) => 
         }
       }
     }
-  }, [user, blocks, reorderBlocks, updateBlock]);
+  }, [user, blocks, reorderBlocks, updateBlock, convertBlockType]);
 
   const handleMoveToGTDPage = useCallback(async (blockId: string, targetPageId: string) => {
     if (!user) return;
 
     try {
-      // Move the block to the selected GTD page (always append to end)
-      const result = await moveBlockToPage(
-        user.uid,
-        pageId, // current page
-        targetPageId, // selected GTD page
-        blockId
-        // No order parameter - will automatically append to end
-      );
-      
-      if (result) {
-        // The block will be automatically removed from current page by Firestore subscription
-        // Show success message (you could replace this with a toast notification)
-        console.log(`Block moved to GTD ${targetPageId} successfully!`);
+      // Detect contiguous children by indent under the parent
+      const sorted = [...blocks].sort((a, b) => (a.order || 0) - (b.order || 0));
+      const idx = sorted.findIndex(b => b.id === blockId);
+      const parent = sorted[idx];
+      const childIds: string[] = [];
+      for (let i = idx + 1; i < sorted.length; i++) {
+        if (sorted[i].indentLevel > parent.indentLevel) childIds.push(sorted[i].id); else break;
+      }
+
+      if (childIds.length > 0) {
+        const ids = [blockId, ...childIds];
+        const results = await moveBlocksToPage(user.uid, pageId, targetPageId, ids);
+        if (results && results.length > 0) {
+          console.log(`Moved ${results.length} blocks to ${targetPageId}`);
+        } else {
+          console.error('Failed to move blocks to GTD');
+        }
       } else {
-        console.error('Failed to move block to GTD');
+        const result = await moveBlockToPage(user.uid, pageId, targetPageId, blockId);
+        if (result) {
+          console.log(`Block moved to GTD ${targetPageId} successfully!`);
+        } else {
+          console.error('Failed to move block to GTD');
+        }
       }
     } catch (error) {
       console.error('Error moving block to GTD:', error);
     }
-  }, [pageId, user]);
+  }, [pageId, user, blocks]);
 
   if (loading) {
     return (
@@ -540,7 +591,7 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId, mode = 'notes' }) => 
                   onDeleteBlock={() => handleDeleteBlock(block.id)}
                   onDuplicateBlock={() => handleDuplicateBlock(block.id)}
                   onMoveToGTDPage={(blockId, targetPageId) => handleMoveToGTDPage(blockId, targetPageId)}
-                  mode={mode}
+                  mode={'gtd'}
                   childBlocks={childBlocks}
                 />
               </div>
@@ -584,7 +635,7 @@ const EditorInner: React.FC<EditorInnerProps> = ({ pageId, mode = 'notes' }) => 
 };
 
 // Main Editor component with SelectionProvider wrapper
-export const Editor: React.FC<EditorProps> = ({ pageId, mode = 'notes' }) => {
+export const Editor: React.FC<EditorProps> = ({ pageId, mode = 'gtd' }) => {
   const { blocks } = useBlocks();
   
   const getAllBlocks = useCallback(() => {

@@ -39,10 +39,10 @@ export default function RecycleBinPage() {
 
   if (!userId) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Recycle Bin</h1>
-          <p className="text-gray-600">Please sign in to view archived items.</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Recycle Bin</h1>
+          <p className="text-gray-600 dark:text-gray-400">Please sign in to view archived items.</p>
         </div>
       </div>
     );
@@ -54,17 +54,17 @@ export default function RecycleBinPage() {
       <RecycleBinSidebar />
 
       {/* Main Content */}
-      <div className="flex-1 bg-white overflow-y-auto">
+      <div className="flex-1 bg-white dark:bg-gray-900 overflow-y-auto">
         <div className="px-8 py-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-2xl font-semibold text-gray-900">Recycle Bin</h1>
-              <p className="text-sm text-gray-600 mt-1">Restore or permanently delete your items</p>
+              <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Recycle Bin</h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Restore or permanently delete your items</p>
             </div>
             <div className="flex gap-2">
               <button
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 onClick={load}
                 disabled={loading}
               >
@@ -79,7 +79,7 @@ export default function RecycleBinPage() {
                 ) : 'Refresh'}
               </button>
               <button
-                className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
                 onClick={async () => {
                   if (!userId) return;
                   const ok = confirm('Permanently delete ALL archived items? This cannot be undone.');
@@ -105,7 +105,7 @@ export default function RecycleBinPage() {
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p className="text-gray-600">Loading archived items...</p>
+                <p className="text-gray-600 dark:text-gray-400">Loading archived items...</p>
               </div>
             </div>
           ) : (
@@ -113,30 +113,30 @@ export default function RecycleBinPage() {
               {/* Archived Pages */}
               <section>
                 <div className="mb-4">
-                  <h2 className="text-lg font-medium text-gray-900">Archived Pages</h2>
-                  <p className="text-sm text-gray-500 mt-1">{pages.length} page{pages.length !== 1 ? 's' : ''}</p>
+                  <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Archived Pages</h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{pages.length} page{pages.length !== 1 ? 's' : ''}</p>
                 </div>
                 {pages.length === 0 ? (
-                  <div className="bg-gray-50 rounded-lg p-6 text-center">
-                    <svg className="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="bg-gray-50 dark:bg-gray-900/30 rounded-lg p-6 text-center">
+                    <svg className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    <p className="text-sm text-gray-500">No archived pages</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">No archived pages</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
                     {pages.map(p => (
-                      <div key={p.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
+                      <div key={p.id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-sm transition-shadow">
                         <div className="flex items-start justify-between">
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-medium text-gray-900 truncate">{p.title || 'Untitled'}</h3>
-                            <p className="text-xs text-gray-500 mt-1">
+                            <h3 className="font-medium text-gray-900 dark:text-gray-100 truncate">{p.title || 'Untitled'}</h3>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                               Archived {new Date(p.archivedAt).toLocaleDateString()} at {new Date(p.archivedAt).toLocaleTimeString()}
                             </p>
                           </div>
                           <div className="flex gap-2 ml-4">
                             <button
-                              className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                              className="px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                               onClick={async () => {
                                 setBusyId(p.id);
                                 try {
@@ -153,7 +153,7 @@ export default function RecycleBinPage() {
                               Restore
                             </button>
                             <button
-                              className="px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                              className="px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-md transition-colors"
                               onClick={async () => {
                                 const ok = confirm(`Permanently delete "${p.title}"? This cannot be undone.`);
                                 if (!ok) return;
@@ -182,31 +182,31 @@ export default function RecycleBinPage() {
               {/* Archived Blocks */}
               <section>
                 <div className="mb-4">
-                  <h2 className="text-lg font-medium text-gray-900">Archived Blocks</h2>
-                  <p className="text-sm text-gray-500 mt-1">{blocks.length} block{blocks.length !== 1 ? 's' : ''}</p>
+                  <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Archived Blocks</h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{blocks.length} block{blocks.length !== 1 ? 's' : ''}</p>
                 </div>
                 {blocks.length === 0 ? (
-                  <div className="bg-gray-50 rounded-lg p-6 text-center">
-                    <svg className="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="bg-gray-50 dark:bg-gray-900/30 rounded-lg p-6 text-center">
+                    <svg className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                     </svg>
-                    <p className="text-sm text-gray-500">No archived blocks</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">No archived blocks</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
                     {blocks.map(b => (
-                      <div key={b.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
+                      <div key={b.id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-sm transition-shadow">
                         <div className="flex items-start justify-between">
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs text-gray-500 mb-1">From: {b.pageTitle || 'Unknown page'}</p>
-                            <p className="text-sm text-gray-900 truncate">{b.content || '(empty block)'}</p>
-                            <p className="text-xs text-gray-500 mt-1">
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">From: {b.pageTitle || 'Unknown page'}</p>
+                            <p className="text-sm text-gray-900 dark:text-gray-100 truncate">{b.content || '(empty block)'}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                               {b.type} • Archived {new Date(b.archivedAt).toLocaleDateString()}
                             </p>
                           </div>
                           <div className="flex gap-2 ml-4">
                             <button
-                              className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                              className="px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                               onClick={async () => {
                                 setBusyId(b.id);
                                 try {
@@ -224,7 +224,7 @@ export default function RecycleBinPage() {
                               Restore
                             </button>
                             <button
-                              className="px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                              className="px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-md transition-colors"
                               onClick={async () => {
                                 const ok = confirm('Permanently delete this block? This cannot be undone.');
                                 if (!ok) return;
@@ -253,13 +253,13 @@ export default function RecycleBinPage() {
           )}
 
           {/* Empty State */}
-          {!loading && pages.length === 0 && blocks.length === 0 && (
+      {!loading && pages.length === 0 && blocks.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16">
-              <svg className="w-24 h-24 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-24 h-24 text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Recycle Bin is Empty</h3>
-              <p className="text-sm text-gray-500">Deleted pages and blocks will appear here</p>
+        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Recycle Bin is Empty</h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Deleted pages and blocks will appear here</p>
             </div>
           )}
         </div>

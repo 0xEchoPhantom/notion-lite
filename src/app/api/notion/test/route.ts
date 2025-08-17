@@ -20,10 +20,10 @@ export async function POST(request: NextRequest) {
     try {
       await client.users.list({ page_size: 1 });
       return NextResponse.json({ valid: true });
-    } catch (notionError: any) {
+    } catch (notionError) {
       console.error('Notion API test failed:', notionError);
       
-      if (notionError.code === 'unauthorized') {
+      if (notionError && typeof notionError === 'object' && 'code' in notionError && notionError.code === 'unauthorized') {
         return NextResponse.json(
           { valid: false, error: 'Invalid API key' },
           { status: 401 }
@@ -31,15 +31,15 @@ export async function POST(request: NextRequest) {
       }
       
       return NextResponse.json(
-        { valid: false, error: notionError.message || 'Connection test failed' },
+        { valid: false, error: notionError instanceof Error ? notionError.message : 'Connection test failed' },
         { status: 400 }
       );
     }
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Connection test error:', error);
     return NextResponse.json(
-      { valid: false, error: error.message || 'Connection test failed' },
+      { valid: false, error: error instanceof Error ? error.message : 'Connection test failed' },
       { status: 500 }
     );
   }

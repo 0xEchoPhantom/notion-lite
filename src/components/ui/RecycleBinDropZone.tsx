@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import clsx from 'clsx';
 import { useSimpleDrag } from '@/contexts/SimpleDragContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { deleteBlock } from '@/lib/firestore';
+import { archiveBlock } from '@/lib/firestore';
 
 interface RecycleBinDropZoneProps {
   children: React.ReactNode;
@@ -59,20 +59,40 @@ export const RecycleBinDropZone: React.FC<RecycleBinDropZoneProps> = ({
       setIsDragOver(false);
       return;
     }
-    
-    console.log(`Deleting block ${draggedBlock.block.id} from page ${draggedBlock.sourcePageId}`);
-    
+
+    // Build list of all blocks to archive: parent + any dragged children
+    const allBlockIds = draggedBlock.childBlockIds 
+      ? [draggedBlock.block.id, ...draggedBlock.childBlockIds]
+      : [draggedBlock.block.id];
+
+    console.log(`Archiving ${allBlockIds.length} block(s) from page ${draggedBlock.sourcePageId}`);
+
+    // Add fade-out animation to all blocks being archived
+    allBlockIds.forEach(blockId => {
+      const blockElement = document.querySelector(`[data-block-id="${blockId}"]`);
+      if (blockElement) {
+        blockElement.classList.add('moving-out');
+      }
+    });
+
+    // Small delay to let animation start
+    await new Promise(resolve => setTimeout(resolve, 100));
+
     try {
-      // Delete the block
-      await deleteBlock(
-        user.uid,
-        draggedBlock.sourcePageId,
-        draggedBlock.block.id
-      );
-      
-      console.log('Block deleted successfully!');
+      // Archive parent (and children if present)
+      for (const blockId of allBlockIds) {
+        await archiveBlock(user.uid, draggedBlock.sourcePageId, blockId);
+      }
+      console.log('Block(s) archived successfully!');
     } catch (error) {
-      console.error('Error deleting block:', error);
+      console.error('Error archiving block(s):', error);
+      // Remove animation classes on error
+      allBlockIds.forEach(blockId => {
+        const blockElement = document.querySelector(`[data-block-id="${blockId}"]`);
+        if (blockElement) {
+          blockElement.classList.remove('moving-out');
+        }
+      });
     }
     
     // Clean up

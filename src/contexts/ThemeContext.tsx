@@ -22,12 +22,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const initialTheme = savedTheme || systemTheme;
     
     setTheme(initialTheme);
-    // Ensure the dark class is properly set
+    // Ensure the dark class and attributes are properly set
+    const root = document.documentElement;
     if (initialTheme === 'dark') {
-      document.documentElement.classList.add('dark');
+      root.classList.add('dark');
     } else {
-      document.documentElement.classList.remove('dark');
+      root.classList.remove('dark');
     }
+    root.setAttribute('data-theme', initialTheme);
+    // native color scheme hint
+    (root as HTMLElement).style.colorScheme = initialTheme;
     
     setMounted(true);
   }, []);
@@ -37,12 +41,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setTheme(newTheme);
     localStorage.setItem('theme', newTheme);
     
-    // Update the dark class
+    // Update the dark class and attributes
+    const root = document.documentElement;
     if (newTheme === 'dark') {
-      document.documentElement.classList.add('dark');
+      root.classList.add('dark');
     } else {
-      document.documentElement.classList.remove('dark');
+      root.classList.remove('dark');
     }
+    root.setAttribute('data-theme', newTheme);
+    (root as HTMLElement).style.colorScheme = newTheme;
   };
 
   // Always provide context, even during hydration

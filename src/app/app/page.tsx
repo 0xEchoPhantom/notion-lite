@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { GTDWorkspace } from '@/components/workspaces/GTDWorkspace';
-import { NotesWorkspace } from '@/components/workspaces/NotesWorkspace';
 
 function AppContent() {
   const { currentMode, isLoading, error } = useWorkspace();
@@ -55,7 +54,7 @@ function AppContent() {
 
   return (
     <div className={`transition-opacity duration-150 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
-      {displayMode === 'gtd' ? <GTDWorkspace /> : <NotesWorkspace />}
+      <GTDWorkspace />
     </div>
   );
 }

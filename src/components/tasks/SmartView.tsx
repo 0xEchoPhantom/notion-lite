@@ -58,7 +58,7 @@ export function SmartView() {
 
 
   if (loading) {
-    return <div className="p-6 text-gray-500">Loading smart view...</div>;
+    return <div className="p-6 text-gray-500 dark:text-gray-400">Loading smart view...</div>;
   }
 
   // Group tasks by status for board view
@@ -104,19 +104,19 @@ export function SmartView() {
   );
 
   const renderTableView = () => (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
+    <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 overflow-x-auto">
+      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <thead className="bg-gray-50 dark:bg-gray-800">
           <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Task</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ROI</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Effort</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Task</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ROI</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Value</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Effort</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Due</th>
           </tr>
         </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
+        <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
           {sortedByROI.map((task) => (
             <TaskTableRow key={task.id} task={task} />
           ))}
@@ -127,24 +127,24 @@ export function SmartView() {
 
   const renderPriorityView = () => (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-      <div className="bg-white rounded-lg border border-gray-200">
-        <div className="p-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">🔥 High Priority Tasks</h3>
-          <p className="text-sm text-gray-500 mt-1">Based on ROI and urgency</p>
+      <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">🔥 High Priority Tasks</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Based on ROI and urgency</p>
         </div>
-        <div className="divide-y divide-gray-100">
+        <div className="divide-y divide-gray-100 dark:divide-gray-800">
           {highROITasks.slice(0, 5).map((task) => (
             <TaskPriorityRow key={task.id} task={task} />
           ))}
         </div>
       </div>
       
-      <div className="bg-white rounded-lg border border-gray-200">
-        <div className="p-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">📊 Need More Info</h3>
-          <p className="text-sm text-gray-500 mt-1">Tasks missing value or effort data</p>
+      <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">📊 Need More Info</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Tasks missing value or effort data</p>
         </div>
-        <div className="divide-y divide-gray-100">
+        <div className="divide-y divide-gray-100 dark:divide-gray-800">
           {missingDataTasks.slice(0, 5).map((task) => (
             <TaskMissingDataRow key={task.id} task={task} />
           ))}
@@ -155,11 +155,11 @@ export function SmartView() {
 
 
   return (
-    <div className="p-3 lg:p-6 space-y-4 lg:space-y-6">
+  <div className="p-3 lg:p-6 space-y-4 lg:space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">🧠 Smart View</h2>
-          <p className="text-gray-500 mt-1">Intelligent task management with multiple perspectives</p>
+      <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">🧠 Smart View</h2>
+      <p className="text-gray-500 dark:text-gray-400 mt-1">Intelligent task management with multiple perspectives</p>
           
           {/* Status consistency indicator */}
           <div className="flex items-center gap-4 mt-2">
@@ -168,7 +168,7 @@ export function SmartView() {
                 consistencyRate >= 90 ? 'bg-green-500' : 
                 consistencyRate >= 70 ? 'bg-yellow-500' : 'bg-red-500'
               }`}></span>
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-gray-600 dark:text-gray-400">
                 Status Consistency: {consistencyRate}%
               </span>
             </div>
@@ -240,11 +240,11 @@ function TaskColumn({ status, tasks, dragEnabled = true }: {
   const config = statusConfig[status];
 
   return (
-    <div className={`rounded-lg border border-gray-200 ${config.color} min-h-[200px]`}>
+  <div className={`rounded-lg border border-gray-200 dark:border-gray-700 ${config.color} min-h-[200px]`}>
       <div className="p-3">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-medium text-gray-900">{config.title}</h3>
-          <span className="text-sm text-gray-500">{tasks.length}</span>
+      <h3 className="font-medium text-gray-900 dark:text-gray-100">{config.title}</h3>
+      <span className="text-sm text-gray-500 dark:text-gray-400">{tasks.length}</span>
         </div>
         
         <div className="space-y-2">
@@ -273,10 +273,10 @@ function TaskCard({ task, dragEnabled = true }: {
   return (
     <div
       draggable={dragEnabled}
-      className={`p-3 bg-white rounded-lg border transition-shadow ${
-        isConsistent ? 'border-gray-200' : 'border-yellow-300 bg-yellow-50'
+      className={`p-3 bg-white dark:bg-gray-900 rounded-lg border transition-shadow ${
+        isConsistent ? 'border-gray-200 dark:border-gray-700' : 'border-yellow-300 bg-yellow-50'
       } shadow-sm ${
-        dragEnabled ? 'cursor-move hover:shadow-md' : 'hover:bg-gray-50'
+        dragEnabled ? 'cursor-move hover:shadow-md' : 'hover:bg-gray-50 dark:hover:bg-gray-800'
       }`}
     >
       {/* Status inconsistency warning */}
@@ -289,7 +289,7 @@ function TaskCard({ task, dragEnabled = true }: {
         </div>
       )}
       
-      <div className="text-sm text-gray-900 line-clamp-2 mb-2">{task.content}</div>
+  <div className="text-sm text-gray-900 dark:text-gray-100 line-clamp-2 mb-2">{task.content}</div>
       
       {(task.taskMetadata?.roi !== undefined && isFinite(task.taskMetadata.roi)) && (
         <div className={`text-xs font-medium mb-2 ${
@@ -299,18 +299,18 @@ function TaskCard({ task, dragEnabled = true }: {
         </div>
       )}
       
-      <div className="flex items-center gap-2 text-xs">
+  <div className="flex items-center gap-2 text-xs">
         {task.taskMetadata?.dueDate && (
           <span className={`px-1.5 py-0.5 rounded ${
             new Date(task.taskMetadata.dueDate) < new Date(Date.now() + 86400000) ? 'bg-red-100 text-red-600' :
             new Date(task.taskMetadata.dueDate) < new Date(Date.now() + 259200000) ? 'bg-yellow-100 text-yellow-600' :
-            'bg-gray-100 text-gray-600'
+    'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
           }`}>
             {formatDueDate(task.taskMetadata.dueDate)}
           </span>
         )}
         {task.taskMetadata?.company && (
-          <span className="px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded">
+      <span className="px-1.5 py-0.5 bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300 rounded">
             {task.taskMetadata.company}
           </span>
         )}
@@ -329,25 +329,25 @@ function TaskTableRow({ task }: { task: Block }) {
   };
 
   return (
-    <tr className="hover:bg-gray-50">
+    <tr className="hover:bg-gray-50 dark:hover:bg-gray-800">
       <td className="px-6 py-4 whitespace-nowrap">
-        <div className="text-sm font-medium text-gray-900 line-clamp-2">{task.content}</div>
+        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 line-clamp-2">{task.content}</div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
         <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[task.taskMetadata?.status || 'someday']}`}>
           {task.taskMetadata?.status || 'someday'}
         </span>
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
         {formatROI(task.taskMetadata?.roi)}
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
         {task.taskMetadata?.value ? formatValue(task.taskMetadata.value) : '-'}
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
         {task.taskMetadata?.effort ? formatEffort(task.taskMetadata.effort) : '-'}
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
         {task.taskMetadata?.dueDate ? formatDueDate(task.taskMetadata.dueDate) : '-'}
       </td>
     </tr>
@@ -361,23 +361,23 @@ function TaskPriorityRow({ task }: { task: Block }) {
     : null;
   
   return (
-    <div className="p-4 hover:bg-gray-50">
+    <div className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800">
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-900">{task.content}</span>
+            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{task.content}</span>
             {urgency && (
               <span className={`text-xs px-2 py-0.5 rounded-full ${
                 urgency === 'urgent' ? 'bg-red-100 text-red-700' :
                 urgency === 'soon' ? 'bg-yellow-100 text-yellow-700' :
-                'bg-gray-100 text-gray-600'
+                'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
               }`}>
                 {urgency}
               </span>
             )}
           </div>
           
-          <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+          <div className="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
             {task.taskMetadata?.value && <span>💰 {formatValue(task.taskMetadata.value)}</span>}
             {task.taskMetadata?.effort && <span>⏱️ {formatEffort(task.taskMetadata.effort)}</span>}
             {task.taskMetadata?.dueDate && <span>📅 {formatDueDate(task.taskMetadata.dueDate)}</span>}
@@ -403,8 +403,8 @@ function TaskMissingDataRow({ task }: { task: Block }) {
   // probability removed
 
   return (
-    <div className="p-4 hover:bg-gray-50">
-      <div className="text-sm font-medium text-gray-900 mb-2">{task.content}</div>
+    <div className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800">
+      <div className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">{task.content}</div>
       <div className="flex flex-wrap gap-1">
         {missingFields.map((field) => (
           <span key={field} className="text-xs px-2 py-0.5 bg-orange-100 text-orange-700 rounded">

@@ -90,7 +90,7 @@ interface SlashMenuProps {
   onSelectType: (type: BlockType) => void;
   position: { x: number; y: number };
   searchQuery?: string;
-  mode?: 'notes' | 'gtd'; // Add mode prop to filter available block types
+  mode?: 'gtd'; // Notes mode disabled
 }
 
 export interface SlashMenuRef {
@@ -104,7 +104,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
     onSelectType,
     position,
     searchQuery = '',
-    mode = 'notes',
+  mode = 'gtd',
   } = props;
   const [selectedIndex, setSelectedIndex] = useState(0);
   const menuRef = useRef<HTMLDivElement>(null);

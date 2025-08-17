@@ -3,6 +3,9 @@
 @import "../styles/mobile.css";
 @import "../styles/notion.css";
 
+/* Tailwind v4: make the `dark:` variant respond to html.dark and [data-theme=dark] */
+@custom-variant dark (&:where(.dark, .dark *, [data-theme=dark], [data-theme=dark] *));
+
 /* Remove default focus outlines - we'll use custom focus states */
 *:focus {
   outline: none;
@@ -33,14 +36,22 @@ input[type="text"]:focus {
   --background: #ffffff;
   --foreground: #171717;
 }
+/* Support both class and data attribute for dark mode */
+html.dark, html[data-theme="dark"] {
+  --background: #0f172a;
+  --foreground: #f1f5f9;
+}
 
-html.dark {
-  --background: #191919;
-  --foreground: #ededed;
+html {
+  background: var(--background);
+  color: var(--foreground);
+  /* Provide a CSS-side hint for native controls; JS will also set this */
+  color-scheme: light dark;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  min-height: 100vh;
 }

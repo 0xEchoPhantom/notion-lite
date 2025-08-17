@@ -56,21 +56,21 @@ export const ShortcutHelper: React.FC<ShortcutHelperProps> = ({ className }) => 
         ?
       </button>
       
-      {isOpen && (
+  {isOpen && (
         <>
           <div 
             className="fixed inset-0 z-10" 
             onClick={() => setIsOpen(false)}
           />
-          <div className="absolute right-0 top-6 z-20 w-80 bg-white border border-gray-200 rounded-lg shadow-lg p-4 max-h-96 overflow-y-auto">
-            <h3 className="font-semibold text-gray-900 mb-3">Keyboard Shortcuts</h3>
+          <div className="absolute right-0 top-6 z-20 w-80 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 max-h-96 overflow-y-auto">
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">Keyboard Shortcuts</h3>
             <div className="space-y-2">
               {shortcuts.map((shortcut, index) => (
                 <div key={index} className="flex justify-between items-center text-sm">
-                  <code className="bg-gray-100 px-2 py-1 rounded text-xs font-mono">
+                  <code className="bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-2 py-1 rounded text-xs font-mono">
                     {shortcut.key}
                   </code>
-                  <span className="text-gray-600 ml-3 flex-1">{shortcut.desc}</span>
+                  <span className="text-gray-600 dark:text-gray-400 ml-3 flex-1">{shortcut.desc}</span>
                 </div>
               ))}
             </div>
